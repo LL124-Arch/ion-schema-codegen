@@ -1,0 +1,19 @@
+import {
+  "LL124-Arch/ion-schema-codegen" @codegen,
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/io",
+  "moonbitlang/async/stdio",
+  "moonbitlang/core/env",
+}
+
+pkgtype(kind: "executable")
+
+warnings = "-unused_package"
+
+options(
+  targets: {
+    "main.mbt": [ "native" ],
+    "unsupported_main.mbt": [ "wasm", "wasm-gc", "js" ],
+  },
+)

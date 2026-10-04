@@ -27,6 +27,10 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
     write_conversion_error(output)
     output.write_string("\n")
     write_ion_type_helpers(output)
+    if has_nested_conversion_types(schema.types) {
+      output.write_string("\n")
+      write_prefix_error_helper(output)
+    }
     output.write_string("\n")
   }
   let mut first_type = true
@@ -206,8 +210,12 @@ fn write_ion_type_helpers(output : StringBuilder) -> Unit {
   output.write_string(
     "///|\nfn ion_schema_codegen_kind_name(kind : @ion_model.IonNull) -> String {\n  match kind {\n    @ion_model.IonNull::Null => \"null\"\n    @ion_model.IonNull::Bool => \"bool\"\n    @ion_model.IonNull::Int => \"int\"\n    @ion_model.IonNull::Float => \"float\"\n    @ion_model.IonNull::Decimal => \"decimal\"\n    @ion_model.IonNull::Timestamp => \"timestamp\"\n    @ion_model.IonNull::Symbol => \"symbol\"\n    @ion_model.IonNull::String => \"string\"\n    @ion_model.IonNull::Blob => \"blob\"\n    @ion_model.IonNull::Clob => \"clob\"\n    @ion_model.IonNull::List => \"list\"\n    @ion_model.IonNull::Sexp => \"sexp\"\n    @ion_model.IonNull::Struct => \"struct\"\n  }\n}\n\n///|\nfn ion_schema_codegen_actual_type(value : @ion_model.IonValue) -> String {\n  let kind = value.kind()\n  match (value.is_null(), kind) {\n    (true, @ion_model.IonNull::Null) => \"null\"\n    (true, typed_kind) => \"null.\\{ion_schema_codegen_kind_name(typed_kind)}\"\n    (false, actual_kind) => ion_schema_codegen_kind_name(actual_kind)\n  }\n}\n",
   )
+}
+
+///|
+fn write_prefix_error_helper(output : StringBuilder) -> Unit {
   output.write_string(
-    "\n///|\nfn ion_schema_codegen_prefix_error(\n  error : ConversionError,\n  prefix : String,\n) -> ConversionError {\n  match error {\n    ConversionError::TypeMismatch(path~, expected~, actual~) =>\n      ConversionError::TypeMismatch(\n        path=prefix + path,\n        expected~,\n        actual~,\n      )\n    ConversionError::MissingRequiredField(path~) =>\n      ConversionError::MissingRequiredField(path=prefix + path)\n    ConversionError::DuplicateField(path~) =>\n      ConversionError::DuplicateField(path=prefix + path)\n    ConversionError::UnknownField(path~) =>\n      ConversionError::UnknownField(path=prefix + path)\n    ConversionError::UnknownSymbol(path~, sid~) =>\n      ConversionError::UnknownSymbol(path=prefix + path, sid~)\n    ConversionError::NullNotAllowed(path~) =>\n      ConversionError::NullNotAllowed(path=prefix + path)\n    ConversionError::AnnotatedValueNotSupported(path~) =>\n      ConversionError::AnnotatedValueNotSupported(path=prefix + path)\n  }\n}\n",
+    "///|\nfn ion_schema_codegen_prefix_error(\n  error : ConversionError,\n  prefix : String,\n) -> ConversionError {\n  match error {\n    ConversionError::TypeMismatch(path~, expected~, actual~) =>\n      ConversionError::TypeMismatch(\n        path=prefix + path,\n        expected~,\n        actual~,\n      )\n    ConversionError::MissingRequiredField(path~) =>\n      ConversionError::MissingRequiredField(path=prefix + path)\n    ConversionError::DuplicateField(path~) =>\n      ConversionError::DuplicateField(path=prefix + path)\n    ConversionError::UnknownField(path~) =>\n      ConversionError::UnknownField(path=prefix + path)\n    ConversionError::UnknownSymbol(path~, sid~) =>\n      ConversionError::UnknownSymbol(path=prefix + path, sid~)\n    ConversionError::NullNotAllowed(path~) =>\n      ConversionError::NullNotAllowed(path=prefix + path)\n    ConversionError::AnnotatedValueNotSupported(path~) =>\n      ConversionError::AnnotatedValueNotSupported(path=prefix + path)\n  }\n}\n",
   )
 }
 
@@ -876,6 +884,30 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
   for named_type in types {
     match named_type.body {
       TypeBody::Struct(_) | TypeBody::List(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn has_nested_conversion_types(
+  types : Array[NamedType],
+) -> Bool raise SchemaError {
+  for named_type in types {
+    match named_type.body {
+      TypeBody::Struct(fields) =>
+        for field in fields {
+          match resolve_type_ref(types, field.type_ref) {
+            ResolvedType::Struct(_) | ResolvedType::List(_) => return true
+            ResolvedType::Scalar(_) => ()
+          }
+        }
+      TypeBody::List(element_type) =>
+        match resolve_type_ref(types, element_type) {
+          ResolvedType::Struct(_) | ResolvedType::List(_) => return true
+          ResolvedType::Scalar(_) => ()
+        }
       _ => ()
     }
   }

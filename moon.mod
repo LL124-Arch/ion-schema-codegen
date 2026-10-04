@@ -11,7 +11,7 @@
 
 name = "LL124-Arch/ion-schema-codegen"
 
-version = "0.0.1"
+version = "0.1.0"
 
 readme = "README.md"
 
@@ -23,8 +23,9 @@ keywords = [ ]
 
 preferred_target = "wasm"
 
-description = "Scaffold for MoonBit type generation from Ion Schema"
+description = "Generate MoonBit types and Ion conversions from a supported Ion Schema 2.0 subset"
 
 import {
   "LL124-Arch/amazon-ion-moonbit-core@0.1.2",
+  "moonbitlang/async@0.19.4",
 }
