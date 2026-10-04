@@ -1,9 +1,8 @@
 ///|
-/// Generate MoonBit type declarations for the supported ISL 2.0 subset.
+/// Generate MoonBit types and Ion conversions for the supported ISL 2.0 subset.
 ///
 /// The returned package imports must be added to the target package's
-/// moon.pkg file. Conversion functions and list types are handled in later
-/// development batches. Type names are converted to PascalCase; field names
+/// moon.pkg file. Type names are converted to PascalCase; field names
 /// lowercase an initial ASCII uppercase letter and replace hyphens with
 /// underscores. Unsupported characters, reserved field names, and name
 /// collisions are errors.
@@ -23,6 +22,12 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
   }
 
   let output = StringBuilder()
+  if has_struct_types(schema.types) {
+    write_conversion_error(output)
+    output.write_string("\n")
+    write_ion_type_helpers(output)
+    output.write_string("\n")
+  }
   let mut first_type = true
   for named_type in schema.types {
     if !first_type {
@@ -30,6 +35,13 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
     }
     first_type = false
     write_named_type(output, named_type)
+    match named_type.body {
+      TypeBody::Struct(fields) => {
+        output.write_string("\n")
+        write_struct_conversions(output, named_type, fields)
+      }
+      _ => ()
+    }
   }
   { source: output.to_string(), package_imports, }
 }
@@ -37,6 +49,7 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
 ///|
 fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
   let generated_type_names : Array[(String, String)] = []
+  let has_struct = has_struct_types(types)
   for named_type in types {
     let generated_name = moonbit_type_identifier(named_type.name)
     if is_builtin_output_type(generated_name) {
@@ -87,6 +100,13 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
           "list code generation is not supported yet: type \{named_type.name}",
         )
     }
+  }
+  if has_struct &&
+    find_generated_name(generated_type_names, "ConversionError")
+    is Some((original, _)) {
+    raise SchemaError::IdentifierCollision(
+      "type name \{original} maps to ConversionError, which is reserved for generated conversion errors",
+    )
   }
 }
 
@@ -160,6 +180,311 @@ fn write_named_type(
 }
 
 ///|
+fn write_conversion_error(output : StringBuilder) -> Unit {
+  output.write_string(
+    "///|\npub(all) suberror ConversionError {\n  TypeMismatch(path~ : String, expected~ : String, actual~ : String)\n  MissingRequiredField(path~ : String)\n  DuplicateField(path~ : String)\n  UnknownField(path~ : String)\n  UnknownSymbol(path~ : String, sid~ : Int)\n  NullNotAllowed(path~ : String)\n  AnnotatedValueNotSupported(path~ : String)\n}\n",
+  )
+}
+
+///|
+fn write_ion_type_helpers(output : StringBuilder) -> Unit {
+  output.write_string(
+    "///|\nfn ion_schema_codegen_kind_name(kind : @ion_model.IonNull) -> String {\n  match kind {\n    @ion_model.IonNull::Null => \"null\"\n    @ion_model.IonNull::Bool => \"bool\"\n    @ion_model.IonNull::Int => \"int\"\n    @ion_model.IonNull::Float => \"float\"\n    @ion_model.IonNull::Decimal => \"decimal\"\n    @ion_model.IonNull::Timestamp => \"timestamp\"\n    @ion_model.IonNull::Symbol => \"symbol\"\n    @ion_model.IonNull::String => \"string\"\n    @ion_model.IonNull::Blob => \"blob\"\n    @ion_model.IonNull::Clob => \"clob\"\n    @ion_model.IonNull::List => \"list\"\n    @ion_model.IonNull::Sexp => \"sexp\"\n    @ion_model.IonNull::Struct => \"struct\"\n  }\n}\n\n///|\nfn ion_schema_codegen_actual_type(value : @ion_model.IonValue) -> String {\n  let kind = value.kind()\n  match (value.is_null(), kind) {\n    (true, @ion_model.IonNull::Null) => \"null\"\n    (true, typed_kind) => \"null.\\{ion_schema_codegen_kind_name(typed_kind)}\"\n    (false, actual_kind) => ion_schema_codegen_kind_name(actual_kind)\n  }\n}\n",
+  )
+}
+
+///|
+fn write_struct_conversions(
+  output : StringBuilder,
+  named_type : NamedType,
+  fields : Array[FieldSpec],
+) -> Unit raise SchemaError {
+  let generated_name = moonbit_type_identifier(named_type.name)
+  let value_local_prefix = generated_value_local_prefix(fields)
+  output.write_string("///|\n/// Convert an Ion struct to ")
+  output.write_string(generated_name)
+  output.write_string(" with field-level diagnostics.\npub fn ")
+  output.write_string(generated_name)
+  output.write_string("::from_ion(\n  value : @ion_model.IonValue,\n) -> ")
+  output.write_string(generated_name)
+  output.write_string(" raise ConversionError {\n")
+  output.write_string("  let type_path = \"")
+  output.write_string(named_type.name)
+  output.write_string("\"\n")
+  output.write_string(
+    "  if value.is_null() {\n    raise ConversionError::NullNotAllowed(path=type_path)\n  }\n",
+  )
+  output.write_string(
+    "  if value.annotations().length() > 0 {\n    raise ConversionError::AnnotatedValueNotSupported(path=type_path)\n  }\n",
+  )
+  output.write_string(
+    "  let input_fields = match value.without_annotations() {\n    @ion_model.IonValue::Struct(fields) => fields\n    _ =>\n      raise ConversionError::TypeMismatch(\n        path=type_path,\n        expected=\"struct\",\n        actual=ion_schema_codegen_actual_type(value),\n      )\n  }\n",
+  )
+  let mut index = 0
+  for _field in fields {
+    output.write_string("  let mut input_field_")
+    output.write_string(index.to_string())
+    output.write_string(" : @ion_model.IonValue? = None\n")
+    index += 1
+  }
+  output.write_string("  for (field_symbol, field_value) in input_fields {\n")
+  output.write_string("    match field_symbol.text_value() {\n")
+  output.write_string("      Some(field_name) =>\n        match field_name {\n")
+  index = 0
+  for field in fields {
+    output.write_string("          \"")
+    output.write_string(field.name)
+    output.write_string("\" => {\n            if input_field_")
+    output.write_string(index.to_string())
+    output.write_string(
+      " is Some(_) {\n              raise ConversionError::DuplicateField(path=\"",
+    )
+    output.write_string(named_type.name)
+    output.write_char('.')
+    output.write_string(field.name)
+    output.write_string("\")\n            }\n            input_field_")
+    output.write_string(index.to_string())
+    output.write_string(" = Some(field_value)\n          }\n")
+    index += 1
+  }
+  output.write_string(
+    "          _ => raise ConversionError::UnknownField(path=\"",
+  )
+  output.write_string(named_type.name)
+  output.write_string(".\" + field_name)\n        }\n")
+  output.write_string(
+    "      None =>\n        raise ConversionError::UnknownSymbol(\n          path=\"",
+  )
+  output.write_string(named_type.name)
+  output.write_string(
+    ".<field>\",\n          sid=field_symbol.sid_value().unwrap_or(0),\n        )\n",
+  )
+  output.write_string("    }\n  }\n")
+
+  index = 0
+  for field in fields {
+    let value_local = value_local_prefix + index.to_string()
+    let ion_type_name = match field.type_ref {
+      TypeRef::Builtin(name) => name
+      TypeRef::Named(name) => name
+    }
+    let moonbit_base_type = moonbit_type_for_reference(
+      field.type_ref,
+      "field \{named_type.name}.\{field.name}",
+    )
+    let moonbit_type = match field.occurrence {
+      FieldOccurrence::Optional => moonbit_base_type + "?"
+      FieldOccurrence::Required => moonbit_base_type
+    }
+    let declaration = "  let " +
+      value_local +
+      " : " +
+      moonbit_type +
+      " = match input_field_" +
+      index.to_string() +
+      " {"
+    if declaration.length() > 80 {
+      output.write_string(
+        "  let " +
+        value_local +
+        " : " +
+        moonbit_type +
+        " = match\n    input_field_" +
+        index.to_string() +
+        " {\n",
+      )
+    } else {
+      output.write_string(declaration + "\n")
+    }
+    output.write_string(
+      "    Some(field_value) => {\n      if field_value.annotations().length() > 0 {\n        raise ConversionError::AnnotatedValueNotSupported(path=\"",
+    )
+    output.write_string(named_type.name)
+    output.write_char('.')
+    output.write_string(field.name)
+    output.write_string(
+      "\")\n      }\n      if field_value.is_null() {\n        raise ConversionError::NullNotAllowed(path=\"",
+    )
+    output.write_string(named_type.name)
+    output.write_char('.')
+    output.write_string(field.name)
+    output.write_string(
+      "\")\n      }\n      match field_value.without_annotations() {\n        ",
+    )
+    output.write_string(ion_value_variant(ion_type_name))
+    output.write_string("(converted_value) => ")
+    match field.occurrence {
+      FieldOccurrence::Optional => output.write_string("Some(converted_value)")
+      FieldOccurrence::Required => output.write_string("converted_value")
+    }
+    output.write_string(
+      "\n        _ =>\n          raise ConversionError::TypeMismatch(\n            path=\"",
+    )
+    output.write_string(named_type.name)
+    output.write_char('.')
+    output.write_string(field.name)
+    output.write_string("\",\n            expected=\"")
+    output.write_string(ion_type_name)
+    output.write_string(
+      "\",\n            actual=ion_schema_codegen_actual_type(field_value),\n          )\n      }\n    }\n",
+    )
+    match field.occurrence {
+      FieldOccurrence::Optional => output.write_string("    None => None\n")
+      FieldOccurrence::Required => {
+        output.write_string(
+          "    None => raise ConversionError::MissingRequiredField(path=\"",
+        )
+        output.write_string(named_type.name)
+        output.write_char('.')
+        output.write_string(field.name)
+        output.write_string("\")\n")
+      }
+    }
+    output.write_string("  }\n")
+    index += 1
+  }
+
+  output.write_string("  {")
+  if fields.length() > 0 {
+    output.write_string("\n")
+    index = 0
+    for field in fields {
+      let field_identifier = moonbit_field_identifier(
+        field.name,
+        "field \{named_type.name}.\{field.name}",
+      )
+      let value_local = value_local_prefix + index.to_string()
+      output.write_string("    ")
+      output.write_string(field_identifier)
+      output.write_string(": ")
+      output.write_string(value_local)
+      output.write_string(",\n")
+      index += 1
+    }
+    output.write_string("  ")
+  }
+  output.write_string("}\n}\n\n")
+
+  output.write_string("///|\n/// Convert ")
+  output.write_string(generated_name)
+  output.write_string(" into an Ion struct in schema field order.\npub fn ")
+  output.write_string(generated_name)
+  output.write_string("::to_ion(self : ")
+  output.write_string(generated_name)
+  output.write_string(
+    ") -> @ion_model.IonValue {\n  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []\n",
+  )
+  for field in fields {
+    let field_identifier = moonbit_field_identifier(
+      field.name,
+      "field \{named_type.name}.\{field.name}",
+    )
+    match field.occurrence {
+      FieldOccurrence::Required => {
+        let value_constructor = ion_value_constructor(field.type_ref)
+        let pair = "(@ion_model.IonSymbol::from_text(\"" +
+          field.name +
+          "\"), " +
+          value_constructor +
+          "(self." +
+          field_identifier +
+          "))"
+        output.write_string("  output_fields.push(\n")
+        if pair.length() + 5 > 80 {
+          output.write_string("    (\n      @ion_model.IonSymbol::from_text(\"")
+          output.write_string(field.name)
+          output.write_string("\"),\n      ")
+          output.write_string(value_constructor)
+          output.write_string("(self.")
+          output.write_string(field_identifier)
+          output.write_string("),\n    ),\n  )\n")
+        } else {
+          output.write_string("    " + pair + ",\n  )\n")
+        }
+      }
+      FieldOccurrence::Optional => {
+        output.write_string("  match self.")
+        output.write_string(field_identifier)
+        output.write_string(
+          " {\n    Some(field_value) =>\n      output_fields.push(\n        (\n          @ion_model.IonSymbol::from_text(\"",
+        )
+        output.write_string(field.name)
+        output.write_string("\"),\n          ")
+        output.write_string(ion_value_constructor(field.type_ref))
+        output.write_string(
+          "(field_value),\n        ),\n      )\n    None => ()\n  }\n",
+        )
+      }
+    }
+  }
+  output.write_string("  @ion_model.IonValue::Struct(output_fields)\n}\n")
+}
+
+///|
+fn generated_value_local_prefix(
+  fields : Array[FieldSpec],
+) -> String raise SchemaError {
+  let mut prefix = "ion_schema_codegen_value_"
+  let mut has_collision = true
+  while has_collision {
+    has_collision = false
+    let mut value_index = 0
+    for _field in fields {
+      let local_name = prefix + value_index.to_string()
+      let mut field_index = 0
+      for field in fields {
+        let field_identifier = moonbit_field_identifier(
+          field.name,
+          "field \{field.name}",
+        )
+        if field_identifier == local_name {
+          has_collision = true
+        }
+        if "input_field_" + field_index.to_string() == local_name {
+          has_collision = true
+        }
+        field_index += 1
+      }
+      value_index += 1
+    }
+    if has_collision {
+      prefix = prefix + "_"
+    }
+  }
+  prefix
+}
+
+///|
+fn ion_value_variant(name : String) -> String raise SchemaError {
+  match name {
+    "bool" => "@ion_model.IonValue::Bool"
+    "int" => "@ion_model.IonValue::Int"
+    "float" => "@ion_model.IonValue::Float"
+    "decimal" => "@ion_model.IonValue::Decimal"
+    "string" => "@ion_model.IonValue::String"
+    "symbol" => "@ion_model.IonValue::Symbol"
+    "timestamp" => "@ion_model.IonValue::Timestamp"
+    "blob" => "@ion_model.IonValue::Blob"
+    "clob" => "@ion_model.IonValue::Clob"
+    _ =>
+      raise SchemaError::UnsupportedFeature(
+        "no Ion value mapping for scalar type \{name}",
+      )
+  }
+}
+
+///|
+fn ion_value_constructor(type_ref : TypeRef) -> String raise SchemaError {
+  match type_ref {
+    TypeRef::Builtin(name) => ion_value_variant(name)
+    TypeRef::Named(name) =>
+      raise SchemaError::UnsupportedFeature(
+        "named type conversion is not supported yet: \{name}",
+      )
+  }
+}
+
+///|
 fn moonbit_type_for_reference(
   type_ref : TypeRef,
   context : String,
@@ -221,13 +546,19 @@ fn uses_model_types(types : Array[NamedType]) -> Bool {
         if uses_model_type(type_ref) {
           return true
         }
-      TypeBody::Struct(fields) =>
-        for field in fields {
-          if uses_model_type(field.type_ref) {
-            return true
-          }
-        }
+      TypeBody::Struct(_) => return true
       TypeBody::List(_) => ()
+    }
+  }
+  false
+}
+
+///|
+fn has_struct_types(types : Array[NamedType]) -> Bool {
+  for named_type in types {
+    match named_type.body {
+      TypeBody::Struct(_) => return true
+      _ => ()
     }
   }
   false
