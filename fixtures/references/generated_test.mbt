@@ -137,3 +137,60 @@ test "nested named element errors retain the parent field and list index" {
     _ => fail("expected a nested indexed type mismatch")
   }
 }
+
+///|
+test "S-expression fields and list elements round trip nested Ion values" {
+  let expression : @references.Expression = [
+    @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("add")),
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(10)),
+    @ion_model.IonValue::List([
+      @ion_model.IonValue::String("nested"),
+      @ion_model.IonValue::Sexp([@ion_model.IonValue::Bool(true)]),
+    ]),
+  ]
+  let record : @references.ExpressionRecord = { expression, }
+  let encoded_record = @references.ExpressionRecord::to_ion(record)
+  let decoded_record = @references.ExpressionRecord::from_ion(encoded_record)
+  assert_eq(decoded_record.expression, expression)
+  assert_eq(
+    @references.ExpressionRecord::to_ion(decoded_record),
+    encoded_record,
+  )
+
+  let expressions : @references.Expressions = [[], expression]
+  let encoded_expressions = @references.to_ion_Expressions(expressions)
+  let decoded_expressions = @references.from_ion_Expressions(
+    encoded_expressions,
+  )
+  assert_eq(decoded_expressions, expressions)
+  assert_eq(
+    @references.to_ion_Expressions(decoded_expressions),
+    encoded_expressions,
+  )
+}
+
+///|
+test "S-expression list elements report mismatched Ion container types" {
+  let error = try
+    @references.from_ion_Expressions(
+      @ion_model.IonValue::List([@ion_model.IonValue::List([])]),
+    )
+  catch {
+    error => error
+  } noraise {
+    _ =>
+      @references.ConversionError::TypeMismatch(
+        path="test",
+        expected="error",
+        actual="conversion succeeded",
+      )
+  }
+  match error {
+    @references.ConversionError::TypeMismatch(path~, expected~, actual~) => {
+      assert_eq(path, "Expressions[0]")
+      assert_eq(expected, "sexp")
+      assert_eq(actual, "list")
+    }
+    _ => fail("expected an S-expression type mismatch")
+  }
+}

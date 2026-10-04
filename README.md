@@ -7,6 +7,7 @@
 - 标量：`bool`、`int`、`float`、`decimal`、`string`、`symbol`、`timestamp`、`blob` 和 `clob`。
 - 封闭结构体字段，支持必选与可选字段。
 - 元素为受支持标量或同一 Schema 命名类型的列表。
+- Ion `sexp` 作为 `Array[@ion_model.IonValue]`，支持结构体字段及列表元素；表达式内部值与顺序保持为 Ion 值模型。
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
@@ -62,6 +63,8 @@ let generated = @ion-schema-codegen.generate_code(schema_text)
 `check_schema(schema_text)` 只检查当前受支持的 Schema 子集；`generate_code(schema_text)` 返回源码和所需导入。程序化调用示例见 `fixtures/generated` 与 `fixtures/references`。
 
 结构体转换拒绝缺失的必选字段、重复字段、未知字段、错误 Ion 类型、typed null 和注解值。列表转换要求 Ion `list`，逐项验证元素类型，并在错误路径中包含元素下标。
+
+`sexp` 转换检查外层容器必须是 Ion `sexp`，并保留内部的任意 Ion 值；内部子值不会按其他 Schema 类型递归校验。
 
 ## 变更记录
 

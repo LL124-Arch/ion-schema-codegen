@@ -435,3 +435,159 @@ pub fn Person::to_ion(self : Person) -> @ion_model.IonValue {
   }
   @ion_model.IonValue::Struct(output_fields)
 }
+
+///|
+pub type Expression = Array[@ion_model.IonValue]
+
+///|
+pub type Expressions = Array[Expression]
+
+///|
+/// Convert an Ion list to Expressions with element-level diagnostics.
+pub fn from_ion_Expressions(
+  value : @ion_model.IonValue,
+) -> Expressions raise ConversionError {
+  let type_path = "Expressions"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : Expressions = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=element_path)
+    }
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : Expression = match element.without_annotations() {
+      @ion_model.IonValue::Sexp(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="sexp",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert Expressions into an Ion list.
+pub fn to_ion_Expressions(items : Expressions) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(@ion_model.IonValue::Sexp(element))
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct ExpressionRecord {
+  expression : Expression
+}
+
+///|
+/// Convert an Ion struct to ExpressionRecord with field-level diagnostics.
+pub fn ExpressionRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> ExpressionRecord raise ConversionError {
+  let type_path = "ExpressionRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "expression" => {
+            if input_field_0 is Some(_) {
+              raise ConversionError::DuplicateField(
+                path="ExpressionRecord.expression",
+              )
+            }
+            input_field_0 = Some(field_value)
+          }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="ExpressionRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="ExpressionRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : Expression = match input_field_0 {
+    Some(field_value) => {
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(
+          path="ExpressionRecord.expression",
+        )
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(
+          path="ExpressionRecord.expression",
+        )
+      }
+      match field_value.without_annotations() {
+        @ion_model.IonValue::Sexp(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path="ExpressionRecord.expression",
+            expected="sexp",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="ExpressionRecord.expression",
+      )
+  }
+  { expression: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert ExpressionRecord into an Ion struct in schema field order.
+pub fn ExpressionRecord::to_ion(self : ExpressionRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("expression"),
+      @ion_model.IonValue::Sexp(self.expression),
+    ),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}

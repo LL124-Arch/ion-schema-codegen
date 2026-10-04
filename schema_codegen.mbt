@@ -647,6 +647,7 @@ fn ion_value_variant(name : String) -> String raise SchemaError {
     "timestamp" => "@ion_model.IonValue::Timestamp"
     "blob" => "@ion_model.IonValue::Blob"
     "clob" => "@ion_model.IonValue::Clob"
+    "sexp" => "@ion_model.IonValue::Sexp"
     _ =>
       raise SchemaError::UnsupportedFeature(
         "no Ion value mapping for scalar type \{name}",
@@ -862,6 +863,7 @@ fn moonbit_type_for_builtin(
     "symbol" => "@ion_model.IonSymbol"
     "timestamp" => "@ion_model.IonTimestamp"
     "blob" | "clob" => "Bytes"
+    "sexp" => "Array[@ion_model.IonValue]"
     _ =>
       raise SchemaError::UnsupportedFeature(
         "no MoonBit type mapping for \{name} at \{context}",
@@ -953,7 +955,7 @@ fn matches_int(resolved : ResolvedType) -> Bool {
 ///|
 fn matches_model_type(resolved : ResolvedType) -> Bool {
   match resolved {
-    ResolvedType::Scalar("decimal" | "symbol" | "timestamp") => true
+    ResolvedType::Scalar("decimal" | "symbol" | "timestamp" | "sexp") => true
     _ => false
   }
 }

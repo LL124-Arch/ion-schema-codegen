@@ -211,3 +211,10 @@ test "validate schema header footer placement" {
     },
   )
 }
+
+///|
+test "accept S-expressions as scalar type references" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: Expression, type: sexp} type::{name: Expressions, type: list, element: Expression} type::{name: ExpressionRecord, type: struct, fields: closed::{expression: {type: Expression, occurs: required}}}",
+  )
+}

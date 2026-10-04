@@ -234,3 +234,23 @@ test "reject unknown and cyclic named references with a cycle chain" {
     },
   )
 }
+
+///|
+test "generate S-expression aliases fields and list elements" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: Expression, type: sexp} type::{name: Expressions, type: list, element: Expression} type::{name: ExpressionRecord, type: struct, fields: closed::{expression: {type: Expression, occurs: required}}}",
+  )
+  assert_true(
+    generated.source.contains(
+      "pub type Expression = Array[@ion_model.IonValue]",
+    ),
+  )
+  assert_true(
+    generated.source.contains("@ion_model.IonValue::Sexp(converted_value)"),
+  )
+  assert_true(generated.source.contains("pub fn from_ion_Expressions"))
+  assert_true(generated.source.contains("pub fn ExpressionRecord::from_ion"))
+  assert_eq(generated.package_imports, [
+    "\"LL124-Arch/amazon-ion-moonbit-core/format_model\" @ion_model",
+  ])
+}

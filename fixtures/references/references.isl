@@ -9,3 +9,6 @@ type::{name: AddressList, type: list, element: Address}
 type::{name: Scores, type: list, element: Score}
 type::{name: Address, type: struct, fields: closed::{city: string}}
 type::{name: Score, type: int}
+type::{name: Expression, type: sexp}
+type::{name: Expressions, type: list, element: Expression}
+type::{name: ExpressionRecord, type: struct, fields: closed::{expression: {type: Expression, occurs: required}}}

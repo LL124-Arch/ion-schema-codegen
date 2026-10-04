@@ -548,7 +548,7 @@ fn is_supported_scalar(name : String) -> Bool {
   contains_string(
     [
       "bool", "int", "float", "decimal", "string", "symbol", "timestamp", "blob",
-      "clob",
+      "clob", "sexp",
     ],
     name,
   )
