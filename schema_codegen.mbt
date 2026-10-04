@@ -10,9 +10,10 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
   let schema = parse_schema(source)
   validate_type_references(schema.types)
   validate_codegen_subset(schema.types)
+  let ordered_types = order_named_types(schema.types)
 
   let package_imports : Array[String] = []
-  if uses_model_types(schema.types) {
+  if uses_model_types(schema.types) || has_conversion_types(schema.types) {
     package_imports.push(
       "\"LL124-Arch/amazon-ion-moonbit-core/format_model\" @ion_model",
     )
@@ -22,23 +23,27 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
   }
 
   let output = StringBuilder()
-  if has_struct_types(schema.types) {
+  if has_conversion_types(schema.types) {
     write_conversion_error(output)
     output.write_string("\n")
     write_ion_type_helpers(output)
     output.write_string("\n")
   }
   let mut first_type = true
-  for named_type in schema.types {
+  for named_type in ordered_types {
     if !first_type {
       output.write_string("\n")
     }
     first_type = false
-    write_named_type(output, named_type)
+    write_named_type(output, named_type, schema.types)
     match named_type.body {
       TypeBody::Struct(fields) => {
         output.write_string("\n")
-        write_struct_conversions(output, named_type, fields)
+        write_struct_conversions(output, named_type, fields, schema.types)
+      }
+      TypeBody::List(element_type) => {
+        output.write_string("\n")
+        write_list_conversions(output, named_type, element_type, schema.types)
       }
       _ => ()
     }
@@ -49,7 +54,7 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
 ///|
 fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
   let generated_type_names : Array[(String, String)] = []
-  let has_struct = has_struct_types(types)
+  let has_conversions = has_conversion_types(types)
   for named_type in types {
     let generated_name = moonbit_type_identifier(named_type.name)
     if is_builtin_output_type(generated_name) {
@@ -95,13 +100,11 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
           )
         }
       }
-      TypeBody::List(_) =>
-        raise SchemaError::UnsupportedFeature(
-          "list code generation is not supported yet: type \{named_type.name}",
-        )
+      TypeBody::List(type_ref) =>
+        validate_codegen_reference(type_ref, "element of \{named_type.name}")
     }
   }
-  if has_struct &&
+  if has_conversions &&
     find_generated_name(generated_type_names, "ConversionError")
     is Some((original, _)) {
     raise SchemaError::IdentifierCollision(
@@ -117,10 +120,7 @@ fn validate_codegen_reference(
 ) -> Unit raise SchemaError {
   match type_ref {
     TypeRef::Builtin(name) => ignore(moonbit_type_for_builtin(name, context))
-    TypeRef::Named(name) =>
-      raise SchemaError::UnsupportedFeature(
-        "named type code generation is not supported yet: \{name} at \{context}",
-      )
+    TypeRef::Named(_) => ()
   }
 }
 
@@ -128,6 +128,7 @@ fn validate_codegen_reference(
 fn write_named_type(
   output : StringBuilder,
   named_type : NamedType,
+  types : Array[NamedType],
 ) -> Unit raise SchemaError {
   output.write_string("///|\n")
   let generated_name = moonbit_type_identifier(named_type.name)
@@ -137,7 +138,11 @@ fn write_named_type(
       output.write_string(generated_name)
       output.write_string(" = ")
       output.write_string(
-        moonbit_type_for_reference(type_ref, "type \{named_type.name}"),
+        moonbit_type_for_reference_in(
+          type_ref,
+          types,
+          "type \{named_type.name}",
+        ),
       )
       output.write_string("\n")
     }
@@ -159,8 +164,9 @@ fn write_named_type(
         )
         output.write_string(" : ")
         output.write_string(
-          moonbit_type_for_reference(
+          moonbit_type_for_reference_in(
             field.type_ref,
+            types,
             "field \{named_type.name}.\{field.name}",
           ),
         )
@@ -172,10 +178,19 @@ fn write_named_type(
       }
       output.write_string("}\n")
     }
-    TypeBody::List(_) =>
-      raise SchemaError::UnsupportedFeature(
-        "list code generation is not supported yet: type \{named_type.name}",
+    TypeBody::List(element_type) => {
+      output.write_string("pub type ")
+      output.write_string(generated_name)
+      output.write_string(" = Array[")
+      output.write_string(
+        moonbit_type_for_reference_in(
+          element_type,
+          types,
+          "element of \{named_type.name}",
+        ),
       )
+      output.write_string("]\n")
+    }
   }
 }
 
@@ -191,6 +206,9 @@ fn write_ion_type_helpers(output : StringBuilder) -> Unit {
   output.write_string(
     "///|\nfn ion_schema_codegen_kind_name(kind : @ion_model.IonNull) -> String {\n  match kind {\n    @ion_model.IonNull::Null => \"null\"\n    @ion_model.IonNull::Bool => \"bool\"\n    @ion_model.IonNull::Int => \"int\"\n    @ion_model.IonNull::Float => \"float\"\n    @ion_model.IonNull::Decimal => \"decimal\"\n    @ion_model.IonNull::Timestamp => \"timestamp\"\n    @ion_model.IonNull::Symbol => \"symbol\"\n    @ion_model.IonNull::String => \"string\"\n    @ion_model.IonNull::Blob => \"blob\"\n    @ion_model.IonNull::Clob => \"clob\"\n    @ion_model.IonNull::List => \"list\"\n    @ion_model.IonNull::Sexp => \"sexp\"\n    @ion_model.IonNull::Struct => \"struct\"\n  }\n}\n\n///|\nfn ion_schema_codegen_actual_type(value : @ion_model.IonValue) -> String {\n  let kind = value.kind()\n  match (value.is_null(), kind) {\n    (true, @ion_model.IonNull::Null) => \"null\"\n    (true, typed_kind) => \"null.\\{ion_schema_codegen_kind_name(typed_kind)}\"\n    (false, actual_kind) => ion_schema_codegen_kind_name(actual_kind)\n  }\n}\n",
   )
+  output.write_string(
+    "\n///|\nfn ion_schema_codegen_prefix_error(\n  error : ConversionError,\n  prefix : String,\n) -> ConversionError {\n  match error {\n    ConversionError::TypeMismatch(path~, expected~, actual~) =>\n      ConversionError::TypeMismatch(\n        path=prefix + path,\n        expected~,\n        actual~,\n      )\n    ConversionError::MissingRequiredField(path~) =>\n      ConversionError::MissingRequiredField(path=prefix + path)\n    ConversionError::DuplicateField(path~) =>\n      ConversionError::DuplicateField(path=prefix + path)\n    ConversionError::UnknownField(path~) =>\n      ConversionError::UnknownField(path=prefix + path)\n    ConversionError::UnknownSymbol(path~, sid~) =>\n      ConversionError::UnknownSymbol(path=prefix + path, sid~)\n    ConversionError::NullNotAllowed(path~) =>\n      ConversionError::NullNotAllowed(path=prefix + path)\n    ConversionError::AnnotatedValueNotSupported(path~) =>\n      ConversionError::AnnotatedValueNotSupported(path=prefix + path)\n  }\n}\n",
+  )
 }
 
 ///|
@@ -198,6 +216,7 @@ fn write_struct_conversions(
   output : StringBuilder,
   named_type : NamedType,
   fields : Array[FieldSpec],
+  types : Array[NamedType],
 ) -> Unit raise SchemaError {
   let generated_name = moonbit_type_identifier(named_type.name)
   let value_local_prefix = generated_value_local_prefix(fields)
@@ -264,12 +283,10 @@ fn write_struct_conversions(
   index = 0
   for field in fields {
     let value_local = value_local_prefix + index.to_string()
-    let ion_type_name = match field.type_ref {
-      TypeRef::Builtin(name) => name
-      TypeRef::Named(name) => name
-    }
-    let moonbit_base_type = moonbit_type_for_reference(
+    let ion_type_name = expected_ion_type(field.type_ref, types)
+    let moonbit_base_type = moonbit_type_for_reference_in(
       field.type_ref,
+      types,
       "field \{named_type.name}.\{field.name}",
     )
     let moonbit_type = match field.occurrence {
@@ -308,26 +325,52 @@ fn write_struct_conversions(
     output.write_string(named_type.name)
     output.write_char('.')
     output.write_string(field.name)
-    output.write_string(
-      "\")\n      }\n      match field_value.without_annotations() {\n        ",
-    )
-    output.write_string(ion_value_variant(ion_type_name))
-    output.write_string("(converted_value) => ")
-    match field.occurrence {
-      FieldOccurrence::Optional => output.write_string("Some(converted_value)")
-      FieldOccurrence::Required => output.write_string("converted_value")
+    output.write_string("\")\n      }\n")
+    match resolve_type_ref(types, field.type_ref) {
+      ResolvedType::Scalar(scalar_name) => {
+        output.write_string(
+          "      match field_value.without_annotations() {\n        ",
+        )
+        output.write_string(ion_value_variant(scalar_name))
+        output.write_string("(converted_value) => ")
+        match field.occurrence {
+          FieldOccurrence::Optional =>
+            output.write_string("Some(converted_value)")
+          FieldOccurrence::Required => output.write_string("converted_value")
+        }
+        output.write_string(
+          "\n        _ =>\n          raise ConversionError::TypeMismatch(\n            path=\"",
+        )
+        output.write_string(named_type.name)
+        output.write_char('.')
+        output.write_string(field.name)
+        output.write_string("\",\n            expected=\"")
+        output.write_string(ion_type_name)
+        output.write_string(
+          "\",\n            actual=ion_schema_codegen_actual_type(field_value),\n          )\n      }\n",
+        )
+      }
+      ResolvedType::Struct(_) | ResolvedType::List(_) => {
+        if is_optional_field(field.occurrence) {
+          output.write_string("      Some(")
+        } else {
+          output.write_string("      ")
+        }
+        output.write_string(
+          ion_from_expression(
+            field.type_ref,
+            "field_value",
+            types,
+            "\"" + named_type.name + "." + field.name + ".\"",
+          ),
+        )
+        if is_optional_field(field.occurrence) {
+          output.write_char(')')
+        }
+        output.write_string("\n")
+      }
     }
-    output.write_string(
-      "\n        _ =>\n          raise ConversionError::TypeMismatch(\n            path=\"",
-    )
-    output.write_string(named_type.name)
-    output.write_char('.')
-    output.write_string(field.name)
-    output.write_string("\",\n            expected=\"")
-    output.write_string(ion_type_name)
-    output.write_string(
-      "\",\n            actual=ion_schema_codegen_actual_type(field_value),\n          )\n      }\n    }\n",
-    )
+    output.write_string("    }\n")
     match field.occurrence {
       FieldOccurrence::Optional => output.write_string("    None => None\n")
       FieldOccurrence::Required => {
@@ -381,23 +424,27 @@ fn write_struct_conversions(
     )
     match field.occurrence {
       FieldOccurrence::Required => {
-        let value_constructor = ion_value_constructor(field.type_ref)
+        let ion_expression = ion_value_expression(
+          field.type_ref,
+          "self." +
+          moonbit_field_identifier(
+            field.name,
+            "field \{named_type.name}.\{field.name}",
+          ),
+          types,
+        )
         let pair = "(@ion_model.IonSymbol::from_text(\"" +
           field.name +
           "\"), " +
-          value_constructor +
-          "(self." +
-          field_identifier +
-          "))"
+          ion_expression +
+          ")"
         output.write_string("  output_fields.push(\n")
         if pair.length() + 5 > 80 {
           output.write_string("    (\n      @ion_model.IonSymbol::from_text(\"")
           output.write_string(field.name)
           output.write_string("\"),\n      ")
-          output.write_string(value_constructor)
-          output.write_string("(self.")
-          output.write_string(field_identifier)
-          output.write_string("),\n    ),\n  )\n")
+          output.write_string(ion_expression)
+          output.write_string(",\n    ),\n  )\n")
         } else {
           output.write_string("    " + pair + ",\n  )\n")
         }
@@ -410,14 +457,104 @@ fn write_struct_conversions(
         )
         output.write_string(field.name)
         output.write_string("\"),\n          ")
-        output.write_string(ion_value_constructor(field.type_ref))
         output.write_string(
-          "(field_value),\n        ),\n      )\n    None => ()\n  }\n",
+          ion_value_expression(field.type_ref, "field_value", types),
         )
+        output.write_string(",\n        ),\n      )\n    None => ()\n  }\n")
       }
     }
   }
   output.write_string("  @ion_model.IonValue::Struct(output_fields)\n}\n")
+}
+
+///|
+fn write_list_conversions(
+  output : StringBuilder,
+  named_type : NamedType,
+  element_type : TypeRef,
+  types : Array[NamedType],
+) -> Unit raise SchemaError {
+  let generated_name = moonbit_type_identifier(named_type.name)
+  let element_moonbit_type = moonbit_type_for_reference_in(
+    element_type,
+    types,
+    "element of \{named_type.name}",
+  )
+  let expected_type = expected_ion_type(element_type, types)
+  output.write_string("///|\n/// Convert an Ion list to ")
+  output.write_string(generated_name)
+  output.write_string(" with element-level diagnostics.\npub fn ")
+  output.write_string("from_ion_")
+  output.write_string(generated_name)
+  output.write_string("(\n  value : @ion_model.IonValue,\n) -> ")
+  output.write_string(generated_name)
+  output.write_string(" raise ConversionError {\n")
+  output.write_string("  let type_path = \"")
+  output.write_string(named_type.name)
+  output.write_string("\"\n")
+  output.write_string(
+    "  if value.is_null() {\n    raise ConversionError::NullNotAllowed(path=type_path)\n  }\n",
+  )
+  output.write_string(
+    "  if value.annotations().length() > 0 {\n    raise ConversionError::AnnotatedValueNotSupported(path=type_path)\n  }\n",
+  )
+  output.write_string(
+    "  let input_elements = match value.without_annotations() {\n    @ion_model.IonValue::List(elements) => elements\n    _ =>\n      raise ConversionError::TypeMismatch(\n        path=type_path,\n        expected=\"list\",\n        actual=ion_schema_codegen_actual_type(value),\n      )\n  }\n",
+  )
+  output.write_string("  let converted : ")
+  output.write_string(generated_name)
+  output.write_string(" = []\n  let mut index = 0\n")
+  output.write_string("  for element in input_elements {\n")
+  output.write_string(
+    "    let element_path = type_path + \"[\" + index.to_string() + \"]\"\n",
+  )
+  output.write_string(
+    "    if element.annotations().length() > 0 {\n      raise ConversionError::AnnotatedValueNotSupported(path=element_path)\n    }\n",
+  )
+  output.write_string(
+    "    if element.is_null() {\n      raise ConversionError::NullNotAllowed(path=element_path)\n    }\n",
+  )
+  output.write_string("    let item : ")
+  output.write_string(element_moonbit_type)
+  output.write_string(" = ")
+  match resolve_type_ref(types, element_type) {
+    ResolvedType::Scalar(scalar_name) => {
+      output.write_string("match element.without_annotations() {\n      ")
+      output.write_string(ion_value_variant(scalar_name))
+      output.write_string(
+        "(item) => item\n      _ =>\n        raise ConversionError::TypeMismatch(\n          path=element_path,\n          expected=\"",
+      )
+      output.write_string(expected_type)
+      output.write_string(
+        "\",\n          actual=ion_schema_codegen_actual_type(element),\n        )\n    }\n",
+      )
+    }
+    ResolvedType::Struct(_) | ResolvedType::List(_) =>
+      output.write_string(
+        ion_from_expression(
+          element_type, "element", types, "element_path + \".\"",
+        ) +
+        "\n",
+      )
+  }
+  output.write_string(
+    "    converted.push(item)\n    index += 1\n  }\n  converted\n}\n\n",
+  )
+
+  output.write_string("///|\n/// Convert ")
+  output.write_string(generated_name)
+  output.write_string(" into an Ion list.\npub fn ")
+  output.write_string("to_ion_")
+  output.write_string(generated_name)
+  output.write_string("(items : ")
+  output.write_string(generated_name)
+  output.write_string(
+    ") -> @ion_model.IonValue {\n  let output_elements : Array[@ion_model.IonValue] = []\n  for element in items {\n    output_elements.push(",
+  )
+  output.write_string(ion_value_expression(element_type, "element", types))
+  output.write_string(
+    ")\n  }\n  @ion_model.IonValue::List(output_elements)\n}\n",
+  )
 }
 
 ///|
@@ -455,6 +592,14 @@ fn generated_value_local_prefix(
 }
 
 ///|
+fn is_optional_field(occurrence : FieldOccurrence) -> Bool {
+  match occurrence {
+    FieldOccurrence::Optional => true
+    FieldOccurrence::Required => false
+  }
+}
+
+///|
 fn ion_value_variant(name : String) -> String raise SchemaError {
   match name {
     "bool" => "@ion_model.IonValue::Bool"
@@ -474,28 +619,197 @@ fn ion_value_variant(name : String) -> String raise SchemaError {
 }
 
 ///|
-fn ion_value_constructor(type_ref : TypeRef) -> String raise SchemaError {
-  match type_ref {
-    TypeRef::Builtin(name) => ion_value_variant(name)
-    TypeRef::Named(name) =>
-      raise SchemaError::UnsupportedFeature(
-        "named type conversion is not supported yet: \{name}",
-      )
-  }
+priv enum ResolvedType {
+  Scalar(String)
+  Struct(String)
+  List(String)
 }
 
 ///|
-fn moonbit_type_for_reference(
+fn moonbit_type_for_reference_in(
   type_ref : TypeRef,
+  types : Array[NamedType],
   context : String,
 ) -> String raise SchemaError {
   match type_ref {
     TypeRef::Builtin(name) => moonbit_type_for_builtin(name, context)
+    TypeRef::Named(name) => {
+      ignore(find_named_type(types, name))
+      moonbit_type_identifier(name)
+    }
+  }
+}
+
+///|
+fn find_named_type(types : Array[NamedType], name : String) -> NamedType? {
+  for named_type in types {
+    if named_type.name == name {
+      return Some(named_type)
+    }
+  }
+  None
+}
+
+///|
+fn resolve_type_ref(
+  types : Array[NamedType],
+  type_ref : TypeRef,
+) -> ResolvedType raise SchemaError {
+  match type_ref {
+    TypeRef::Builtin(name) => ResolvedType::Scalar(name)
     TypeRef::Named(name) =>
+      match find_named_type(types, name) {
+        Some(named_type) =>
+          match named_type.body {
+            TypeBody::Scalar(target) | TypeBody::Alias(target) =>
+              resolve_type_ref(types, target)
+            TypeBody::Struct(_) => ResolvedType::Struct(name)
+            TypeBody::List(_) => ResolvedType::List(name)
+          }
+        None => raise SchemaError::UnknownType("unknown type \{name}")
+      }
+  }
+}
+
+///|
+fn expected_ion_type(
+  type_ref : TypeRef,
+  types : Array[NamedType],
+) -> String raise SchemaError {
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar(name) => name
+    ResolvedType::Struct(_) => "struct"
+    ResolvedType::List(_) => "list"
+  }
+}
+
+///|
+fn ion_from_expression(
+  type_ref : TypeRef,
+  value_expression : String,
+  types : Array[NamedType],
+  error_prefix : String,
+) -> String raise SchemaError {
+  let from_expression = match resolve_type_ref(types, type_ref) {
+    ResolvedType::Struct(name) =>
+      moonbit_type_identifier(name) + "::from_ion(" + value_expression + ")"
+    ResolvedType::List(name) =>
+      "from_ion_" + moonbit_type_identifier(name) + "(" + value_expression + ")"
+    ResolvedType::Scalar(_) =>
       raise SchemaError::UnsupportedFeature(
-        "named type code generation is not supported yet: \{name} at \{context}",
+        "internal named conversion requested for scalar type",
       )
   }
+  "try " +
+  from_expression +
+  " catch { error =>\n  raise ion_schema_codegen_prefix_error(error, " +
+  error_prefix +
+  ")\n}"
+}
+
+///|
+fn ion_value_expression(
+  type_ref : TypeRef,
+  value_expression : String,
+  types : Array[NamedType],
+) -> String raise SchemaError {
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar(name) =>
+      ion_value_variant(name) + "(" + value_expression + ")"
+    ResolvedType::Struct(name) =>
+      moonbit_type_identifier(name) + "::to_ion(" + value_expression + ")"
+    ResolvedType::List(name) =>
+      "to_ion_" + moonbit_type_identifier(name) + "(" + value_expression + ")"
+  }
+}
+
+///|
+fn order_named_types(
+  types : Array[NamedType],
+) -> Array[NamedType] raise SchemaError {
+  let ordered : Array[NamedType] = []
+  let visited : Array[String] = []
+  for named_type in types {
+    visit_named_type(named_type.name, types, [], visited, ordered)
+  }
+  ordered
+}
+
+///|
+fn visit_named_type(
+  name : String,
+  types : Array[NamedType],
+  path : Array[String],
+  visited : Array[String],
+  ordered : Array[NamedType],
+) -> Unit raise SchemaError {
+  if contains_string(visited, name) {
+    return
+  }
+  if contains_string(path, name) {
+    let mut start = 0
+    let mut index = 0
+    for item in path {
+      if item == name {
+        start = index
+        break
+      }
+      index += 1
+    }
+    let chain = StringBuilder()
+    index = 0
+    for item in path {
+      if index >= start {
+        if chain.to_string() != "" {
+          chain.write_string(" -> ")
+        }
+        chain.write_string(item)
+      }
+      index += 1
+    }
+    chain.write_string(" -> ")
+    chain.write_string(name)
+    raise SchemaError::CyclicTypeReference(chain.to_string())
+  }
+  let named_type = match find_named_type(types, name) {
+    Some(found) => found
+    None => raise SchemaError::UnknownType("unknown type \{name}")
+  }
+  let next_path : Array[String] = []
+  for item in path {
+    next_path.push(item)
+  }
+  next_path.push(name)
+  for dependency in referenced_type_names(named_type.body) {
+    visit_named_type(dependency, types, next_path, visited, ordered)
+  }
+  visited.push(name)
+  ordered.push(named_type)
+}
+
+///|
+fn referenced_type_names(body : TypeBody) -> Array[String] {
+  let names : Array[String] = []
+  match body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match type_ref {
+        TypeRef::Named(name) => names.push(name)
+        TypeRef::Builtin(_) => ()
+      }
+    TypeBody::List(type_ref) =>
+      match type_ref {
+        TypeRef::Named(name) => names.push(name)
+        TypeRef::Builtin(_) => ()
+      }
+    TypeBody::Struct(fields) =>
+      for field in fields {
+        match field.type_ref {
+          TypeRef::Named(name) => names.push(name)
+          TypeRef::Builtin(_) => ()
+        }
+      }
+  }
+  names
 }
 
 ///|
@@ -520,44 +834,48 @@ fn moonbit_type_for_builtin(
 }
 
 ///|
-fn uses_bigint(types : Array[NamedType]) -> Bool {
-  for named_type in types {
-    match named_type.body {
-      TypeBody::Scalar(TypeRef::Builtin("int"))
-      | TypeBody::Alias(TypeRef::Builtin("int")) => return true
-      TypeBody::Struct(fields) =>
-        for field in fields {
-          match field.type_ref {
-            TypeRef::Builtin("int") => return true
-            _ => ()
-          }
-        }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
-fn uses_model_types(types : Array[NamedType]) -> Bool {
+fn uses_bigint(types : Array[NamedType]) -> Bool raise SchemaError {
   for named_type in types {
     match named_type.body {
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
-        if uses_model_type(type_ref) {
+        if matches_int(resolve_type_ref(types, type_ref)) {
           return true
         }
-      TypeBody::Struct(_) => return true
-      TypeBody::List(_) => ()
+      TypeBody::Struct(fields) =>
+        for field in fields {
+          if matches_int(resolve_type_ref(types, field.type_ref)) {
+            return true
+          }
+        }
+      TypeBody::List(type_ref) =>
+        if matches_int(resolve_type_ref(types, type_ref)) {
+          return true
+        }
     }
   }
   false
 }
 
 ///|
-fn has_struct_types(types : Array[NamedType]) -> Bool {
+fn uses_model_types(types : Array[NamedType]) -> Bool raise SchemaError {
   for named_type in types {
     match named_type.body {
+      TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+        if matches_model_type(resolve_type_ref(types, type_ref)) {
+          return true
+        }
       TypeBody::Struct(_) => return true
+      TypeBody::List(_) => return true
+    }
+  }
+  false
+}
+
+///|
+fn has_conversion_types(types : Array[NamedType]) -> Bool {
+  for named_type in types {
+    match named_type.body {
+      TypeBody::Struct(_) | TypeBody::List(_) => return true
       _ => ()
     }
   }
@@ -565,9 +883,17 @@ fn has_struct_types(types : Array[NamedType]) -> Bool {
 }
 
 ///|
-fn uses_model_type(type_ref : TypeRef) -> Bool {
-  match type_ref {
-    TypeRef::Builtin("decimal" | "symbol" | "timestamp") => true
+fn matches_int(resolved : ResolvedType) -> Bool {
+  match resolved {
+    ResolvedType::Scalar("int") => true
+    _ => false
+  }
+}
+
+///|
+fn matches_model_type(resolved : ResolvedType) -> Bool {
+  match resolved {
+    ResolvedType::Scalar("decimal" | "symbol" | "timestamp") => true
     _ => false
   }
 }

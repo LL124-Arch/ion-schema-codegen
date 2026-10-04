@@ -7,6 +7,7 @@ pub(all) suberror SchemaError {
   DuplicateType(String)
   DuplicateField(type_name~ : String, field_name~ : String)
   UnknownType(String)
+  CyclicTypeReference(String)
   InvalidOccurs(String)
   InvalidIdentifier(String)
   IdentifierCollision(String)

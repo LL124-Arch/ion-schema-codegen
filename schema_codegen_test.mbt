@@ -176,23 +176,60 @@ test "generated conversion locals avoid schema field name collisions" {
 }
 
 ///|
-test "defer lists and named references to their planned batch" {
-  let list = expect_codegen_error(
-    "$ion_schema_2_0 type::{name: Scores, type: list, element: int}",
+test "generate lists and resolve forward named references" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: Person, type: struct, fields: closed::{primary: Address, addresses: AddressList, scores: Scores}} type::{name: AddressList, type: list, element: Address} type::{name: Scores, type: list, element: Score} type::{name: Address, type: struct, fields: closed::{city: string}} type::{name: Score, type: int}",
   )
   assert_true(
-    match list {
-      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+    generated.source.contains("pub type AddressList = Array[Address]"),
+  )
+  assert_true(generated.source.contains("pub type Scores = Array[Score]"))
+  assert_true(generated.source.contains("pub type Score = @bigint.BigInt"))
+  assert_true(generated.source.contains("pub fn from_ion_AddressList"))
+  assert_true(generated.source.contains("pub fn to_ion_AddressList"))
+  assert_true(generated.source.contains("Address::from_ion(field_value)"))
+  assert_true(generated.source.contains("to_ion_AddressList(field_value)"))
+  assert_true(generated.source.contains("path=element_path"))
+  assert_eq(generated.package_imports, [
+    "\"LL124-Arch/amazon-ion-moonbit-core/format_model\" @ion_model", "\"moonbitlang/core/bigint\"",
+  ])
+  assert_eq(
+    @ion-schema-codegen.generate_code(
+      "$ion_schema_2_0 type::{name: Values, type: list, element: string}",
+    ).source,
+    @ion-schema-codegen.generate_code(
+      "$ion_schema_2_0 type::{name: Values, type: list, element: string}",
+    ).source,
+  )
+
+  let forward = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: Person, type: struct, fields: closed::{address: {type: Address, occurs: required}}} type::{name: Address, type: struct, fields: closed::{city: string}}",
+  )
+  let dependency_first = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: Address, type: struct, fields: closed::{city: string}} type::{name: Person, type: struct, fields: closed::{address: {type: Address, occurs: required}}}",
+  )
+  assert_eq(forward.source, dependency_first.source)
+}
+
+///|
+test "reject unknown and cyclic named references with a cycle chain" {
+  let unknown = expect_codegen_error(
+    "$ion_schema_2_0 type::{name: Person, type: struct, fields: closed::{address: MissingAddress}}",
+  )
+  assert_true(
+    match unknown {
+      @ion-schema-codegen.SchemaError::UnknownType(_) => true
       _ => false
     },
   )
 
-  let named_reference = expect_codegen_error(
-    "$ion_schema_2_0 type::{name: Player, type: struct, fields: closed::{score: Score}} type::{name: Score, type: int}",
+  let cycle = expect_codegen_error(
+    "$ion_schema_2_0 type::{name: First, type: struct, fields: closed::{second: Second}} type::{name: Second, type: struct, fields: closed::{first: First}}",
   )
   assert_true(
-    match named_reference {
-      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+    match cycle {
+      @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
+        message.contains("First -> Second -> First")
       _ => false
     },
   )
