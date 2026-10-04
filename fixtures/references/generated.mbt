@@ -591,3 +591,174 @@ pub fn ExpressionRecord::to_ion(self : ExpressionRecord) -> @ion_model.IonValue 
   )
   @ion_model.IonValue::Struct(output_fields)
 }
+
+///|
+pub type AnyValue = @ion_model.IonValue
+
+///|
+pub type AnyValues = Array[AnyValue]
+
+///|
+/// Convert an Ion list to AnyValues with element-level diagnostics.
+pub fn from_ion_AnyValues(
+  value : @ion_model.IonValue,
+) -> AnyValues raise ConversionError {
+  let type_path = "AnyValues"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : AnyValues = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : AnyValue = element
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert AnyValues into an Ion list.
+pub fn to_ion_AnyValues(items : AnyValues) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(element)
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct AnyRecord {
+  named_value : AnyValue
+  raw : @ion_model.IonValue
+  optional_raw : @ion_model.IonValue?
+}
+
+///|
+/// Convert an Ion struct to AnyRecord with field-level diagnostics.
+pub fn AnyRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> AnyRecord raise ConversionError {
+  let type_path = "AnyRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  let mut input_field_1 : @ion_model.IonValue? = None
+  let mut input_field_2 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "named_value" => {
+            if input_field_0 is Some(_) {
+              raise ConversionError::DuplicateField(
+                path="AnyRecord.named_value",
+              )
+            }
+            input_field_0 = Some(field_value)
+          }
+          "raw" => {
+            if input_field_1 is Some(_) {
+              raise ConversionError::DuplicateField(path="AnyRecord.raw")
+            }
+            input_field_1 = Some(field_value)
+          }
+          "optional_raw" => {
+            if input_field_2 is Some(_) {
+              raise ConversionError::DuplicateField(
+                path="AnyRecord.optional_raw",
+              )
+            }
+            input_field_2 = Some(field_value)
+          }
+          _ =>
+            raise ConversionError::UnknownField(path="AnyRecord." + field_name)
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="AnyRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : AnyValue = match input_field_0 {
+    Some(field_value) => {
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path="AnyRecord.named_value")
+      }
+      field_value
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(path="AnyRecord.named_value")
+  }
+  let ion_schema_codegen_value_1 : @ion_model.IonValue = match input_field_1 {
+    Some(field_value) => {
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path="AnyRecord.raw")
+      }
+      field_value
+    }
+    None => raise ConversionError::MissingRequiredField(path="AnyRecord.raw")
+  }
+  let ion_schema_codegen_value_2 : @ion_model.IonValue? = match input_field_2 {
+    Some(field_value) => {
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path="AnyRecord.optional_raw")
+      }
+      Some(field_value)
+    }
+    None => None
+  }
+  {
+    named_value: ion_schema_codegen_value_0,
+    raw: ion_schema_codegen_value_1,
+    optional_raw: ion_schema_codegen_value_2,
+  }
+}
+
+///|
+/// Convert AnyRecord into an Ion struct in schema field order.
+pub fn AnyRecord::to_ion(self : AnyRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (@ion_model.IonSymbol::from_text("named_value"), self.named_value),
+  )
+  output_fields.push((@ion_model.IonSymbol::from_text("raw"), self.raw))
+  match self.optional_raw {
+    Some(field_value) =>
+      output_fields.push(
+        (@ion_model.IonSymbol::from_text("optional_raw"), field_value),
+      )
+    None => ()
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}

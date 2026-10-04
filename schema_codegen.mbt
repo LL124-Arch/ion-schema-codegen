@@ -308,6 +308,10 @@ fn write_struct_conversions(
       " = match input_field_" +
       index.to_string() +
       " {"
+    let is_any = match resolve_type_ref(types, field.type_ref) {
+      ResolvedType::Scalar("any") => true
+      _ => false
+    }
     if declaration.length() > 80 {
       output.write_string(
         "  let " +
@@ -321,16 +325,18 @@ fn write_struct_conversions(
     } else {
       output.write_string(declaration + "\n")
     }
-    output.write_string(
-      "    Some(field_value) => {\n      if field_value.annotations().length() > 0 {\n",
-    )
-    write_path_error(
-      output,
-      "        ",
-      "AnnotatedValueNotSupported",
-      named_type.name + "." + field.name,
-    )
-    output.write_string("      }\n      if field_value.is_null() {\n")
+    output.write_string("    Some(field_value) => {\n")
+    if !is_any {
+      output.write_string("      if field_value.annotations().length() > 0 {\n")
+      write_path_error(
+        output,
+        "        ",
+        "AnnotatedValueNotSupported",
+        named_type.name + "." + field.name,
+      )
+      output.write_string("      }\n")
+    }
+    output.write_string("      if field_value.is_null() {\n")
     write_path_error(
       output,
       "        ",
@@ -339,6 +345,13 @@ fn write_struct_conversions(
     )
     output.write_string("      }\n")
     match resolve_type_ref(types, field.type_ref) {
+      ResolvedType::Scalar("any") =>
+        match field.occurrence {
+          FieldOccurrence::Optional =>
+            output.write_string("      Some(field_value)\n")
+          FieldOccurrence::Required =>
+            output.write_string("      field_value\n")
+        }
       ResolvedType::Scalar(scalar_name) => {
         output.write_string(
           "      match field_value.without_annotations() {\n        ",
@@ -517,6 +530,10 @@ fn write_list_conversions(
     "element of \{named_type.name}",
   )
   let expected_type = expected_ion_type(element_type, types)
+  let is_any = match resolve_type_ref(types, element_type) {
+    ResolvedType::Scalar("any") => true
+    _ => false
+  }
   output.write_string("///|\n/// Convert an Ion list to ")
   output.write_string(generated_name)
   output.write_string(" with element-level diagnostics.\npub fn ")
@@ -544,9 +561,11 @@ fn write_list_conversions(
   output.write_string(
     "    let element_path = type_path + \"[\" + index.to_string() + \"]\"\n",
   )
-  output.write_string(
-    "    if element.annotations().length() > 0 {\n      raise ConversionError::AnnotatedValueNotSupported(path=element_path)\n    }\n",
-  )
+  if !is_any {
+    output.write_string(
+      "    if element.annotations().length() > 0 {\n      raise ConversionError::AnnotatedValueNotSupported(path=element_path)\n    }\n",
+    )
+  }
   output.write_string(
     "    if element.is_null() {\n      raise ConversionError::NullNotAllowed(path=element_path)\n    }\n",
   )
@@ -554,6 +573,7 @@ fn write_list_conversions(
   output.write_string(element_moonbit_type)
   output.write_string(" = ")
   match resolve_type_ref(types, element_type) {
+    ResolvedType::Scalar("any") => output.write_string("element\n")
     ResolvedType::Scalar(scalar_name) => {
       output.write_string("match element.without_annotations() {\n      ")
       output.write_string(ion_value_variant(scalar_name))
@@ -751,6 +771,7 @@ fn ion_value_expression(
   types : Array[NamedType],
 ) -> String raise SchemaError {
   match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar("any") => value_expression
     ResolvedType::Scalar(name) =>
       ion_value_variant(name) + "(" + value_expression + ")"
     ResolvedType::Struct(name) =>
@@ -864,6 +885,7 @@ fn moonbit_type_for_builtin(
     "timestamp" => "@ion_model.IonTimestamp"
     "blob" | "clob" => "Bytes"
     "sexp" => "Array[@ion_model.IonValue]"
+    "any" => "@ion_model.IonValue"
     _ =>
       raise SchemaError::UnsupportedFeature(
         "no MoonBit type mapping for \{name} at \{context}",
@@ -955,7 +977,8 @@ fn matches_int(resolved : ResolvedType) -> Bool {
 ///|
 fn matches_model_type(resolved : ResolvedType) -> Bool {
   match resolved {
-    ResolvedType::Scalar("decimal" | "symbol" | "timestamp" | "sexp") => true
+    ResolvedType::Scalar("decimal" | "symbol" | "timestamp" | "sexp" | "any") =>
+      true
     _ => false
   }
 }

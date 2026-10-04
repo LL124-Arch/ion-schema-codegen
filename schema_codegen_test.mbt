@@ -23,6 +23,24 @@ test "map every supported scalar to a precision-safe MoonBit type" {
 }
 
 ///|
+test "map any to raw Ion values in aliases fields and lists" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: AnyValue, type: any} type::{name: AnyValues, type: list, element: AnyValue} type::{name: AnyRecord, type: struct, fields: closed::{named_value: {type: AnyValue, occurs: required}, raw: {type: any, occurs: required}, optional_raw: {type: any, occurs: optional}}}",
+  )
+  assert_true(
+    generated.source.contains("pub type AnyValue = @ion_model.IonValue"),
+  )
+  assert_true(generated.source.contains("pub(all) struct AnyRecord {"))
+  assert_true(generated.source.contains("named_value : AnyValue"))
+  assert_true(generated.source.contains("raw : @ion_model.IonValue"))
+  assert_true(generated.source.contains("optional_raw : @ion_model.IonValue?"))
+  assert_true(generated.source.contains("pub type AnyValues = Array[AnyValue]"))
+  assert_eq(generated.package_imports, [
+    "\"LL124-Arch/amazon-ion-moonbit-core/format_model\" @ion_model",
+  ])
+}
+
+///|
 test "generate closed structs with required and optional fields" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: Person, type: struct, fields: closed::{id: {type: int, occurs: required}, name: {type: string, occurs: required}, nickname: {type: string, occurs: optional}}}",

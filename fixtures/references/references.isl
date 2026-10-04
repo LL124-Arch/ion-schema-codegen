@@ -12,3 +12,6 @@ type::{name: Score, type: int}
 type::{name: Expression, type: sexp}
 type::{name: Expressions, type: list, element: Expression}
 type::{name: ExpressionRecord, type: struct, fields: closed::{expression: {type: Expression, occurs: required}}}
+type::{name: AnyValue, type: any}
+type::{name: AnyValues, type: list, element: AnyValue}
+type::{name: AnyRecord, type: struct, fields: closed::{named_value: {type: AnyValue, occurs: required}, raw: {type: any, occurs: required}, optional_raw: {type: any, occurs: optional}}}

@@ -194,3 +194,104 @@ test "S-expression list elements report mismatched Ion container types" {
     _ => fail("expected an S-expression type mismatch")
   }
 }
+
+///|
+fn expect_any_record_error(
+  value : @ion_model.IonValue,
+) -> @references.ConversionError {
+  try @references.AnyRecord::from_ion(value) catch {
+    error => error
+  } noraise {
+    _ =>
+      @references.ConversionError::TypeMismatch(
+        path="test",
+        expected="error",
+        actual="conversion succeeded",
+      )
+  }
+}
+
+///|
+test "any fields and lists preserve arbitrary Ion values and annotations" {
+  let metadata = [@ion_model.IonSymbol::from_text("meta")][:]
+  let annotated = @ion_model.IonValue::List([
+    @ion_model.IonValue::String("kept"),
+    @ion_model.IonValue::Sexp([@ion_model.IonValue::Bool(true)]),
+  ]).with_annotations(metadata)
+  let raw = @ion_model.IonValue::Struct([
+    (
+      @ion_model.IonSymbol::from_text("nested"),
+      @ion_model.IonValue::Decimal(
+        @ion_model.IonDecimal::new(
+          coefficient=@bigint.BigInt::from_int(123),
+          exponent=-2,
+        ),
+      ),
+    ),
+  ])
+  let record : @references.AnyRecord = {
+    named_value: annotated,
+    raw,
+    optional_raw: Some(annotated),
+  }
+  let encoded_record = @references.AnyRecord::to_ion(record)
+  let decoded_record = @references.AnyRecord::from_ion(encoded_record)
+  assert_eq(decoded_record.named_value, annotated)
+  assert_eq(decoded_record.raw, raw)
+  assert_eq(decoded_record.optional_raw, Some(annotated))
+  assert_eq(@references.AnyRecord::to_ion(decoded_record), encoded_record)
+
+  let values : @references.AnyValues = [annotated, raw]
+  let encoded_values = @references.to_ion_AnyValues(values)
+  let decoded_values = @references.from_ion_AnyValues(encoded_values)
+  assert_eq(decoded_values, values)
+  assert_eq(@references.to_ion_AnyValues(decoded_values), encoded_values)
+}
+
+///|
+test "any rejects plain and typed null with field and index paths" {
+  let field_error = expect_any_record_error(
+    @ion_model.IonValue::Struct([
+      (
+        @ion_model.IonSymbol::from_text("named_value"),
+        @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+      ),
+      (
+        @ion_model.IonSymbol::from_text("raw"),
+        @ion_model.IonValue::null(kind=@ion_model.IonNull::String),
+      ),
+    ]),
+  )
+  assert_true(
+    match field_error {
+      @references.ConversionError::NullNotAllowed(path~) =>
+        path == "AnyRecord.raw"
+      _ => false
+    },
+  )
+
+  let list_error = try
+    @references.from_ion_AnyValues(
+      @ion_model.IonValue::List([
+        @ion_model.IonValue::Bool(false),
+        @ion_model.IonValue::Null(@ion_model.IonNull::Null),
+      ]),
+    )
+  catch {
+    error => error
+  } noraise {
+    _ =>
+      @references.ConversionError::TypeMismatch(
+        path="test",
+        expected="error",
+        actual="conversion succeeded",
+      )
+  }
+  assert_true(
+    match list_error {
+      @references.ConversionError::NullNotAllowed(path~) =>
+        path == "AnyValues[1]"
+      _ => false
+    },
+  )
+}

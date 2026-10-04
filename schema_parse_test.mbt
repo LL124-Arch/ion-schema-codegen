@@ -14,6 +14,23 @@ test "parse supported scalar struct list and named references" {
 }
 
 ///|
+test "accept any and reject nullable universal any" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: AnyValue, type: any}",
+  )
+
+  let nullable_any = expect_schema_error(
+    "$ion_schema_2_0 type::{name: NullableValue, type: $any}",
+  )
+  assert_true(
+    match nullable_any {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "ISL 2.0 marker-only schema is valid" {
   @ion-schema-codegen.check_schema("$ion_schema_2_0")
 }
