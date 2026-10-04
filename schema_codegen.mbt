@@ -322,18 +322,22 @@ fn write_struct_conversions(
       output.write_string(declaration + "\n")
     }
     output.write_string(
-      "    Some(field_value) => {\n      if field_value.annotations().length() > 0 {\n        raise ConversionError::AnnotatedValueNotSupported(path=\"",
+      "    Some(field_value) => {\n      if field_value.annotations().length() > 0 {\n",
     )
-    output.write_string(named_type.name)
-    output.write_char('.')
-    output.write_string(field.name)
-    output.write_string(
-      "\")\n      }\n      if field_value.is_null() {\n        raise ConversionError::NullNotAllowed(path=\"",
+    write_path_error(
+      output,
+      "        ",
+      "AnnotatedValueNotSupported",
+      named_type.name + "." + field.name,
     )
-    output.write_string(named_type.name)
-    output.write_char('.')
-    output.write_string(field.name)
-    output.write_string("\")\n      }\n")
+    output.write_string("      }\n      if field_value.is_null() {\n")
+    write_path_error(
+      output,
+      "        ",
+      "NullNotAllowed",
+      named_type.name + "." + field.name,
+    )
+    output.write_string("      }\n")
     match resolve_type_ref(types, field.type_ref) {
       ResolvedType::Scalar(scalar_name) => {
         output.write_string(
@@ -473,6 +477,30 @@ fn write_struct_conversions(
     }
   }
   output.write_string("  @ion_model.IonValue::Struct(output_fields)\n}\n")
+}
+
+///|
+fn write_path_error(
+  output : StringBuilder,
+  indent : String,
+  error_variant : String,
+  path : String,
+) -> Unit {
+  let statement = indent +
+    "raise ConversionError::" +
+    error_variant +
+    "(path=\"" +
+    path +
+    "\")"
+  if statement.length() > 80 {
+    output.write_string(
+      indent + "raise ConversionError::" + error_variant + "(\n",
+    )
+    output.write_string(indent + "  path=\"" + path + "\",\n")
+    output.write_string(indent + ")\n")
+  } else {
+    output.write_string(statement + "\n")
+  }
 }
 
 ///|

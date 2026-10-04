@@ -143,7 +143,9 @@ pub fn Person::from_ion(
   let ion_schema_codegen_value_2 : String? = match input_field_2 {
     Some(field_value) => {
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(path="Person.nickname")
+        raise ConversionError::AnnotatedValueNotSupported(
+          path="Person.nickname",
+        )
       }
       if field_value.is_null() {
         raise ConversionError::NullNotAllowed(path="Person.nickname")
