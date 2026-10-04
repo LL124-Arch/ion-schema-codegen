@@ -8,6 +8,17 @@ pub(all) suberror SchemaError {
   DuplicateField(type_name~ : String, field_name~ : String)
   UnknownType(String)
   InvalidOccurs(String)
+  InvalidIdentifier(String)
+  IdentifierCollision(String)
+}
+
+///|
+/// Generated MoonBit declarations and the package imports they need.
+///
+/// Add each entry from [package_imports] to the target package configuration.
+pub(all) struct GeneratedCode {
+  source : String
+  package_imports : Array[String]
 }
 
 ///|
