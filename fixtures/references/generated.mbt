@@ -762,3 +762,134 @@ pub fn AnyRecord::to_ion(self : AnyRecord) -> @ion_model.IonValue {
   }
   @ion_model.IonValue::Struct(output_fields)
 }
+
+///|
+pub type NullableValue = @ion_model.IonValue
+
+///|
+pub type NullableValues = Array[NullableValue]
+
+///|
+/// Convert an Ion list to NullableValues with element-level diagnostics.
+pub fn from_ion_NullableValues(
+  value : @ion_model.IonValue,
+) -> NullableValues raise ConversionError {
+  let type_path = "NullableValues"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : NullableValues = []
+  for element in input_elements {
+    let item : NullableValue = element
+    converted.push(item)
+  }
+  converted
+}
+
+///|
+/// Convert NullableValues into an Ion list.
+pub fn to_ion_NullableValues(items : NullableValues) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(element)
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct NullableRecord {
+  value : @ion_model.IonValue
+  optional : NullableValue?
+}
+
+///|
+/// Convert an Ion struct to NullableRecord with field-level diagnostics.
+pub fn NullableRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> NullableRecord raise ConversionError {
+  let type_path = "NullableRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  let mut input_field_1 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "value" => {
+            if input_field_0 is Some(_) {
+              raise ConversionError::DuplicateField(path="NullableRecord.value")
+            }
+            input_field_0 = Some(field_value)
+          }
+          "optional" => {
+            if input_field_1 is Some(_) {
+              raise ConversionError::DuplicateField(
+                path="NullableRecord.optional",
+              )
+            }
+            input_field_1 = Some(field_value)
+          }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="NullableRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="NullableRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : @ion_model.IonValue = match input_field_0 {
+    Some(field_value) => field_value
+    None =>
+      raise ConversionError::MissingRequiredField(path="NullableRecord.value")
+  }
+  let ion_schema_codegen_value_1 : NullableValue? = match input_field_1 {
+    Some(field_value) => Some(field_value)
+    None => None
+  }
+  { value: ion_schema_codegen_value_0, optional: ion_schema_codegen_value_1, }
+}
+
+///|
+/// Convert NullableRecord into an Ion struct in schema field order.
+pub fn NullableRecord::to_ion(self : NullableRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push((@ion_model.IonSymbol::from_text("value"), self.value))
+  match self.optional {
+    Some(field_value) =>
+      output_fields.push(
+        (@ion_model.IonSymbol::from_text("optional"), field_value),
+      )
+    None => ()
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}

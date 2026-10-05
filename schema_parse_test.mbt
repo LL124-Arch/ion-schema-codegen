@@ -14,16 +14,19 @@ test "parse supported scalar struct list and named references" {
 }
 
 ///|
-test "accept any and reject nullable universal any" {
+test "accept non-null any and nullable universal any" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: AnyValue, type: any}",
   )
-
-  let nullable_any = expect_schema_error(
+  @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: NullableValue, type: $any}",
   )
+
+  let other_nullable_type = expect_schema_error(
+    "$ion_schema_2_0 type::{name: NullableInteger, type: $int}",
+  )
   assert_true(
-    match nullable_any {
+    match other_nullable_type {
       @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
       _ => false
     },

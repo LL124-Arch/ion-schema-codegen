@@ -15,3 +15,6 @@ type::{name: ExpressionRecord, type: struct, fields: closed::{expression: {type:
 type::{name: AnyValue, type: any}
 type::{name: AnyValues, type: list, element: AnyValue}
 type::{name: AnyRecord, type: struct, fields: closed::{named_value: {type: AnyValue, occurs: required}, raw: {type: any, occurs: required}, optional_raw: {type: any, occurs: optional}}}
+type::{name: NullableValue, type: $any}
+type::{name: NullableValues, type: list, element: NullableValue}
+type::{name: NullableRecord, type: struct, fields: closed::{value: {type: $any, occurs: required}, optional: {type: NullableValue, occurs: optional}}}

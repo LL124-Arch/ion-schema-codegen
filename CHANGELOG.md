@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.4.0 — 2026-10-06
+
+- 支持 nullable universal type `$any`，作为字段、列表元素及命名别名时映射为原始 `IonValue`。
+- 保留 plain null、typed null、带注解 null 和其他注解值；非 nullable `any` 仍拒绝 null。
+- 其他 nullable 类型及顶层 document 流仍不在当前值转换子集中。
+
 ## 0.3.0 — 2026-10-05
 
 - 支持 Ion Schema `any`，映射为原始 `IonValue`，可用于结构体字段、列表元素及命名别名。

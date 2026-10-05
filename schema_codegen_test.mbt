@@ -41,6 +41,21 @@ test "map any to raw Ion values in aliases fields and lists" {
 }
 
 ///|
+test "map nullable any to raw Ion values" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: NullableValue, type: $any} type::{name: NullableValues, type: list, element: NullableValue} type::{name: NullableRecord, type: struct, fields: closed::{value: {type: $any, occurs: required}, optional: {type: NullableValue, occurs: optional}}}",
+  )
+  assert_true(
+    generated.source.contains("pub type NullableValue = @ion_model.IonValue"),
+  )
+  assert_true(generated.source.contains("value : @ion_model.IonValue"))
+  assert_true(generated.source.contains("optional : NullableValue?"))
+  assert_true(
+    generated.source.contains("pub type NullableValues = Array[NullableValue]"),
+  )
+}
+
+///|
 test "generate closed structs with required and optional fields" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: Person, type: struct, fields: closed::{id: {type: int, occurs: required}, name: {type: string, occurs: required}, nickname: {type: string, occurs: optional}}}",

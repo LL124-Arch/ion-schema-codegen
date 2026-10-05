@@ -295,3 +295,31 @@ test "any rejects plain and typed null with field and index paths" {
     },
   )
 }
+
+///|
+test "$any preserves plain typed and annotated null values" {
+  let annotation = [@ion_model.IonSymbol::from_text("meta")][:]
+  let plain_null = @ion_model.IonValue::Null(@ion_model.IonNull::Null)
+  let typed_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Int)
+  let annotated_null = typed_null.with_annotations(annotation)
+  let record : @references.NullableRecord = {
+    value: annotated_null,
+    optional: Some(plain_null),
+  }
+  let encoded_record = @references.NullableRecord::to_ion(record)
+  let decoded_record = @references.NullableRecord::from_ion(encoded_record)
+  assert_eq(decoded_record.value, annotated_null)
+  assert_eq(decoded_record.optional, Some(plain_null))
+  assert_eq(@references.NullableRecord::to_ion(decoded_record), encoded_record)
+
+  let values : @references.NullableValues = [
+    plain_null,
+    typed_null,
+    annotated_null,
+    @ion_model.IonValue::String("non-null"),
+  ]
+  let encoded_values = @references.to_ion_NullableValues(values)
+  let decoded_values = @references.from_ion_NullableValues(encoded_values)
+  assert_eq(decoded_values, values)
+  assert_eq(@references.to_ion_NullableValues(decoded_values), encoded_values)
+}

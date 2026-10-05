@@ -308,8 +308,12 @@ fn write_struct_conversions(
       " = match input_field_" +
       index.to_string() +
       " {"
-    let is_any = match resolve_type_ref(types, field.type_ref) {
-      ResolvedType::Scalar("any") => true
+    let is_raw_ion_value = match resolve_type_ref(types, field.type_ref) {
+      ResolvedType::Scalar("any" | "$any") => true
+      _ => false
+    }
+    let allows_null = match resolve_type_ref(types, field.type_ref) {
+      ResolvedType::Scalar("$any") => true
       _ => false
     }
     if declaration.length() > 80 {
@@ -325,77 +329,88 @@ fn write_struct_conversions(
     } else {
       output.write_string(declaration + "\n")
     }
-    output.write_string("    Some(field_value) => {\n")
-    if !is_any {
-      output.write_string("      if field_value.annotations().length() > 0 {\n")
+    if allows_null {
+      output.write_string("    Some(field_value) => ")
+      match field.occurrence {
+        FieldOccurrence::Optional => output.write_string("Some(field_value)")
+        FieldOccurrence::Required => output.write_string("field_value")
+      }
+      output.write_char('\n')
+    } else {
+      output.write_string("    Some(field_value) => {\n")
+      if !is_raw_ion_value {
+        output.write_string(
+          "      if field_value.annotations().length() > 0 {\n",
+        )
+        write_path_error(
+          output,
+          "        ",
+          "AnnotatedValueNotSupported",
+          named_type.name + "." + field.name,
+        )
+        output.write_string("      }\n")
+      }
+      output.write_string("      if field_value.is_null() {\n")
       write_path_error(
         output,
         "        ",
-        "AnnotatedValueNotSupported",
+        "NullNotAllowed",
         named_type.name + "." + field.name,
       )
       output.write_string("      }\n")
-    }
-    output.write_string("      if field_value.is_null() {\n")
-    write_path_error(
-      output,
-      "        ",
-      "NullNotAllowed",
-      named_type.name + "." + field.name,
-    )
-    output.write_string("      }\n")
-    match resolve_type_ref(types, field.type_ref) {
-      ResolvedType::Scalar("any") =>
-        match field.occurrence {
-          FieldOccurrence::Optional =>
-            output.write_string("      Some(field_value)\n")
-          FieldOccurrence::Required =>
-            output.write_string("      field_value\n")
+      match resolve_type_ref(types, field.type_ref) {
+        ResolvedType::Scalar("any" | "$any") =>
+          match field.occurrence {
+            FieldOccurrence::Optional =>
+              output.write_string("      Some(field_value)\n")
+            FieldOccurrence::Required =>
+              output.write_string("      field_value\n")
+          }
+        ResolvedType::Scalar(scalar_name) => {
+          output.write_string(
+            "      match field_value.without_annotations() {\n        ",
+          )
+          output.write_string(ion_value_variant(scalar_name))
+          output.write_string("(converted_value) => ")
+          match field.occurrence {
+            FieldOccurrence::Optional =>
+              output.write_string("Some(converted_value)")
+            FieldOccurrence::Required => output.write_string("converted_value")
+          }
+          output.write_string(
+            "\n        _ =>\n          raise ConversionError::TypeMismatch(\n            path=\"",
+          )
+          output.write_string(named_type.name)
+          output.write_char('.')
+          output.write_string(field.name)
+          output.write_string("\",\n            expected=\"")
+          output.write_string(ion_type_name)
+          output.write_string(
+            "\",\n            actual=ion_schema_codegen_actual_type(field_value),\n          )\n      }\n",
+          )
         }
-      ResolvedType::Scalar(scalar_name) => {
-        output.write_string(
-          "      match field_value.without_annotations() {\n        ",
-        )
-        output.write_string(ion_value_variant(scalar_name))
-        output.write_string("(converted_value) => ")
-        match field.occurrence {
-          FieldOccurrence::Optional =>
-            output.write_string("Some(converted_value)")
-          FieldOccurrence::Required => output.write_string("converted_value")
+        ResolvedType::Struct(_) | ResolvedType::List(_) => {
+          if is_optional_field(field.occurrence) {
+            output.write_string("      Some(")
+          } else {
+            output.write_string("      ")
+          }
+          output.write_string(
+            ion_from_expression(
+              field.type_ref,
+              "field_value",
+              types,
+              "\"" + named_type.name + "." + field.name + ".\"",
+            ),
+          )
+          if is_optional_field(field.occurrence) {
+            output.write_char(')')
+          }
+          output.write_string("\n")
         }
-        output.write_string(
-          "\n        _ =>\n          raise ConversionError::TypeMismatch(\n            path=\"",
-        )
-        output.write_string(named_type.name)
-        output.write_char('.')
-        output.write_string(field.name)
-        output.write_string("\",\n            expected=\"")
-        output.write_string(ion_type_name)
-        output.write_string(
-          "\",\n            actual=ion_schema_codegen_actual_type(field_value),\n          )\n      }\n",
-        )
       }
-      ResolvedType::Struct(_) | ResolvedType::List(_) => {
-        if is_optional_field(field.occurrence) {
-          output.write_string("      Some(")
-        } else {
-          output.write_string("      ")
-        }
-        output.write_string(
-          ion_from_expression(
-            field.type_ref,
-            "field_value",
-            types,
-            "\"" + named_type.name + "." + field.name + ".\"",
-          ),
-        )
-        if is_optional_field(field.occurrence) {
-          output.write_char(')')
-        }
-        output.write_string("\n")
-      }
+      output.write_string("    }\n")
     }
-    output.write_string("    }\n")
     match field.occurrence {
       FieldOccurrence::Optional => output.write_string("    None => None\n")
       FieldOccurrence::Required => {
@@ -530,8 +545,12 @@ fn write_list_conversions(
     "element of \{named_type.name}",
   )
   let expected_type = expected_ion_type(element_type, types)
-  let is_any = match resolve_type_ref(types, element_type) {
-    ResolvedType::Scalar("any") => true
+  let is_raw_ion_value = match resolve_type_ref(types, element_type) {
+    ResolvedType::Scalar("any" | "$any") => true
+    _ => false
+  }
+  let allows_null = match resolve_type_ref(types, element_type) {
+    ResolvedType::Scalar("$any") => true
     _ => false
   }
   output.write_string("///|\n/// Convert an Ion list to ")
@@ -556,24 +575,31 @@ fn write_list_conversions(
   )
   output.write_string("  let converted : ")
   output.write_string(generated_name)
-  output.write_string(" = []\n  let mut index = 0\n")
+  output.write_string(" = []\n")
+  if !is_raw_ion_value || !allows_null {
+    output.write_string("  let mut index = 0\n")
+  }
   output.write_string("  for element in input_elements {\n")
-  output.write_string(
-    "    let element_path = type_path + \"[\" + index.to_string() + \"]\"\n",
-  )
-  if !is_any {
+  if !is_raw_ion_value || !allows_null {
+    output.write_string(
+      "    let element_path = type_path + \"[\" + index.to_string() + \"]\"\n",
+    )
+  }
+  if !is_raw_ion_value {
     output.write_string(
       "    if element.annotations().length() > 0 {\n      raise ConversionError::AnnotatedValueNotSupported(path=element_path)\n    }\n",
     )
   }
-  output.write_string(
-    "    if element.is_null() {\n      raise ConversionError::NullNotAllowed(path=element_path)\n    }\n",
-  )
+  if !allows_null {
+    output.write_string(
+      "    if element.is_null() {\n      raise ConversionError::NullNotAllowed(path=element_path)\n    }\n",
+    )
+  }
   output.write_string("    let item : ")
   output.write_string(element_moonbit_type)
   output.write_string(" = ")
   match resolve_type_ref(types, element_type) {
-    ResolvedType::Scalar("any") => output.write_string("element\n")
+    ResolvedType::Scalar("any" | "$any") => output.write_string("element\n")
     ResolvedType::Scalar(scalar_name) => {
       output.write_string("match element.without_annotations() {\n      ")
       output.write_string(ion_value_variant(scalar_name))
@@ -593,9 +619,11 @@ fn write_list_conversions(
         "\n",
       )
   }
-  output.write_string(
-    "    converted.push(item)\n    index += 1\n  }\n  converted\n}\n\n",
-  )
+  output.write_string("    converted.push(item)\n")
+  if !is_raw_ion_value || !allows_null {
+    output.write_string("    index += 1\n")
+  }
+  output.write_string("  }\n  converted\n}\n\n")
 
   output.write_string("///|\n/// Convert ")
   output.write_string(generated_name)
@@ -771,7 +799,7 @@ fn ion_value_expression(
   types : Array[NamedType],
 ) -> String raise SchemaError {
   match resolve_type_ref(types, type_ref) {
-    ResolvedType::Scalar("any") => value_expression
+    ResolvedType::Scalar("any" | "$any") => value_expression
     ResolvedType::Scalar(name) =>
       ion_value_variant(name) + "(" + value_expression + ")"
     ResolvedType::Struct(name) =>
@@ -885,7 +913,7 @@ fn moonbit_type_for_builtin(
     "timestamp" => "@ion_model.IonTimestamp"
     "blob" | "clob" => "Bytes"
     "sexp" => "Array[@ion_model.IonValue]"
-    "any" => "@ion_model.IonValue"
+    "any" | "$any" => "@ion_model.IonValue"
     _ =>
       raise SchemaError::UnsupportedFeature(
         "no MoonBit type mapping for \{name} at \{context}",
@@ -977,8 +1005,14 @@ fn matches_int(resolved : ResolvedType) -> Bool {
 ///|
 fn matches_model_type(resolved : ResolvedType) -> Bool {
   match resolved {
-    ResolvedType::Scalar("decimal" | "symbol" | "timestamp" | "sexp" | "any") =>
-      true
+    ResolvedType::Scalar(
+      "decimal"
+      | "symbol"
+      | "timestamp"
+      | "sexp"
+      | "any"
+      | "$any"
+    ) => true
     _ => false
   }
 }
