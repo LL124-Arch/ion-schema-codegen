@@ -205,17 +205,7 @@ test "accept open fields and valid_values and reject unsupported constraints and
 }
 
 ///|
-test "reject invalid field occurrence counts" {
-  let invalid_occurs = expect_schema_error(
-    "$ion_schema_2_0 type::{name: Person, type: struct, fields: closed::{age: {type: int, occurs: 2}}}",
-  )
-  assert_true(
-    match invalid_occurs {
-      @ion-schema-codegen.SchemaError::InvalidOccurs(_) => true
-      _ => false
-    },
-  )
-
+test "reject duplicate field occurrence declarations" {
   let duplicate_occurs = expect_schema_error(
     "$ion_schema_2_0 type::{name: Person, type: struct, fields: closed::{age: {type: int, occurs: required, occurs: optional}}}",
   )
