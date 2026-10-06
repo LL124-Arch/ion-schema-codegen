@@ -61,6 +61,7 @@ priv struct FieldSpec {
 priv struct NamedType {
   name : String
   body : TypeBody
+  element_type : TypeRef?
   valid_values : Array[@model.IonValue]?
   container_lengths : Array[IntegerRange]
   codepoint_lengths : Array[IntegerRange]

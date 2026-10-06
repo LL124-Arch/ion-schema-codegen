@@ -82,7 +82,7 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
         if is_document_type(resolve_type_ref(schema.types, type_ref)) {
           output.write_string("\n")
-          write_document_conversions(output, named_type)
+          write_document_conversions(output, named_type, schema.types)
         }
     }
   }
@@ -108,6 +108,18 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
       None => ()
     }
     generated_type_names.push((named_type.name, generated_name))
+
+    match named_type.element_type {
+      Some(element_type) => {
+        validate_codegen_reference(
+          element_type, "element of \\{named_type.name}",
+        )
+        reject_document_reference(
+          element_type, types, "element of \\{named_type.name}",
+        )
+      }
+      None => ()
+    }
 
     match named_type.body {
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
@@ -283,6 +295,7 @@ fn write_named_type(
 fn write_document_conversions(
   output : StringBuilder,
   named_type : NamedType,
+  types : Array[NamedType],
 ) -> Unit raise SchemaError {
   let generated_name = moonbit_type_identifier(named_type.name)
   output.write_string("///|\n/// Convert an Ion document stream to ")
@@ -291,17 +304,20 @@ fn write_document_conversions(
   output.write_string(generated_name)
   output.write_string("(\n  values : Array[@ion_model.IonValue],\n) -> ")
   output.write_string(generated_name)
-  if named_type.container_lengths.length() > 0 {
+  if named_type.container_lengths.length() > 0 ||
+    named_type.element_type is Some(_) ||
+    has_document_alias_constraints(named_type, types, types.length()) {
     output.write_string(" raise ConversionError {\n  let type_path = \"")
     output.write_string(named_type.name)
     output.write_string("\"\n")
-    write_integer_range_checks(
+    write_document_constraint_chain(
       output,
-      named_type.container_lengths,
-      "values.length()",
+      named_type,
+      types,
+      "values",
       "type_path",
-      "container_length",
       "  ",
+      types.length(),
     )
     output.write_string("  values\n}\n\n")
   } else {
@@ -314,6 +330,344 @@ fn write_document_conversions(
   output.write_string("(\n  values : ")
   output.write_string(generated_name)
   output.write_string("\n) -> Array[@ion_model.IonValue] {\n  values\n}\n")
+}
+
+///|
+fn has_document_alias_constraints(
+  named_type : NamedType,
+  types : Array[NamedType],
+  remaining : Int,
+) -> Bool {
+  if remaining <= 0 {
+    return false
+  }
+  match named_type.body {
+    TypeBody::Alias(TypeRef::Named(next)) =>
+      match find_named_type(types, next) {
+        Some(target) =>
+          target.container_lengths.length() > 0 ||
+          target.element_type is Some(_) ||
+          has_document_alias_constraints(target, types, remaining - 1)
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn write_document_constraint_chain(
+  output : StringBuilder,
+  named_type : NamedType,
+  types : Array[NamedType],
+  values_expression : String,
+  path_expression : String,
+  indent : String,
+  remaining : Int,
+) -> Unit raise SchemaError {
+  if remaining <= 0 {
+    return
+  }
+  write_integer_range_checks(
+    output,
+    named_type.container_lengths,
+    values_expression + ".length()",
+    path_expression,
+    "container_length",
+    indent,
+  )
+  match named_type.element_type {
+    Some(element_type) =>
+      write_document_element_checks(
+        output, element_type, types, values_expression, path_expression, indent,
+        remaining,
+      )
+    None => ()
+  }
+  match named_type.body {
+    TypeBody::Alias(TypeRef::Named(next)) =>
+      match find_named_type(types, next) {
+        Some(target) =>
+          write_document_constraint_chain(
+            output,
+            target,
+            types,
+            values_expression,
+            path_expression,
+            indent,
+            remaining - 1,
+          )
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn write_document_element_checks(
+  output : StringBuilder,
+  element_type : TypeRef,
+  types : Array[NamedType],
+  values_expression : String,
+  path_expression : String,
+  indent : String,
+  depth : Int,
+) -> Unit raise SchemaError {
+  let index_name = "ion_schema_codegen_document_index_" + depth.to_string()
+  let value_name = "ion_schema_codegen_document_value_" + depth.to_string()
+  let element_path = "ion_schema_codegen_document_path_" + depth.to_string()
+  output.write_string(
+    indent +
+    "let mut " +
+    index_name +
+    " = 0\n" +
+    indent +
+    "for " +
+    value_name +
+    " in " +
+    values_expression +
+    " {\n" +
+    indent +
+    "  let " +
+    element_path +
+    " = " +
+    path_expression +
+    " + \"[\" + " +
+    index_name +
+    ".to_string() + \"]\"\n",
+  )
+  write_element_item_validation(
+    output,
+    element_type,
+    value_name,
+    types,
+    element_path,
+    indent + "  ",
+  )
+  output.write_string(indent + "  " + index_name + " += 1\n" + indent + "}\n")
+}
+
+///|
+fn write_struct_element_checks(
+  output : StringBuilder,
+  element_type : TypeRef,
+  types : Array[NamedType],
+  fields_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  output.write_string(
+    indent +
+    "let mut ion_schema_codegen_struct_element_index = 0\n" +
+    indent +
+    "for (ion_schema_codegen_struct_element_symbol, ion_schema_codegen_struct_element_value) in " +
+    fields_expression +
+    " {\n" +
+    indent +
+    "  let ion_schema_codegen_struct_element_path = " +
+    path_expression +
+    " + \".\" + ion_schema_codegen_struct_element_symbol.text_value().unwrap_or(\"<field>\") + \"[\" + ion_schema_codegen_struct_element_index.to_string() + \"]\"\n",
+  )
+  write_element_item_validation(
+    output,
+    element_type,
+    "ion_schema_codegen_struct_element_value",
+    types,
+    "ion_schema_codegen_struct_element_path",
+    indent + "  ",
+  )
+  output.write_string(
+    indent + "  ion_schema_codegen_struct_element_index += 1\n" + indent + "}\n",
+  )
+}
+
+///|
+fn write_named_element_checks(
+  output : StringBuilder,
+  named_type : NamedType,
+  types : Array[NamedType],
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  let element_type = match named_type.element_type {
+    Some(type_ref) => type_ref
+    None => return
+  }
+  match named_type.body {
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return
+    _ => ()
+  }
+  let base_type = match named_type.body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) => type_ref
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return
+  }
+  match resolve_type_ref(types, base_type) {
+    ResolvedType::Scalar("sexp" | "$sexp") =>
+      write_named_sequence_element_checks(
+        output, element_type, types, value_expression, path_expression, indent, "Sexp",
+        "ion_schema_codegen_sexp_element",
+      )
+    ResolvedType::Scalar("list" | "$list") =>
+      write_named_sequence_element_checks(
+        output, element_type, types, value_expression, path_expression, indent, "List",
+        "ion_schema_codegen_nullable_list_element",
+      )
+    ResolvedType::List(_) =>
+      write_named_sequence_element_checks(
+        output, element_type, types, value_expression, path_expression, indent, "List",
+        "ion_schema_codegen_list_alias_element",
+      )
+    ResolvedType::Struct(_) | ResolvedType::Scalar("struct" | "$struct") =>
+      write_named_struct_alias_element_checks(
+        output, element_type, types, value_expression, path_expression, indent,
+      )
+    ResolvedType::Scalar(_) => ()
+  }
+}
+
+///|
+fn write_named_sequence_element_checks(
+  output : StringBuilder,
+  element_type : TypeRef,
+  types : Array[NamedType],
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+  ion_variant : String,
+  variable_prefix : String,
+) -> Unit raise SchemaError {
+  let elements_name = variable_prefix + "s"
+  let index_name = variable_prefix + "_index"
+  let element_name = variable_prefix + "_value"
+  let element_path = variable_prefix + "_path"
+  output.write_string(
+    indent +
+    "let " +
+    elements_name +
+    " = match " +
+    value_expression +
+    ".without_annotations() {\n" +
+    indent +
+    "  @ion_model.IonValue::" +
+    ion_variant +
+    "(elements) => elements\n" +
+    indent +
+    "  _ => raise ConversionError::InvalidValue(path=" +
+    path_expression +
+    ", constraint=\"element\", actual=ion_schema_codegen_actual_type(" +
+    value_expression +
+    "))\n" +
+    indent +
+    "}\n" +
+    indent +
+    "let mut " +
+    index_name +
+    " = 0\n" +
+    indent +
+    "for " +
+    element_name +
+    " in " +
+    elements_name +
+    " {\n" +
+    indent +
+    "  let " +
+    element_path +
+    " = " +
+    path_expression +
+    " + \"[\" + " +
+    index_name +
+    ".to_string() + \"]\"\n",
+  )
+  write_element_item_validation(
+    output,
+    element_type,
+    element_name,
+    types,
+    element_path,
+    indent + "  ",
+  )
+  output.write_string(indent + "  " + index_name + " += 1\n" + indent + "}\n")
+}
+
+///|
+fn write_named_struct_alias_element_checks(
+  output : StringBuilder,
+  element_type : TypeRef,
+  types : Array[NamedType],
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  output.write_string(
+    indent +
+    "let ion_schema_codegen_struct_elements = match " +
+    value_expression +
+    ".without_annotations() {\n" +
+    indent +
+    "  @ion_model.IonValue::Struct(fields) => fields\n" +
+    indent +
+    "  _ => raise ConversionError::InvalidValue(path=" +
+    path_expression +
+    ", constraint=\"element\", actual=ion_schema_codegen_actual_type(" +
+    value_expression +
+    "))\n" +
+    indent +
+    "}\n" +
+    indent +
+    "let mut ion_schema_codegen_struct_element_index = 0\n" +
+    indent +
+    "for (ion_schema_codegen_struct_element_symbol, ion_schema_codegen_struct_element_value) in ion_schema_codegen_struct_elements {\n" +
+    indent +
+    "  let ion_schema_codegen_struct_element_path = " +
+    path_expression +
+    " + \".\" + ion_schema_codegen_struct_element_symbol.text_value().unwrap_or(\"<field>\") + \"[\" + ion_schema_codegen_struct_element_index.to_string() + \"]\"\n",
+  )
+  write_element_item_validation(
+    output,
+    element_type,
+    "ion_schema_codegen_struct_element_value",
+    types,
+    "ion_schema_codegen_struct_element_path",
+    indent + "  ",
+  )
+  output.write_string(
+    indent + "  ion_schema_codegen_struct_element_index += 1\n" + indent + "}\n",
+  )
+}
+
+///|
+fn write_element_item_validation(
+  output : StringBuilder,
+  element_type : TypeRef,
+  value_expression : String,
+  types : Array[NamedType],
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  if is_null_or_type_ref(element_type) {
+    output.write_string(
+      indent +
+      "if !ion_schema_codegen_matches_type(" +
+      value_expression +
+      ", \"$null\") {\n",
+    )
+    write_type_validation_with_path_expression(
+      output,
+      nullable_inner_type_ref(element_type),
+      value_expression,
+      types,
+      path_expression,
+      indent + "  ",
+    )
+    output.write_string(indent + "}\n")
+  } else {
+    write_type_validation_with_path_expression(
+      output, element_type, value_expression, types, path_expression, indent,
+    )
+  }
+  write_reference_valid_values_checks(
+    output, element_type, types, value_expression, path_expression, indent,
+  )
 }
 
 ///|
@@ -505,6 +859,13 @@ fn write_struct_conversions(
   output.write_string(
     "  let input_fields = match value.without_annotations() {\n    @ion_model.IonValue::Struct(fields) => fields\n    _ => raise ConversionError::TypeMismatch(path=type_path, expected=\"struct\", actual=ion_schema_codegen_actual_type(value))\n  }\n",
   )
+  match named_type.element_type {
+    Some(element_type) =>
+      write_struct_element_checks(
+        output, element_type, types, "input_fields", "type_path", "  ",
+      )
+    None => ()
+  }
   write_integer_range_checks(
     output,
     named_type.container_lengths,
@@ -1197,6 +1558,11 @@ fn uses_nullable_type_checks(
   types : Array[NamedType],
 ) -> Bool raise SchemaError {
   for named_type in types {
+    match named_type.element_type {
+      Some(type_ref) if needs_nullable_type_check(type_ref, types) =>
+        return true
+      _ => ()
+    }
     match named_type.body {
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
         if needs_nullable_type_check(type_ref, types) {
@@ -1539,7 +1905,7 @@ fn visit_named_type(
     next_path.push(item)
   }
   next_path.push(name)
-  for dependency in referenced_type_names(named_type.body) {
+  for dependency in referenced_type_names(named_type) {
     visit_named_type(dependency, types, next_path, visited, ordered)
   }
   visited.push(name)
@@ -1547,9 +1913,9 @@ fn visit_named_type(
 }
 
 ///|
-fn referenced_type_names(body : TypeBody) -> Array[String] {
+fn referenced_type_names(named_type : NamedType) -> Array[String] {
   let names : Array[String] = []
-  match body {
+  match named_type.body {
     TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
       match type_ref {
         TypeRef::Named(name) => names.push(name)
@@ -1570,6 +1936,10 @@ fn referenced_type_names(body : TypeBody) -> Array[String] {
           TypeRef::NullOrNamed(name) => names.push(name)
         }
       }
+  }
+  match named_type.element_type {
+    Some(TypeRef::Named(name) | TypeRef::NullOrNamed(name)) => names.push(name)
+    Some(TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_)) | None => ()
   }
   names
 }
@@ -1617,6 +1987,11 @@ fn moonbit_type_for_builtin(
 ///|
 fn uses_bigint(types : Array[NamedType]) -> Bool raise SchemaError {
   for named_type in types {
+    match named_type.element_type {
+      Some(type_ref) if matches_int(resolve_type_ref(types, type_ref)) &&
+        !is_raw_ion_value_reference(type_ref, types) => return true
+      _ => ()
+    }
     match named_type.body {
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
         if matches_int(resolve_type_ref(types, type_ref)) &&
@@ -1661,6 +2036,7 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
   for named_type in types {
     if named_type.valid_values is Some(_) ||
       named_type.container_lengths.length() > 0 ||
+      named_type.element_type is Some(_) ||
       named_type.codepoint_lengths.length() > 0 ||
       named_type.utf8_byte_lengths.length() > 0 ||
       named_type.byte_lengths.length() > 0 {
@@ -1679,6 +2055,14 @@ fn has_nested_conversion_types(
   types : Array[NamedType],
 ) -> Bool raise SchemaError {
   for named_type in types {
+    match named_type.element_type {
+      Some(element_type) =>
+        match resolve_type_ref(types, element_type) {
+          ResolvedType::Struct(_) | ResolvedType::List(_) => return true
+          ResolvedType::Scalar(_) => ()
+        }
+      None => ()
+    }
     match named_type.body {
       TypeBody::Struct(fields, _) =>
         for field in fields {

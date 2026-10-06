@@ -778,3 +778,165 @@ test "content length constraints count Unicode and LOB bytes" {
   }
   assert_eq(short_blob, Some(("ContentLengthRecord.blob", "byte_length", "1")))
 }
+
+///|
+test "element constraints validate S-expression values by position" {
+  let input = @ion_model.IonValue::Struct([
+    (
+      @ion_model.IonSymbol::from_text("expression"),
+      @ion_model.IonValue::Sexp([
+        @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+        @ion_model.IonValue::Int(@bigint.BigInt::from_int(2)),
+      ]),
+    ),
+  ])
+  let record = @references.IntExpressionRecord::from_ion(input)
+  assert_eq(record.expression.length(), 2)
+  assert_eq(@references.IntExpressionRecord::to_ion(record), input)
+
+  let invalid = try {
+    let _ = @references.IntExpressionRecord::from_ion(
+      @ion_model.IonValue::Struct([
+        (
+          @ion_model.IonSymbol::from_text("expression"),
+          @ion_model.IonValue::Sexp([
+            @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+            @ion_model.IonValue::Bool(true),
+          ]),
+        ),
+      ]),
+    )
+    None
+  } catch {
+    @references.ConversionError::TypeMismatch(path~, expected~, actual~) =>
+      Some((path, expected, actual))
+    _ => None
+  }
+  assert_eq(invalid, Some(("IntExpressionRecord.expression[1]", "int", "bool")))
+}
+
+///|
+test "struct element constraints include repeated and open fields" {
+  let input = @ion_model.IonValue::Struct([
+    (
+      @ion_model.IonSymbol::from_text("known"),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("repeated"),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(2)),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("extra"),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(3)),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("extra"),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(4)),
+    ),
+  ])
+  let record = @references.ElementRecord::from_ion(input)
+  assert_eq(record.known, @bigint.BigInt::from_int(1))
+  assert_eq(record.repeated.length(), 1)
+  assert_eq(record.ion_schema_codegen_open_content.length(), 2)
+  assert_eq(@references.ElementRecord::to_ion(record), input)
+
+  let invalid = try {
+    let _ = @references.ElementRecord::from_ion(
+      @ion_model.IonValue::Struct([
+        (
+          @ion_model.IonSymbol::from_text("known"),
+          @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+        ),
+        (
+          @ion_model.IonSymbol::from_text("extra"),
+          @ion_model.IonValue::Bool(true),
+        ),
+      ]),
+    )
+    None
+  } catch {
+    @references.ConversionError::TypeMismatch(path~, expected~, actual~) =>
+      Some((path, expected, actual))
+    _ => None
+  }
+  assert_eq(invalid, Some(("ElementRecord.extra[1]", "int", "bool")))
+}
+
+///|
+test "element-only structs preserve their open fields" {
+  let input = @ion_model.IonValue::Struct([
+    (
+      @ion_model.IonSymbol::from_text("first"),
+      @ion_model.IonValue::String("one"),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("second"),
+      @ion_model.IonValue::String("two"),
+    ),
+  ])
+  let fields = @references.StringFields::from_ion(input)
+  assert_eq(fields.ion_schema_codegen_open_content.length(), 2)
+  assert_eq(@references.StringFields::to_ion(fields), input)
+
+  let invalid = try {
+    let _ = @references.StringFields::from_ion(
+      @ion_model.IonValue::Struct([
+        (
+          @ion_model.IonSymbol::from_text("first"),
+          @ion_model.IonValue::String("one"),
+        ),
+        (
+          @ion_model.IonSymbol::from_text("second"),
+          @ion_model.IonValue::Int(@bigint.BigInt::from_int(2)),
+        ),
+      ]),
+    )
+    None
+  } catch {
+    @references.ConversionError::TypeMismatch(path~, expected~, actual~) =>
+      Some((path, expected, actual))
+    _ => None
+  }
+  assert_eq(invalid, Some(("StringFields.second[1]", "string", "int")))
+}
+
+///|
+test "document element constraints validate each top-level value" {
+  let values = [
+    @ion_model.IonValue::String("one"),
+    @ion_model.IonValue::String("two"),
+  ]
+  let document = @references.from_ion_document_TextDocument(values)
+  assert_eq(@references.to_ion_document_TextDocument(document), values)
+  let document_alias = @references.from_ion_document_TextDocumentAlias(values)
+  assert_eq(
+    @references.to_ion_document_TextDocumentAlias(document_alias),
+    values,
+  )
+
+  let invalid = try {
+    let _ = @references.from_ion_document_TextDocument([
+      @ion_model.IonValue::String("one"),
+      @ion_model.IonValue::Bool(true),
+    ])
+    None
+  } catch {
+    @references.ConversionError::TypeMismatch(path~, expected~, actual~) =>
+      Some((path, expected, actual))
+    _ => None
+  }
+  assert_eq(invalid, Some(("TextDocument[1]", "string", "bool")))
+
+  let too_short = try {
+    let _ = @references.from_ion_document_TextDocumentAlias([
+      @ion_model.IonValue::String("one"),
+    ])
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(too_short, Some(("TextDocumentAlias", "container_length", "1")))
+}

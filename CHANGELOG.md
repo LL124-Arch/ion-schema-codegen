@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.13.0 — 2026-10-07
+
+- 支持 struct、sexp 和 document 的 `element` 约束，逐项验证字段值或顶层值，并保留 struct 的重复与开放字段。
+- struct 可仅声明 `element`；document 别名会组合应用元素约束和 `container_length` 范围。
+
 ## 0.12.0 — 2026-10-07
 
 - 支持 string / symbol 的 `codepoint_length` 与 `utf8_byte_length`，以及 blob / clob 的 `byte_length` 精确值和整数区间。

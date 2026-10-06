@@ -340,3 +340,44 @@ test "reject content length constraints on incompatible types" {
     },
   )
 }
+
+///|
+test "accept element constraints on structs S-expressions and documents" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: IntExpression, type: sexp, element: int} type::{name: IntFields, type: struct, element: int} type::{name: NamedFields, type: struct, fields: {known: int}, element: int} type::{name: StringDocument, type: document, element: string} type::{name: StringDocumentAlias, type: StringDocument, element: string}",
+  )
+}
+
+///|
+test "reject unsupported element targets and forms" {
+  let scalar = expect_schema_error(
+    "$ion_schema_2_0 type::{name: InvalidElement, type: string, element: int}",
+  )
+  assert_true(
+    match scalar {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let distinct = expect_schema_error(
+    "$ion_schema_2_0 type::{name: InvalidDistinct, type: sexp, element: distinct::int}",
+  )
+  assert_true(
+    match distinct {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let inline_type = expect_schema_error(
+    "$ion_schema_2_0 type::{name: InvalidInline, type: sexp, element: {type: int}}",
+  )
+  assert_true(
+    match inline_type {
+      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}

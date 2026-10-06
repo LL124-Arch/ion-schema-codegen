@@ -416,3 +416,16 @@ test "generate Unicode and LOB length validators" {
   )
   assert_true(generated.source.contains("constraint=\"byte_length\""))
 }
+
+///|
+test "generate element validators for structs S-expressions and documents" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: IntExpression, type: sexp, element: int} type::{name: IntExpressionRecord, type: struct, fields: closed::{expression: {type: IntExpression, occurs: required}}} type::{name: IntRecord, type: struct, element: int} type::{name: IntDocument, type: document, element: int}",
+  )
+  assert_true(generated.source.contains("@ion_model.IonValue::Sexp(elements)"))
+  assert_true(
+    generated.source.contains("ion_schema_codegen_struct_element_path"),
+  )
+  assert_true(generated.source.contains("ion_schema_codegen_document_index_"))
+  assert_true(generated.source.contains("expected=\"int\""))
+}

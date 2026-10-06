@@ -3117,3 +3117,490 @@ pub fn ContentLengthRecord::to_ion(
   )
   @ion_model.IonValue::Struct(output_fields)
 }
+
+///|
+pub type IntExpression = Array[@ion_model.IonValue]
+
+///|
+pub(all) struct IntExpressionRecord {
+  expression : IntExpression
+}
+
+///|
+/// Convert an Ion struct to IntExpressionRecord with field-level diagnostics.
+pub fn IntExpressionRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> IntExpressionRecord raise ConversionError {
+  let type_path = "IntExpressionRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "expression" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="IntExpressionRecord.expression",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="IntExpressionRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="IntExpressionRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : IntExpression = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "IntExpressionRecord.expression"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : IntExpression = match field_value.without_annotations() {
+        @ion_model.IonValue::Sexp(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="sexp",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      let ion_schema_codegen_sexp_elements = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Sexp(elements) => elements
+        _ =>
+          raise ConversionError::InvalidValue(
+            path=field_path,
+            constraint="element",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      let mut ion_schema_codegen_sexp_element_index = 0
+      for
+        ion_schema_codegen_sexp_element_value in ion_schema_codegen_sexp_elements {
+        let ion_schema_codegen_sexp_element_path = field_path +
+          "[" +
+          ion_schema_codegen_sexp_element_index.to_string() +
+          "]"
+        if !ion_schema_codegen_matches_type(
+            ion_schema_codegen_sexp_element_value, "int",
+          ) {
+          raise ConversionError::TypeMismatch(
+            path=ion_schema_codegen_sexp_element_path,
+            expected="int",
+            actual=ion_schema_codegen_actual_type(
+              ion_schema_codegen_sexp_element_value,
+            ),
+          )
+        }
+        ion_schema_codegen_sexp_element_index += 1
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="IntExpressionRecord.expression",
+      )
+  }
+  { expression: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert IntExpressionRecord into an Ion struct in schema field order.
+pub fn IntExpressionRecord::to_ion(
+  self : IntExpressionRecord,
+) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("expression"),
+      @ion_model.IonValue::Sexp(self.expression),
+    ),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type TextDocument = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion document stream to TextDocument.
+pub fn from_ion_document_TextDocument(
+  values : Array[@ion_model.IonValue],
+) -> TextDocument raise ConversionError {
+  let type_path = "TextDocument"
+  if values.length() < 1 || values.length() > 3 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=values.length().to_string(),
+    )
+  }
+  let mut ion_schema_codegen_document_index_47 = 0
+  for ion_schema_codegen_document_value_47 in values {
+    let ion_schema_codegen_document_path_47 = type_path +
+      "[" +
+      ion_schema_codegen_document_index_47.to_string() +
+      "]"
+    if !ion_schema_codegen_matches_type(
+        ion_schema_codegen_document_value_47, "string",
+      ) {
+      raise ConversionError::TypeMismatch(
+        path=ion_schema_codegen_document_path_47,
+        expected="string",
+        actual=ion_schema_codegen_actual_type(
+          ion_schema_codegen_document_value_47,
+        ),
+      )
+    }
+    ion_schema_codegen_document_index_47 += 1
+  }
+  values
+}
+
+///|
+/// Convert TextDocument to an Ion document stream.
+pub fn to_ion_document_TextDocument(
+  values : TextDocument,
+) -> Array[@ion_model.IonValue] {
+  values
+}
+
+///|
+pub type TextDocumentAlias = TextDocument
+
+///|
+/// Convert an Ion document stream to TextDocumentAlias.
+pub fn from_ion_document_TextDocumentAlias(
+  values : Array[@ion_model.IonValue],
+) -> TextDocumentAlias raise ConversionError {
+  let type_path = "TextDocumentAlias"
+  if values.length() < 2 || values.length() > 4 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=values.length().to_string(),
+    )
+  }
+  let mut ion_schema_codegen_document_index_47 = 0
+  for ion_schema_codegen_document_value_47 in values {
+    let ion_schema_codegen_document_path_47 = type_path +
+      "[" +
+      ion_schema_codegen_document_index_47.to_string() +
+      "]"
+    if !ion_schema_codegen_matches_type(
+        ion_schema_codegen_document_value_47, "string",
+      ) {
+      raise ConversionError::TypeMismatch(
+        path=ion_schema_codegen_document_path_47,
+        expected="string",
+        actual=ion_schema_codegen_actual_type(
+          ion_schema_codegen_document_value_47,
+        ),
+      )
+    }
+    ion_schema_codegen_document_index_47 += 1
+  }
+  if values.length() < 1 || values.length() > 3 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=values.length().to_string(),
+    )
+  }
+  let mut ion_schema_codegen_document_index_46 = 0
+  for ion_schema_codegen_document_value_46 in values {
+    let ion_schema_codegen_document_path_46 = type_path +
+      "[" +
+      ion_schema_codegen_document_index_46.to_string() +
+      "]"
+    if !ion_schema_codegen_matches_type(
+        ion_schema_codegen_document_value_46, "string",
+      ) {
+      raise ConversionError::TypeMismatch(
+        path=ion_schema_codegen_document_path_46,
+        expected="string",
+        actual=ion_schema_codegen_actual_type(
+          ion_schema_codegen_document_value_46,
+        ),
+      )
+    }
+    ion_schema_codegen_document_index_46 += 1
+  }
+  values
+}
+
+///|
+/// Convert TextDocumentAlias to an Ion document stream.
+pub fn to_ion_document_TextDocumentAlias(
+  values : TextDocumentAlias,
+) -> Array[@ion_model.IonValue] {
+  values
+}
+
+///|
+pub(all) struct ElementRecord {
+  known : @bigint.BigInt
+  repeated : Array[@bigint.BigInt]
+  ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ]
+}
+
+///|
+/// Convert an Ion struct to ElementRecord with field-level diagnostics.
+pub fn ElementRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> ElementRecord raise ConversionError {
+  let type_path = "ElementRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut ion_schema_codegen_struct_element_index = 0
+  for
+    (
+      ion_schema_codegen_struct_element_symbol,
+      ion_schema_codegen_struct_element_value,
+    ) in input_fields {
+    let ion_schema_codegen_struct_element_path = type_path +
+      "." +
+      ion_schema_codegen_struct_element_symbol.text_value().unwrap_or("<field>") +
+      "[" +
+      ion_schema_codegen_struct_element_index.to_string() +
+      "]"
+    if !ion_schema_codegen_matches_type(
+        ion_schema_codegen_struct_element_value, "int",
+      ) {
+      raise ConversionError::TypeMismatch(
+        path=ion_schema_codegen_struct_element_path,
+        expected="int",
+        actual=ion_schema_codegen_actual_type(
+          ion_schema_codegen_struct_element_value,
+        ),
+      )
+    }
+    ion_schema_codegen_struct_element_index += 1
+  }
+  let ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ] = []
+  let mut input_field_0 : @ion_model.IonValue? = None
+  let input_field_1 : Array[@ion_model.IonValue] = []
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "known" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="ElementRecord.known",
+                )
+              None => Some(field_value)
+            }
+          "repeated" => input_field_1.push(field_value)
+          _ => ion_schema_codegen_open_content.push((field_symbol, field_value))
+        }
+      None => ion_schema_codegen_open_content.push((field_symbol, field_value))
+    }
+  }
+  let ion_schema_codegen_value_0 : @bigint.BigInt = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "ElementRecord.known"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : @bigint.BigInt = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Int(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="int",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(path="ElementRecord.known")
+  }
+  let field_count_1 = input_field_1.length()
+  if field_count_1 < 1 {
+    raise ConversionError::FieldOccurrenceMismatch(
+      path="ElementRecord.repeated",
+      expected="1+",
+      actual=field_count_1,
+    )
+  }
+  let ion_schema_codegen_value_1_values : Array[@bigint.BigInt] = []
+  let mut field_index_1 = 0
+  for field_value in input_field_1 {
+    let field_path = "ElementRecord.repeated[" + field_index_1.to_string() + "]"
+    if field_value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+    }
+    if field_value.is_null() {
+      raise ConversionError::NullNotAllowed(path=field_path)
+    }
+    let field_item : @bigint.BigInt = match field_value.without_annotations() {
+      @ion_model.IonValue::Int(converted_value) => converted_value
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=field_path,
+          expected="int",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+    }
+    ion_schema_codegen_value_1_values.push(field_item)
+    field_index_1 += 1
+  }
+  let ion_schema_codegen_value_1 : Array[@bigint.BigInt] = ion_schema_codegen_value_1_values
+  {
+    known: ion_schema_codegen_value_0,
+    repeated: ion_schema_codegen_value_1,
+    ion_schema_codegen_open_content,
+  }
+}
+
+///|
+/// Convert ElementRecord into an Ion struct in schema field order.
+pub fn ElementRecord::to_ion(self : ElementRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("known"),
+      @ion_model.IonValue::Int(self.known),
+    ),
+  )
+  for field_value in self.repeated {
+    output_fields.push(
+      (
+        @ion_model.IonSymbol::from_text("repeated"),
+        @ion_model.IonValue::Int(field_value),
+      ),
+    )
+  }
+  for (field_symbol, field_value) in self.ion_schema_codegen_open_content {
+    output_fields.push((field_symbol, field_value))
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub(all) struct StringFields {
+  ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ]
+}
+
+///|
+/// Convert an Ion struct to StringFields with field-level diagnostics.
+pub fn StringFields::from_ion(
+  value : @ion_model.IonValue,
+) -> StringFields raise ConversionError {
+  let type_path = "StringFields"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut ion_schema_codegen_struct_element_index = 0
+  for
+    (
+      ion_schema_codegen_struct_element_symbol,
+      ion_schema_codegen_struct_element_value,
+    ) in input_fields {
+    let ion_schema_codegen_struct_element_path = type_path +
+      "." +
+      ion_schema_codegen_struct_element_symbol.text_value().unwrap_or("<field>") +
+      "[" +
+      ion_schema_codegen_struct_element_index.to_string() +
+      "]"
+    if !ion_schema_codegen_matches_type(
+        ion_schema_codegen_struct_element_value, "string",
+      ) {
+      raise ConversionError::TypeMismatch(
+        path=ion_schema_codegen_struct_element_path,
+        expected="string",
+        actual=ion_schema_codegen_actual_type(
+          ion_schema_codegen_struct_element_value,
+        ),
+      )
+    }
+    ion_schema_codegen_struct_element_index += 1
+  }
+  let ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ] = []
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          _ => ion_schema_codegen_open_content.push((field_symbol, field_value))
+        }
+      None => ion_schema_codegen_open_content.push((field_symbol, field_value))
+    }
+  }
+  { ion_schema_codegen_open_content, }
+}
+
+///|
+/// Convert StringFields into an Ion struct in schema field order.
+pub fn StringFields::to_ion(self : StringFields) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  for (field_symbol, field_value) in self.ion_schema_codegen_open_content {
+    output_fields.push((field_symbol, field_value))
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}

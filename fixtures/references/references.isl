@@ -59,3 +59,12 @@ type::{name: ContentLengthRecord, type: struct, fields: closed::{
   blob: {type: LimitedBlob, occurs: required},
   clob: {type: LimitedClob, occurs: required}
 }}
+type::{name: IntExpression, type: sexp, element: int}
+type::{name: IntExpressionRecord, type: struct, fields: closed::{expression: {type: IntExpression, occurs: required}}}
+type::{name: TextDocument, type: document, element: string, container_length: range::[1, 3]}
+type::{name: TextDocumentAlias, type: TextDocument, element: string, container_length: range::[2, 4]}
+type::{name: ElementRecord, type: struct, fields:{
+  known: {type: int, occurs: required},
+  repeated: {type: int, occurs: range::[1, max]}
+}, element: int}
+type::{name: StringFields, type: struct, element: string}

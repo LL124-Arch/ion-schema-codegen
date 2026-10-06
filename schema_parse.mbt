@@ -118,6 +118,16 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let codepoint_length_fields = value.get_fields("codepoint_length")
   let utf8_byte_length_fields = value.get_fields("utf8_byte_length")
   let byte_length_fields = value.get_fields("byte_length")
+  if elements.length() > 1 {
+    raise SchemaError::InvalidSchema(
+      "element may appear at most once at type " + name,
+    )
+  }
+  let element_type = match elements {
+    [] => None
+    [element] => Some(parse_element_type(element, "element of " + name))
+    _ => None
+  }
   validate_type_definition_fields(
     value,
     name,
@@ -160,17 +170,16 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
           "valid_values is only supported on scalar types at type \{name}",
         )
       }
-      if fields.length() != 1 {
+      if fields.length() > 1 {
         raise SchemaError::InvalidSchema(
-          "type \{name} must declare exactly one closed fields constraint",
+          "type \{name} may declare at most one fields constraint",
         )
       }
-      if elements.length() != 0 {
-        raise SchemaError::InvalidSchema(
-          "type \{name} cannot use element with struct",
-        )
+      let (parsed_fields, is_open) = match fields {
+        [] => ([], true)
+        [field_constraint] => parse_fields(name, field_constraint)
+        _ => ([], true)
       }
-      let (parsed_fields, is_open) = parse_fields(name, fields[0])
       TypeBody::Struct(parsed_fields, is_open)
     }
     "list" => {
@@ -192,9 +201,9 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       TypeBody::List(parse_element_type(elements[0], "element of \{name}"))
     }
     _ => {
-      if fields.length() != 0 || elements.length() != 0 {
+      if fields.length() != 0 {
         raise SchemaError::InvalidSchema(
-          "scalar or alias type \{name} cannot use fields or element",
+          "scalar or alias type \{name} cannot use fields",
         )
       }
       let reference = parse_type_reference(type_value, "type \{name}")
@@ -211,6 +220,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   {
     name,
     body,
+    element_type,
     valid_values,
     container_lengths,
     codepoint_lengths,
@@ -815,8 +825,40 @@ fn supports_integer_content_length(
 }
 
 ///|
+fn supports_element_constraint(
+  types : Array[NamedType],
+  named_type : NamedType,
+) -> Bool raise SchemaError {
+  match named_type.body {
+    TypeBody::Struct(_, _) | TypeBody::List(_) => true
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Struct(_) | ResolvedType::List(_) => true
+        ResolvedType::Scalar(name) =>
+          contains_string(["sexp", "$sexp", "document"], name)
+      }
+  }
+}
+
+///|
 fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError {
   for named_type in types {
+    match named_type.element_type {
+      Some(element_type) => {
+        if !supports_element_constraint(types, named_type) {
+          raise SchemaError::UnsupportedFeature(
+            "element applies only to list, sexp, struct, or document values at type " +
+            named_type.name,
+          )
+        }
+        validate_type_reference(
+          types,
+          element_type,
+          "element of " + named_type.name,
+        )
+      }
+      None => ()
+    }
     if named_type.container_lengths.length() > 0 &&
       !supports_container_length(types, named_type.body) {
       raise SchemaError::UnsupportedFeature(
