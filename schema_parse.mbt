@@ -235,8 +235,16 @@ fn parse_type_argument(
       let type_ref = parse_type_argument_reference(type_value, context)
       let occurrence_values = value.get_fields("occurs")
       let occurrence = match occurrence_values {
-        [] => FieldOccurrence::Optional
-        [occurs_value] => parse_occurs(occurs_value, context)
+        [] => { min_count: 0, max_count: Some(1), }
+        [occurs_value] => {
+          let occurs = parse_occurs(occurs_value, context)
+          if is_null_or_reference(type_ref) {
+            raise SchemaError::InvalidOccurs(
+              "$null_or cannot be combined with explicit occurs at \{context}",
+            )
+          }
+          occurs
+        }
         _ =>
           raise SchemaError::InvalidOccurs(
             "occurs may appear at most once at \{context}",
@@ -245,7 +253,10 @@ fn parse_type_argument(
       (type_ref, occurrence)
     }
     _ =>
-      (parse_type_argument_reference(value, context), FieldOccurrence::Optional)
+      (
+        parse_type_argument_reference(value, context),
+        { min_count: 0, max_count: Some(1), },
+      )
   }
 }
 
@@ -287,32 +298,142 @@ fn parse_occurs(
   value : @model.IonValue,
   context : String,
 ) -> FieldOccurrence raise SchemaError {
-  if value.annotations().length() != 0 {
-    raise SchemaError::InvalidOccurs(
-      "occurs must be an unannotated symbol at \{context}",
-    )
-  }
-  let name = match value.without_annotations() {
-    @model.IonValue::Symbol(symbol) =>
-      match symbol.text_value() {
-        Some(text) => text
-        None =>
+  match value.annotations() {
+    [annotation] if annotation.text_value() == Some("range") =>
+      parse_occurs_range(value, context)
+    [] =>
+      match value.without_annotations() {
+        @model.IonValue::Symbol(symbol) =>
+          match symbol.text_value() {
+            Some("required") => { min_count: 1, max_count: Some(1), }
+            Some("optional") => { min_count: 0, max_count: Some(1), }
+            Some(name) =>
+              raise SchemaError::InvalidOccurs(
+                "expected required, optional, a non-negative integer, or range at \{context}; found \{name}",
+              )
+            None =>
+              raise SchemaError::InvalidOccurs(
+                "occurs must be a resolved symbol at \{context}",
+              )
+          }
+        @model.IonValue::Int(count) => {
+          let exact = parse_occurs_count(count, context)
+          { min_count: exact, max_count: Some(exact), }
+        }
+        _ =>
           raise SchemaError::InvalidOccurs(
-            "occurs must be a resolved symbol at \{context}",
+            "expected required, optional, a non-negative integer, or range at \{context}",
           )
       }
     _ =>
       raise SchemaError::InvalidOccurs(
-        "only required and optional are supported at \{context}",
+        "occurs must be an unannotated symbol, integer, or range:: list at \{context}",
       )
   }
-  match name {
-    "required" => FieldOccurrence::Required
-    "optional" => FieldOccurrence::Optional
+}
+
+///|
+fn parse_occurs_range(
+  value : @model.IonValue,
+  context : String,
+) -> FieldOccurrence raise SchemaError {
+  let (minimum, maximum) = match value.without_annotations() {
+    @model.IonValue::List([minimum, maximum]) => (minimum, maximum)
     _ =>
       raise SchemaError::InvalidOccurs(
-        "only required and optional are supported at \{context}; found \{name}",
+        "occurs range must contain exactly two bounds at \{context}",
       )
+  }
+  let (minimum_value, minimum_exclusive) = parse_occurs_endpoint(
+    minimum, true, context,
+  )
+  let (maximum_value, maximum_exclusive) = parse_occurs_endpoint(
+    maximum, false, context,
+  )
+  if minimum_value is None && maximum_value is None {
+    raise SchemaError::InvalidOccurs(
+      "occurs range cannot use both min and max at \{context}",
+    )
+  }
+  if minimum_exclusive && minimum_value == Some(2147483647) {
+    raise SchemaError::InvalidOccurs(
+      "exclusive occurs minimum exceeds the maximum supported MoonBit array length at \{context}",
+    )
+  }
+  let min_count = match minimum_value {
+    Some(count) => count + (if minimum_exclusive { 1 } else { 0 })
+    None => 0
+  }
+  let max_count = match maximum_value {
+    Some(count) => Some(count - (if maximum_exclusive { 1 } else { 0 }))
+    None => None
+  }
+  match max_count {
+    Some(maximum_count) if maximum_count < min_count =>
+      raise SchemaError::InvalidOccurs(
+        "occurs range has no non-negative integer values at \{context}",
+      )
+    _ => ()
+  }
+  { min_count, max_count, }
+}
+
+///|
+fn parse_occurs_endpoint(
+  value : @model.IonValue,
+  is_minimum : Bool,
+  context : String,
+) -> (Int?, Bool) raise SchemaError {
+  let exclusive = match value.annotations() {
+    [] => false
+    [annotation] if annotation.text_value() == Some("exclusive") => true
+    _ =>
+      raise SchemaError::InvalidOccurs(
+        "range bounds may only use the exclusive annotation at \{context}",
+      )
+  }
+  match value.without_annotations() {
+    @model.IonValue::Symbol(symbol) => {
+      let expected = if is_minimum { "min" } else { "max" }
+      if exclusive || symbol.text_value() != Some(expected) {
+        raise SchemaError::InvalidOccurs(
+          "occurs range must use min as its lower bound and max as its upper bound at \{context}",
+        )
+      }
+      (None, false)
+    }
+    @model.IonValue::Int(count) =>
+      (Some(parse_occurs_count(count, context)), exclusive)
+    _ =>
+      raise SchemaError::InvalidOccurs(
+        "occurs range bounds must be non-negative integers or min/max at \{context}",
+      )
+  }
+}
+
+///|
+fn parse_occurs_count(
+  count : @bigint.BigInt,
+  context : String,
+) -> Int raise SchemaError {
+  if count.compare_int(0) < 0 {
+    raise SchemaError::InvalidOccurs(
+      "occurs counts must be non-negative at \{context}",
+    )
+  }
+  if count.compare_int(2147483647) > 0 {
+    raise SchemaError::InvalidOccurs(
+      "occurs count exceeds the maximum supported MoonBit array length at \{context}",
+    )
+  }
+  count.to_int()
+}
+
+///|
+fn is_null_or_reference(type_ref : TypeRef) -> Bool {
+  match type_ref {
+    TypeRef::NullOrBuiltin(_) | TypeRef::NullOrNamed(_) => true
+    _ => false
   }
 }
 
@@ -535,9 +656,14 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
         )
       TypeBody::Struct(fields) =>
         for field in fields {
-          let occurrence = match field.occurrence {
-            FieldOccurrence::Required => "required"
-            FieldOccurrence::Optional => "optional"
+          let occurrence = if field.occurrence.min_count == 1 &&
+            field.occurrence.max_count == Some(1) {
+            "required"
+          } else if field.occurrence.min_count == 0 &&
+            field.occurrence.max_count == Some(1) {
+            "optional"
+          } else {
+            "repeated"
           }
           validate_type_reference(
             types,

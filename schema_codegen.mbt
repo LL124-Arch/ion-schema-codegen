@@ -204,6 +204,9 @@ fn write_named_type(
           ),
         )
         output.write_string(" : ")
+        if is_repeated_field(field.occurrence) {
+          output.write_string("Array[")
+        }
         output.write_string(
           moonbit_type_for_reference_in(
             field.type_ref,
@@ -211,9 +214,10 @@ fn write_named_type(
             "field \{named_type.name}.\{field.name}",
           ),
         )
-        match field.occurrence {
-          FieldOccurrence::Required => ()
-          FieldOccurrence::Optional => output.write_string("?")
+        if is_repeated_field(field.occurrence) {
+          output.write_string("]")
+        } else if is_optional_field(field.occurrence) {
+          output.write_string("?")
         }
         output.write_string("\n")
       }
@@ -260,7 +264,7 @@ fn write_document_conversions(
 ///|
 fn write_conversion_error(output : StringBuilder) -> Unit {
   output.write_string(
-    "///|\npub(all) suberror ConversionError {\n  TypeMismatch(path~ : String, expected~ : String, actual~ : String)\n  MissingRequiredField(path~ : String)\n  DuplicateField(path~ : String)\n  UnknownField(path~ : String)\n  UnknownSymbol(path~ : String, sid~ : Int)\n  NullNotAllowed(path~ : String)\n  AnnotatedValueNotSupported(path~ : String)\n}\n",
+    "///|\npub(all) suberror ConversionError {\n  TypeMismatch(path~ : String, expected~ : String, actual~ : String)\n  MissingRequiredField(path~ : String)\n  DuplicateField(path~ : String)\n  FieldOccurrenceMismatch(path~ : String, expected~ : String, actual~ : Int)\n  UnknownField(path~ : String)\n  UnknownSymbol(path~ : String, sid~ : Int)\n  NullNotAllowed(path~ : String)\n  AnnotatedValueNotSupported(path~ : String)\n}\n",
   )
 }
 
@@ -282,7 +286,7 @@ fn write_ion_type_helpers(
 ///|
 fn write_prefix_error_helper(output : StringBuilder) -> Unit {
   output.write_string(
-    "///|\nfn ion_schema_codegen_prefix_error(\n  error : ConversionError,\n  prefix : String,\n) -> ConversionError {\n  match error {\n    ConversionError::TypeMismatch(path~, expected~, actual~) =>\n      ConversionError::TypeMismatch(\n        path=prefix + path,\n        expected~,\n        actual~,\n      )\n    ConversionError::MissingRequiredField(path~) =>\n      ConversionError::MissingRequiredField(path=prefix + path)\n    ConversionError::DuplicateField(path~) =>\n      ConversionError::DuplicateField(path=prefix + path)\n    ConversionError::UnknownField(path~) =>\n      ConversionError::UnknownField(path=prefix + path)\n    ConversionError::UnknownSymbol(path~, sid~) =>\n      ConversionError::UnknownSymbol(path=prefix + path, sid~)\n    ConversionError::NullNotAllowed(path~) =>\n      ConversionError::NullNotAllowed(path=prefix + path)\n    ConversionError::AnnotatedValueNotSupported(path~) =>\n      ConversionError::AnnotatedValueNotSupported(path=prefix + path)\n  }\n}\n",
+    "///|\nfn ion_schema_codegen_prefix_error(\n  error : ConversionError,\n  prefix : String,\n) -> ConversionError {\n  match error {\n    ConversionError::TypeMismatch(path~, expected~, actual~) =>\n      ConversionError::TypeMismatch(\n        path=prefix + path,\n        expected~,\n        actual~,\n      )\n    ConversionError::MissingRequiredField(path~) =>\n      ConversionError::MissingRequiredField(path=prefix + path)\n    ConversionError::DuplicateField(path~) =>\n      ConversionError::DuplicateField(path=prefix + path)\n    ConversionError::FieldOccurrenceMismatch(path~, expected~, actual~) =>\n      ConversionError::FieldOccurrenceMismatch(path=prefix + path, expected~, actual~)\n    ConversionError::UnknownField(path~) =>\n      ConversionError::UnknownField(path=prefix + path)\n    ConversionError::UnknownSymbol(path~, sid~) =>\n      ConversionError::UnknownSymbol(path=prefix + path, sid~)\n    ConversionError::NullNotAllowed(path~) =>\n      ConversionError::NullNotAllowed(path=prefix + path)\n    ConversionError::AnnotatedValueNotSupported(path~) =>\n      ConversionError::AnnotatedValueNotSupported(path=prefix + path)\n  }\n}\n",
   )
 }
 
@@ -293,14 +297,13 @@ fn write_struct_conversions(
   fields : Array[FieldSpec],
   types : Array[NamedType],
 ) -> Unit raise SchemaError {
-  let generated_name = moonbit_type_identifier(named_type.name)
-  let value_local_prefix = generated_value_local_prefix(fields)
+  let name = moonbit_type_identifier(named_type.name)
   output.write_string("///|\n/// Convert an Ion struct to ")
-  output.write_string(generated_name)
+  output.write_string(name)
   output.write_string(" with field-level diagnostics.\npub fn ")
-  output.write_string(generated_name)
+  output.write_string(name)
   output.write_string("::from_ion(\n  value : @ion_model.IonValue,\n) -> ")
-  output.write_string(generated_name)
+  output.write_string(name)
   output.write_string(" raise ConversionError {\n")
   output.write_string("  let type_path = \"")
   output.write_string(named_type.name)
@@ -312,207 +315,172 @@ fn write_struct_conversions(
     "  if value.annotations().length() > 0 {\n    raise ConversionError::AnnotatedValueNotSupported(path=type_path)\n  }\n",
   )
   output.write_string(
-    "  let input_fields = match value.without_annotations() {\n    @ion_model.IonValue::Struct(fields) => fields\n    _ =>\n      raise ConversionError::TypeMismatch(\n        path=type_path,\n        expected=\"struct\",\n        actual=ion_schema_codegen_actual_type(value),\n      )\n  }\n",
+    "  let input_fields = match value.without_annotations() {\n    @ion_model.IonValue::Struct(fields) => fields\n    _ => raise ConversionError::TypeMismatch(path=type_path, expected=\"struct\", actual=ion_schema_codegen_actual_type(value))\n  }\n",
   )
-  let mut index = 0
-  for _field in fields {
-    output.write_string("  let mut input_field_")
-    output.write_string(index.to_string())
-    output.write_string(" : @ion_model.IonValue? = None\n")
-    index += 1
+  let mut i = 0
+  for field in fields {
+    output.write_string(
+      if is_repeated_field(field.occurrence) {
+        "  let input_field_"
+      } else {
+        "  let mut input_field_"
+      },
+    )
+    output.write_string(i.to_string())
+    if is_repeated_field(field.occurrence) {
+      output.write_string(" : Array[@ion_model.IonValue] = []\n")
+    } else {
+      output.write_string(" : @ion_model.IonValue? = None\n")
+    }
+    i += 1
   }
-  output.write_string("  for (field_symbol, field_value) in input_fields {\n")
-  output.write_string("    match field_symbol.text_value() {\n")
-  output.write_string("      Some(field_name) =>\n        match field_name {\n")
-  index = 0
+  output.write_string(
+    "  for (field_symbol, field_value) in input_fields {\n    match field_symbol.text_value() {\n      Some(field_name) =>\n        match field_name {\n",
+  )
+  i = 0
   for field in fields {
     output.write_string("          \"")
     output.write_string(field.name)
-    output.write_string("\" => {\n            if input_field_")
-    output.write_string(index.to_string())
-    output.write_string(
-      " is Some(_) {\n              raise ConversionError::DuplicateField(path=\"",
-    )
-    output.write_string(named_type.name)
-    output.write_char('.')
-    output.write_string(field.name)
-    output.write_string("\")\n            }\n            input_field_")
-    output.write_string(index.to_string())
-    output.write_string(" = Some(field_value)\n          }\n")
-    index += 1
+    output.write_string("\" => ")
+    output.write_string("input_field_")
+    output.write_string(i.to_string())
+    if is_repeated_field(field.occurrence) {
+      output.write_string(".push(field_value)\n")
+    } else {
+      output.write_string(" = match input_field_")
+      output.write_string(i.to_string())
+      output.write_string(
+        " {\n            Some(_) => raise ConversionError::DuplicateField(path=\"",
+      )
+      output.write_string(named_type.name)
+      output.write_char('.')
+      output.write_string(field.name)
+      output.write_string(
+        "\"),\n            None => Some(field_value),\n          }\n",
+      )
+    }
+    i += 1
   }
   output.write_string(
     "          _ => raise ConversionError::UnknownField(path=\"",
   )
   output.write_string(named_type.name)
-  output.write_string(".\" + field_name)\n        }\n")
   output.write_string(
-    "      None =>\n        raise ConversionError::UnknownSymbol(\n          path=\"",
+    ".\" + field_name)\n        }\n      None => raise ConversionError::UnknownSymbol(path=\"",
   )
   output.write_string(named_type.name)
   output.write_string(
-    ".<field>\",\n          sid=field_symbol.sid_value().unwrap_or(0),\n        )\n",
+    ".<field>\", sid=field_symbol.sid_value().unwrap_or(0))\n    }\n  }\n",
   )
-  output.write_string("    }\n  }\n")
 
-  index = 0
+  let locals = generated_value_local_prefix(fields)
+  i = 0
   for field in fields {
-    let value_local = value_local_prefix + index.to_string()
-    let ion_type_name = expected_ion_type(field.type_ref, types)
-    let moonbit_base_type = moonbit_type_for_reference_in(
+    let index = i.to_string()
+    let field_local = locals + index
+    let ion_type = expected_ion_type(field.type_ref, types)
+    let base_type = moonbit_type_for_reference_in(
       field.type_ref,
       types,
       "field \{named_type.name}.\{field.name}",
     )
-    let moonbit_type = match field.occurrence {
-      FieldOccurrence::Optional => moonbit_base_type + "?"
-      FieldOccurrence::Required => moonbit_base_type
-    }
-    let declaration = "  let " +
-      value_local +
-      " : " +
-      moonbit_type +
-      " = match input_field_" +
-      index.to_string() +
-      " {"
-    let is_raw_ion_value = is_raw_ion_value_reference(field.type_ref, types)
-    let allows_null = reference_accepts_null(field.type_ref, types)
-    if declaration.length() > 80 {
-      output.write_string(
-        "  let " +
-        value_local +
-        " : " +
-        moonbit_type +
-        " = match\n    input_field_" +
-        index.to_string() +
-        " {\n",
+    if is_repeated_field(field.occurrence) {
+      output.write_string("  let field_count_")
+      output.write_string(index)
+      output.write_string(" = input_field_")
+      output.write_string(index)
+      output.write_string(".length()\n")
+      if field.occurrence.min_count > 0 {
+        output.write_string("  if field_count_")
+        output.write_string(index)
+        output.write_string(" < ")
+        output.write_string(field.occurrence.min_count.to_string())
+        output.write_string(" {\n")
+        write_field_occurrence_error(
+          output,
+          field,
+          named_type.name,
+          "field_count_" + index,
+          "    ",
+        )
+        output.write_string("  }\n")
+      }
+      match field.occurrence.max_count {
+        Some(maximum) => {
+          output.write_string("  if field_count_")
+          output.write_string(index)
+          output.write_string(" > ")
+          output.write_string(maximum.to_string())
+          output.write_string(" {\n")
+          write_field_occurrence_error(
+            output,
+            field,
+            named_type.name,
+            "field_count_" + index,
+            "    ",
+          )
+          output.write_string("  }\n")
+        }
+        None => ()
+      }
+      output.write_string("  let ")
+      output.write_string(field_local)
+      output.write_string("_values : Array[")
+      output.write_string(base_type)
+      output.write_string("] = []\n  let mut field_index_")
+      output.write_string(index)
+      output.write_string(" = 0\n  for field_value in input_field_")
+      output.write_string(index)
+      output.write_string(" {\n    let field_path = \"")
+      output.write_string(named_type.name)
+      output.write_char('.')
+      output.write_string(field.name)
+      output.write_string("[\" + field_index_")
+      output.write_string(index)
+      output.write_string(".to_string() + \"]\"\n")
+      write_field_item_conversion(
+        output, field, types, named_type, base_type, "      ", ion_type,
       )
+      output.write_string("      ")
+      output.write_string(field_local)
+      output.write_string("_values.push(field_item)\n      field_index_")
+      output.write_string(index)
+      output.write_string(" += 1\n  }\n  let ")
+      output.write_string(field_local)
+      output.write_string(" : Array[")
+      output.write_string(base_type)
+      output.write_string("] = ")
+      output.write_string(field_local)
+      output.write_string("_values\n")
     } else {
-      output.write_string(declaration + "\n")
-    }
-    if is_universal_any_reference(field.type_ref, types) {
-      output.write_string("    Some(field_value) => ")
-      match field.occurrence {
-        FieldOccurrence::Optional => output.write_string("Some(field_value)")
-        FieldOccurrence::Required => output.write_string("field_value")
+      output.write_string("  let ")
+      output.write_string(field_local)
+      output.write_string(" : ")
+      output.write_string(base_type)
+      if is_optional_field(field.occurrence) {
+        output.write_string("?")
       }
-      output.write_char('\n')
-    } else {
-      output.write_string("    Some(field_value) => {\n")
-      if !is_raw_ion_value {
-        output.write_string(
-          "      if field_value.annotations().length() > 0 {\n",
-        )
-        write_path_error(
-          output,
-          "        ",
-          "AnnotatedValueNotSupported",
-          named_type.name + "." + field.name,
-        )
-        output.write_string("      }\n")
-      }
-      if !allows_null {
-        output.write_string("      if field_value.is_null() {\n")
-        write_path_error(
-          output,
-          "        ",
-          "NullNotAllowed",
-          named_type.name + "." + field.name,
-        )
-        output.write_string("      }\n")
-      }
-      if is_null_or_type_ref(field.type_ref) {
-        output.write_string(
-          "      if !ion_schema_codegen_matches_type(field_value, \"$null\") {\n",
-        )
-        write_type_validation(
-          output,
-          nullable_inner_type_ref(field.type_ref),
-          "field_value",
-          types,
-          named_type.name + "." + field.name,
-          "        ",
-        )
-        output.write_string("      }\n      ")
-        match field.occurrence {
-          FieldOccurrence::Optional =>
-            output.write_string("Some(field_value)\n")
-          FieldOccurrence::Required => output.write_string("field_value\n")
-        }
+      output.write_string(" = match input_field_")
+      output.write_string(index)
+      output.write_string(" {\n    Some(field_value) => {\n")
+      output.write_string("      let field_path = \"")
+      output.write_string(named_type.name)
+      output.write_char('.')
+      output.write_string(field.name)
+      output.write_string("\"\n")
+      write_field_item_conversion(
+        output, field, types, named_type, base_type, "      ", ion_type,
+      )
+      output.write_string("      ")
+      if is_optional_field(field.occurrence) {
+        output.write_string("Some(field_item)\n")
       } else {
-        match resolve_type_ref(types, field.type_ref) {
-          ResolvedType::Scalar("any" | "$any") =>
-            match field.occurrence {
-              FieldOccurrence::Optional =>
-                output.write_string("      Some(field_value)\n")
-              FieldOccurrence::Required =>
-                output.write_string("      field_value\n")
-            }
-          ResolvedType::Scalar(scalar_name) if scalar_name.has_prefix("$") => {
-            write_scalar_type_check(
-              output,
-              "field_value",
-              scalar_name,
-              named_type.name + "." + field.name,
-              "      ",
-            )
-            match field.occurrence {
-              FieldOccurrence::Optional =>
-                output.write_string("      Some(field_value)\n")
-              FieldOccurrence::Required =>
-                output.write_string("      field_value\n")
-            }
-          }
-          ResolvedType::Scalar(scalar_name) => {
-            output.write_string(
-              "      match field_value.without_annotations() {\n        ",
-            )
-            output.write_string(ion_value_variant(scalar_name))
-            output.write_string("(converted_value) => ")
-            match field.occurrence {
-              FieldOccurrence::Optional =>
-                output.write_string("Some(converted_value)")
-              FieldOccurrence::Required =>
-                output.write_string("converted_value")
-            }
-            output.write_string(
-              "\n        _ =>\n          raise ConversionError::TypeMismatch(\n            path=\"",
-            )
-            output.write_string(named_type.name)
-            output.write_char('.')
-            output.write_string(field.name)
-            output.write_string("\",\n            expected=\"")
-            output.write_string(ion_type_name)
-            output.write_string(
-              "\",\n            actual=ion_schema_codegen_actual_type(field_value),\n          )\n      }\n",
-            )
-          }
-          ResolvedType::Struct(_) | ResolvedType::List(_) => {
-            if is_optional_field(field.occurrence) {
-              output.write_string("      Some(")
-            } else {
-              output.write_string("      ")
-            }
-            output.write_string(
-              ion_from_expression(
-                field.type_ref,
-                "field_value",
-                types,
-                "\"" + named_type.name + "." + field.name + ".\"",
-              ),
-            )
-            if is_optional_field(field.occurrence) {
-              output.write_char(')')
-            }
-            output.write_string("\n")
-          }
-        }
+        output.write_string("field_item\n")
       }
       output.write_string("    }\n")
-    }
-    match field.occurrence {
-      FieldOccurrence::Optional => output.write_string("    None => None\n")
-      FieldOccurrence::Required => {
+      if is_optional_field(field.occurrence) {
+        output.write_string("    None => None\n")
+      } else {
         output.write_string(
           "    None => raise ConversionError::MissingRequiredField(path=\"",
         )
@@ -521,113 +489,78 @@ fn write_struct_conversions(
         output.write_string(field.name)
         output.write_string("\")\n")
       }
+      output.write_string("  }\n")
     }
-    output.write_string("  }\n")
-    index += 1
+    i += 1
   }
 
   output.write_string("  {")
   if fields.length() > 0 {
     output.write_string("\n")
-    index = 0
+    i = 0
     for field in fields {
-      let field_identifier = moonbit_field_identifier(
-        field.name,
-        "field \{named_type.name}.\{field.name}",
-      )
-      let value_local = value_local_prefix + index.to_string()
       output.write_string("    ")
-      output.write_string(field_identifier)
+      output.write_string(
+        moonbit_field_identifier(
+          field.name,
+          "field \{named_type.name}.\{field.name}",
+        ),
+      )
       output.write_string(": ")
-      output.write_string(value_local)
+      output.write_string(locals + i.to_string())
       output.write_string(",\n")
-      index += 1
+      i += 1
     }
     output.write_string("  ")
   }
   output.write_string("}\n}\n\n")
-
   output.write_string("///|\n/// Convert ")
-  output.write_string(generated_name)
+  output.write_string(name)
   output.write_string(" into an Ion struct in schema field order.\npub fn ")
-  output.write_string(generated_name)
+  output.write_string(name)
   output.write_string("::to_ion(self : ")
-  output.write_string(generated_name)
+  output.write_string(name)
   output.write_string(
     ") -> @ion_model.IonValue {\n  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []\n",
   )
   for field in fields {
-    let field_identifier = moonbit_field_identifier(
+    let identifier = moonbit_field_identifier(
       field.name,
       "field \{named_type.name}.\{field.name}",
     )
-    match field.occurrence {
-      FieldOccurrence::Required => {
-        let ion_expression = ion_value_expression(
-          field.type_ref,
-          "self." +
-          moonbit_field_identifier(
-            field.name,
-            "field \{named_type.name}.\{field.name}",
-          ),
-          types,
-        )
-        let pair = "(@ion_model.IonSymbol::from_text(\"" +
-          field.name +
-          "\"), " +
-          ion_expression +
-          ")"
-        output.write_string("  output_fields.push(\n")
-        if pair.length() + 5 > 80 {
-          output.write_string("    (\n      @ion_model.IonSymbol::from_text(\"")
-          output.write_string(field.name)
-          output.write_string("\"),\n      ")
-          output.write_string(ion_expression)
-          output.write_string(",\n    ),\n  )\n")
-        } else {
-          output.write_string("    " + pair + ",\n  )\n")
-        }
-      }
-      FieldOccurrence::Optional => {
-        output.write_string("  match self.")
-        output.write_string(field_identifier)
-        output.write_string(
-          " {\n    Some(field_value) =>\n      output_fields.push(\n        (\n          @ion_model.IonSymbol::from_text(\"",
-        )
-        output.write_string(field.name)
-        output.write_string("\"),\n          ")
-        output.write_string(
-          ion_value_expression(field.type_ref, "field_value", types),
-        )
-        output.write_string(",\n        ),\n      )\n    None => ()\n  }\n")
-      }
+    if is_repeated_field(field.occurrence) {
+      output.write_string("  for field_value in self.")
+      output.write_string(identifier)
+      output.write_string(" {\n")
+      write_struct_field_push(
+        output, field, types, named_type, "    ", "field_value",
+      )
+      output.write_string("  }\n")
+    } else if is_optional_field(field.occurrence) {
+      output.write_string("  match self.")
+      output.write_string(identifier)
+      output.write_string(" {\n    Some(field_value) => {\n")
+      write_struct_field_push(
+        output, field, types, named_type, "      ", "field_value",
+      )
+      output.write_string("    }\n    None => ()\n  }\n")
+    } else {
+      write_struct_field_push(
+        output,
+        field,
+        types,
+        named_type,
+        "  ",
+        "self." + identifier,
+      )
     }
   }
   output.write_string("  @ion_model.IonValue::Struct(output_fields)\n}\n")
 }
 
 ///|
-fn write_path_error(
-  output : StringBuilder,
-  indent : String,
-  error_variant : String,
-  path : String,
-) -> Unit {
-  let statement = indent +
-    "raise ConversionError::" +
-    error_variant +
-    "(path=\"" +
-    path +
-    "\")"
-  if statement.length() > 80 {
-    output.write_string(
-      indent + "raise ConversionError::" + error_variant + "(\n",
-    )
-    output.write_string(indent + "  path=\"" + path + "\",\n")
-    output.write_string(indent + ")\n")
-  } else {
-    output.write_string(statement + "\n")
-  }
+fn is_required_field(occurrence : FieldOccurrence) -> Bool {
+  occurrence.min_count == 1 && occurrence.max_count == Some(1)
 }
 
 ///|
@@ -792,10 +725,180 @@ fn generated_value_local_prefix(
 
 ///|
 fn is_optional_field(occurrence : FieldOccurrence) -> Bool {
-  match occurrence {
-    FieldOccurrence::Optional => true
-    FieldOccurrence::Required => false
+  occurrence.min_count == 0 && occurrence.max_count == Some(1)
+}
+
+///|
+fn is_repeated_field(occurrence : FieldOccurrence) -> Bool {
+  !is_required_field(occurrence) && !is_optional_field(occurrence)
+}
+
+///|
+fn field_item_needs_path(
+  field : FieldSpec,
+  types : Array[NamedType],
+) -> Bool raise SchemaError {
+  if is_null_or_type_ref(field.type_ref) {
+    return true
   }
+  let raw = is_raw_ion_value_reference(field.type_ref, types)
+  let allows_null = reference_accepts_null(field.type_ref, types)
+  if !raw || !allows_null {
+    return true
+  }
+  match resolve_type_ref(types, field.type_ref) {
+    ResolvedType::Scalar(name) => name.has_prefix("$") && name != "$any"
+    _ => false
+  }
+}
+
+///|
+fn occurrence_expected_text(occurrence : FieldOccurrence) -> String {
+  match occurrence.max_count {
+    Some(maximum) if maximum == occurrence.min_count =>
+      occurrence.min_count.to_string()
+    Some(maximum) =>
+      occurrence.min_count.to_string() + ".." + maximum.to_string()
+    None => occurrence.min_count.to_string() + "+"
+  }
+}
+
+///|
+fn write_field_occurrence_error(
+  output : StringBuilder,
+  field : FieldSpec,
+  type_name : String,
+  actual_expression : String,
+  indent : String,
+) -> Unit {
+  output.write_string(
+    indent +
+    "raise ConversionError::FieldOccurrenceMismatch(\n" +
+    indent +
+    "  path=\"" +
+    type_name +
+    "." +
+    field.name +
+    "\",\n" +
+    indent +
+    "  expected=\"" +
+    occurrence_expected_text(field.occurrence) +
+    "\",\n" +
+    indent +
+    "  actual=" +
+    actual_expression +
+    ",\n" +
+    indent +
+    ")\n",
+  )
+}
+
+///|
+fn write_field_item_conversion(
+  output : StringBuilder,
+  field : FieldSpec,
+  types : Array[NamedType],
+  named_type : NamedType,
+  base_type : String,
+  indent : String,
+  ion_type : String,
+) -> Unit raise SchemaError {
+  let raw = is_raw_ion_value_reference(field.type_ref, types)
+  let allows_null = reference_accepts_null(field.type_ref, types)
+  if !field_item_needs_path(field, types) {
+    output.write_string(indent + "let _ = field_path\n")
+  }
+  if !raw {
+    output.write_string(
+      indent +
+      "if field_value.annotations().length() > 0 {\n" +
+      indent +
+      "  raise ConversionError::AnnotatedValueNotSupported(path=field_path)\n" +
+      indent +
+      "}\n",
+    )
+  }
+  if !allows_null {
+    output.write_string(
+      indent +
+      "if field_value.is_null() {\n" +
+      indent +
+      "  raise ConversionError::NullNotAllowed(path=field_path)\n" +
+      indent +
+      "}\n",
+    )
+  }
+  output.write_string(indent + "let field_item : " + base_type + " = ")
+  if is_null_or_type_ref(field.type_ref) {
+    output.write_string(
+      "if ion_schema_codegen_matches_type(field_value, \"$null\") {\n",
+    )
+    output.write_string(indent + "  field_value\n" + indent + "} else {\n")
+    write_type_validation_with_path_expression(
+      output,
+      nullable_inner_type_ref(field.type_ref),
+      "field_value",
+      types,
+      "field_path",
+      indent + "  ",
+    )
+    output.write_string(indent + "  field_value\n" + indent + "}\n")
+  } else {
+    match resolve_type_ref(types, field.type_ref) {
+      ResolvedType::Scalar("any" | "$any") =>
+        output.write_string("field_value\n")
+      ResolvedType::Scalar(scalar_name) if scalar_name.has_prefix("$") =>
+        write_scalar_type_value(
+          output, "field_value", scalar_name, "field_path", "",
+        )
+      ResolvedType::Scalar(scalar_name) => {
+        output.write_string("match field_value.without_annotations() {\n  ")
+        output.write_string(ion_value_variant(scalar_name))
+        output.write_string(
+          "(converted_value) => converted_value\n  _ => raise ConversionError::TypeMismatch(\n    path=field_path,\n    expected=\"",
+        )
+        output.write_string(ion_type)
+        output.write_string(
+          "\",\n    actual=ion_schema_codegen_actual_type(field_value),\n  )\n}\n",
+        )
+      }
+      ResolvedType::Struct(_) | ResolvedType::List(_) =>
+        output.write_string(
+          ion_from_expression(
+            field.type_ref,
+            "field_value",
+            types,
+            "field_path + \".\"",
+          ) +
+          "\n",
+        )
+    }
+  }
+  ignore(named_type)
+}
+
+///|
+fn write_struct_field_push(
+  output : StringBuilder,
+  field : FieldSpec,
+  types : Array[NamedType],
+  named_type : NamedType,
+  indent : String,
+  value_expression : String,
+) -> Unit raise SchemaError {
+  output.write_string(indent + "output_fields.push(\n")
+  output.write_string(
+    indent + "  (@ion_model.IonSymbol::from_text(\"" + field.name + "\"),\n",
+  )
+  output.write_string(
+    indent +
+    "    " +
+    ion_value_expression(field.type_ref, value_expression, types) +
+    "),\n" +
+    indent +
+    ")\n",
+  )
+  ignore(named_type)
 }
 
 ///|
@@ -896,44 +999,6 @@ fn nullable_inner_type_ref(type_ref : TypeRef) -> TypeRef {
 }
 
 ///|
-fn write_scalar_type_check(
-  output : StringBuilder,
-  value_expression : String,
-  expected : String,
-  path : String,
-  indent : String,
-) -> Unit {
-  output.write_string(
-    indent +
-    "if !ion_schema_codegen_matches_type(" +
-    value_expression +
-    ", \"" +
-    expected +
-    "\") {\n",
-  )
-  output.write_string(
-    indent +
-    "  raise ConversionError::TypeMismatch(\n" +
-    indent +
-    "    path=\"" +
-    path +
-    "\",\n" +
-    indent +
-    "    expected=\"" +
-    expected +
-    "\",\n" +
-    indent +
-    "    actual=ion_schema_codegen_actual_type(" +
-    value_expression +
-    "),\n" +
-    indent +
-    "  )\n" +
-    indent +
-    "}\n",
-  )
-}
-
-///|
 fn write_scalar_type_check_with_path_expression(
   output : StringBuilder,
   value_expression : String,
@@ -1009,33 +1074,6 @@ fn write_scalar_type_value(
     indent +
     "}\n",
   )
-}
-
-///|
-fn write_type_validation(
-  output : StringBuilder,
-  type_ref : TypeRef,
-  value_expression : String,
-  types : Array[NamedType],
-  path : String,
-  indent : String,
-) -> Unit raise SchemaError {
-  match resolve_type_ref(types, type_ref) {
-    ResolvedType::Scalar(name) =>
-      write_scalar_type_check(output, value_expression, name, path, indent)
-    ResolvedType::Struct(_) | ResolvedType::List(_) => {
-      output.write_string(indent + "let _ = ")
-      output.write_string(
-        ion_from_expression(
-          type_ref,
-          value_expression,
-          types,
-          "\"" + path + ".\"",
-        ),
-      )
-      output.write_char('\n')
-    }
-  }
 }
 
 ///|

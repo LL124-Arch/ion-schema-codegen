@@ -22,5 +22,11 @@ type::{name: EventStream, type: document}
 type::{name: EventStreamAlias, type: EventStream}
 type::{name: NullableInt, type: $int}
 type::{name: NullableInts, type: list, element: NullableInt}
-type::{name: NullableNominals, type: struct, fields: closed::{typed_int: {type: NullableInt, occurs: required}, plain_null: {type: $null, occurs: required}, maybe_text: {type: $null_or::string, occurs: required}, maybe_typed_int: {type: $null_or::$int, occurs: required}, optional_boolean: {type: $bool, occurs: optional}}}
+type::{name: NullableNominals, type: struct, fields: closed::{typed_int: {type: NullableInt, occurs: required}, plain_null: {type: $null, occurs: required}, maybe_text: $null_or::string, maybe_typed_int: $null_or::$int, optional_boolean: {type: $bool, occurs: optional}}}
 type::{name: MaybeNumbers, type: list, element: $null_or::int}
+type::{name: OccurrenceRecord, type: struct, fields: closed::{
+  fixed: {type: string, occurs: 2},
+  bounded: {type: int, occurs: range::[2, 4]},
+  optional_name: {type: string, occurs: range::[0, 1]},
+  at_least_one: {type: bool, occurs: range::[1, max]}
+}}

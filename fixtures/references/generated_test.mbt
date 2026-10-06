@@ -468,3 +468,59 @@ test "nullable nominal types and null-or values preserve each null kind" {
     },
   )
 }
+
+///|
+test "field occurs counts preserve duplicates and enforce bounds" {
+  let input = @ion_model.IonValue::Struct([
+    (
+      @ion_model.IonSymbol::from_text("fixed"),
+      @ion_model.IonValue::String("first"),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("fixed"),
+      @ion_model.IonValue::String("second"),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("bounded"),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(3)),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("bounded"),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(4)),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("optional_name"),
+      @ion_model.IonValue::String("label"),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("at_least_one"),
+      @ion_model.IonValue::Bool(true),
+    ),
+  ])
+  let decoded = @references.OccurrenceRecord::from_ion(input)
+  assert_eq(decoded.fixed, ["first", "second"])
+  assert_eq(decoded.bounded.length(), 2)
+  assert_eq(decoded.optional_name, Some("label"))
+  assert_eq(decoded.at_least_one, [true])
+  assert_eq(@references.OccurrenceRecord::to_ion(decoded), input)
+
+  let too_few = try {
+    let _ = @references.OccurrenceRecord::from_ion(
+      @ion_model.IonValue::Struct([
+        (
+          @ion_model.IonSymbol::from_text("fixed"),
+          @ion_model.IonValue::String("only one"),
+        ),
+      ]),
+    )
+    None
+  } catch {
+    @references.ConversionError::FieldOccurrenceMismatch(
+      path~,
+      expected~,
+      actual~
+    ) => Some((path, expected, actual))
+    _ => None
+  }
+  assert_eq(too_few, Some(("OccurrenceRecord.fixed", "2", 1)))
+}

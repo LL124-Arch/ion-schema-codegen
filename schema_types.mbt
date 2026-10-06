@@ -39,9 +39,9 @@ priv enum TypeBody {
 }
 
 ///|
-priv enum FieldOccurrence {
-  Required
-  Optional
+priv struct FieldOccurrence {
+  min_count : Int
+  max_count : Int?
 }
 
 ///|

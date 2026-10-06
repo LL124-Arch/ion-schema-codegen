@@ -28,6 +28,45 @@ test "accept non-null any and nullable universal any" {
 }
 
 ///|
+test "reject explicit occurs on nullable type arguments" {
+  let error = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Record, type: struct, fields: closed::{value: {type: $null_or::int, occurs: required}}}",
+  )
+  assert_true(
+    match error {
+      @ion-schema-codegen.SchemaError::InvalidOccurs(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
+test "accept integer and range occurs values" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: Record, type: struct, fields: closed::{fixed: {type: int, occurs: 3}, bounded: {type: string, occurs: range::[2, 5]}, unbounded: {type: bool, occurs: range::[exclusive::0, max]}}}",
+  )
+}
+
+///|
+test "reject invalid occurs counts and ranges" {
+  for
+    invalid in [
+      "occurs: -1", "occurs: range::[min, max]", "occurs: range::[exclusive::2, 2]",
+      "occurs: range::[4, 2]",
+    ] {
+    let error = expect_schema_error(
+      "$ion_schema_2_0 type::{name: Record, type: struct, fields: closed::{values: {type: int, \{invalid}}}}",
+    )
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidOccurs(_) => true
+        _ => false
+      },
+    )
+  }
+}
+
+///|
 test "accept named Ion document stream types" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: EventStream, type: document}",

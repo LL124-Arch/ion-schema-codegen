@@ -3,6 +3,7 @@ pub(all) suberror ConversionError {
   TypeMismatch(path~ : String, expected~ : String, actual~ : String)
   MissingRequiredField(path~ : String)
   DuplicateField(path~ : String)
+  FieldOccurrenceMismatch(path~ : String, expected~ : String, actual~ : Int)
   UnknownField(path~ : String)
   UnknownSymbol(path~ : String, sid~ : Int)
   NullNotAllowed(path~ : String)
@@ -102,6 +103,12 @@ fn ion_schema_codegen_prefix_error(
       ConversionError::MissingRequiredField(path=prefix + path)
     ConversionError::DuplicateField(path~) =>
       ConversionError::DuplicateField(path=prefix + path)
+    ConversionError::FieldOccurrenceMismatch(path~, expected~, actual~) =>
+      ConversionError::FieldOccurrenceMismatch(
+        path=prefix + path,
+        expected~,
+        actual~,
+      )
     ConversionError::UnknownField(path~) =>
       ConversionError::UnknownField(path=prefix + path)
     ConversionError::UnknownSymbol(path~, sid~) =>
@@ -144,12 +151,12 @@ pub fn Address::from_ion(
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "city" => {
-            if input_field_0 is Some(_) {
-              raise ConversionError::DuplicateField(path="Address.city")
+          "city" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="Address.city")
+              None => Some(field_value)
             }
-            input_field_0 = Some(field_value)
-          }
           _ => raise ConversionError::UnknownField(path="Address." + field_name)
         }
       None =>
@@ -161,21 +168,23 @@ pub fn Address::from_ion(
   }
   let ion_schema_codegen_value_0 : String? = match input_field_0 {
     Some(field_value) => {
+      let field_path = "Address.city"
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(path="Address.city")
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="Address.city")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      match field_value.without_annotations() {
-        @ion_model.IonValue::String(converted_value) => Some(converted_value)
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
         _ =>
           raise ConversionError::TypeMismatch(
-            path="Address.city",
+            path=field_path,
             expected="string",
             actual=ion_schema_codegen_actual_type(field_value),
           )
       }
+      Some(field_item)
     }
     None => None
   }
@@ -351,30 +360,30 @@ pub fn Person::from_ion(
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "primary" => {
-            if input_field_0 is Some(_) {
-              raise ConversionError::DuplicateField(path="Person.primary")
+          "primary" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="Person.primary")
+              None => Some(field_value)
             }
-            input_field_0 = Some(field_value)
-          }
-          "addresses" => {
-            if input_field_1 is Some(_) {
-              raise ConversionError::DuplicateField(path="Person.addresses")
+          "addresses" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="Person.addresses")
+              None => Some(field_value)
             }
-            input_field_1 = Some(field_value)
-          }
-          "scores" => {
-            if input_field_2 is Some(_) {
-              raise ConversionError::DuplicateField(path="Person.scores")
+          "scores" =>
+            input_field_2 = match input_field_2 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="Person.scores")
+              None => Some(field_value)
             }
-            input_field_2 = Some(field_value)
-          }
-          "nickname" => {
-            if input_field_3 is Some(_) {
-              raise ConversionError::DuplicateField(path="Person.nickname")
+          "nickname" =>
+            input_field_3 = match input_field_3 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="Person.nickname")
+              None => Some(field_value)
             }
-            input_field_3 = Some(field_value)
-          }
           _ => raise ConversionError::UnknownField(path="Person." + field_name)
         }
       None =>
@@ -386,68 +395,71 @@ pub fn Person::from_ion(
   }
   let ion_schema_codegen_value_0 : Address = match input_field_0 {
     Some(field_value) => {
+      let field_path = "Person.primary"
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(path="Person.primary")
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="Person.primary")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      Address::from_ion(field_value) catch {
-        error => raise ion_schema_codegen_prefix_error(error, "Person.primary.")
+      let field_item : Address = Address::from_ion(field_value) catch {
+        error => raise ion_schema_codegen_prefix_error(error, field_path + ".")
       }
+      field_item
     }
     None => raise ConversionError::MissingRequiredField(path="Person.primary")
   }
   let ion_schema_codegen_value_1 : AddressList = match input_field_1 {
     Some(field_value) => {
+      let field_path = "Person.addresses"
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(
-          path="Person.addresses",
-        )
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="Person.addresses")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      from_ion_AddressList(field_value) catch {
-        error =>
-          raise ion_schema_codegen_prefix_error(error, "Person.addresses.")
+      let field_item : AddressList = from_ion_AddressList(field_value) catch {
+        error => raise ion_schema_codegen_prefix_error(error, field_path + ".")
       }
+      field_item
     }
     None => raise ConversionError::MissingRequiredField(path="Person.addresses")
   }
   let ion_schema_codegen_value_2 : Scores = match input_field_2 {
     Some(field_value) => {
+      let field_path = "Person.scores"
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(path="Person.scores")
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="Person.scores")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      from_ion_Scores(field_value) catch {
-        error => raise ion_schema_codegen_prefix_error(error, "Person.scores.")
+      let field_item : Scores = from_ion_Scores(field_value) catch {
+        error => raise ion_schema_codegen_prefix_error(error, field_path + ".")
       }
+      field_item
     }
     None => raise ConversionError::MissingRequiredField(path="Person.scores")
   }
   let ion_schema_codegen_value_3 : String? = match input_field_3 {
     Some(field_value) => {
+      let field_path = "Person.nickname"
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(
-          path="Person.nickname",
-        )
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="Person.nickname")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      match field_value.without_annotations() {
-        @ion_model.IonValue::String(converted_value) => Some(converted_value)
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
         _ =>
           raise ConversionError::TypeMismatch(
-            path="Person.nickname",
+            path=field_path,
             expected="string",
             actual=ion_schema_codegen_actual_type(field_value),
           )
       }
+      Some(field_item)
     }
     None => None
   }
@@ -581,14 +593,14 @@ pub fn ExpressionRecord::from_ion(
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "expression" => {
-            if input_field_0 is Some(_) {
-              raise ConversionError::DuplicateField(
-                path="ExpressionRecord.expression",
-              )
+          "expression" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="ExpressionRecord.expression",
+                )
+              None => Some(field_value)
             }
-            input_field_0 = Some(field_value)
-          }
           _ =>
             raise ConversionError::UnknownField(
               path="ExpressionRecord." + field_name,
@@ -603,25 +615,23 @@ pub fn ExpressionRecord::from_ion(
   }
   let ion_schema_codegen_value_0 : Expression = match input_field_0 {
     Some(field_value) => {
+      let field_path = "ExpressionRecord.expression"
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(
-          path="ExpressionRecord.expression",
-        )
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(
-          path="ExpressionRecord.expression",
-        )
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      match field_value.without_annotations() {
+      let field_item : Expression = match field_value.without_annotations() {
         @ion_model.IonValue::Sexp(converted_value) => converted_value
         _ =>
           raise ConversionError::TypeMismatch(
-            path="ExpressionRecord.expression",
+            path=field_path,
             expected="sexp",
             actual=ion_schema_codegen_actual_type(field_value),
           )
       }
+      field_item
     }
     None =>
       raise ConversionError::MissingRequiredField(
@@ -730,28 +740,28 @@ pub fn AnyRecord::from_ion(
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "named_value" => {
-            if input_field_0 is Some(_) {
-              raise ConversionError::DuplicateField(
-                path="AnyRecord.named_value",
-              )
+          "named_value" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="AnyRecord.named_value",
+                )
+              None => Some(field_value)
             }
-            input_field_0 = Some(field_value)
-          }
-          "raw" => {
-            if input_field_1 is Some(_) {
-              raise ConversionError::DuplicateField(path="AnyRecord.raw")
+          "raw" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="AnyRecord.raw")
+              None => Some(field_value)
             }
-            input_field_1 = Some(field_value)
-          }
-          "optional_raw" => {
-            if input_field_2 is Some(_) {
-              raise ConversionError::DuplicateField(
-                path="AnyRecord.optional_raw",
-              )
+          "optional_raw" =>
+            input_field_2 = match input_field_2 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="AnyRecord.optional_raw",
+                )
+              None => Some(field_value)
             }
-            input_field_2 = Some(field_value)
-          }
           _ =>
             raise ConversionError::UnknownField(path="AnyRecord." + field_name)
         }
@@ -764,29 +774,35 @@ pub fn AnyRecord::from_ion(
   }
   let ion_schema_codegen_value_0 : AnyValue = match input_field_0 {
     Some(field_value) => {
+      let field_path = "AnyRecord.named_value"
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="AnyRecord.named_value")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      field_value
+      let field_item : AnyValue = field_value
+      field_item
     }
     None =>
       raise ConversionError::MissingRequiredField(path="AnyRecord.named_value")
   }
   let ion_schema_codegen_value_1 : @ion_model.IonValue = match input_field_1 {
     Some(field_value) => {
+      let field_path = "AnyRecord.raw"
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="AnyRecord.raw")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      field_value
+      let field_item : @ion_model.IonValue = field_value
+      field_item
     }
     None => raise ConversionError::MissingRequiredField(path="AnyRecord.raw")
   }
   let ion_schema_codegen_value_2 : @ion_model.IonValue? = match input_field_2 {
     Some(field_value) => {
+      let field_path = "AnyRecord.optional_raw"
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="AnyRecord.optional_raw")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      Some(field_value)
+      let field_item : @ion_model.IonValue = field_value
+      Some(field_item)
     }
     None => None
   }
@@ -893,20 +909,22 @@ pub fn NullableRecord::from_ion(
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "value" => {
-            if input_field_0 is Some(_) {
-              raise ConversionError::DuplicateField(path="NullableRecord.value")
+          "value" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="NullableRecord.value",
+                )
+              None => Some(field_value)
             }
-            input_field_0 = Some(field_value)
-          }
-          "optional" => {
-            if input_field_1 is Some(_) {
-              raise ConversionError::DuplicateField(
-                path="NullableRecord.optional",
-              )
+          "optional" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="NullableRecord.optional",
+                )
+              None => Some(field_value)
             }
-            input_field_1 = Some(field_value)
-          }
           _ =>
             raise ConversionError::UnknownField(
               path="NullableRecord." + field_name,
@@ -920,12 +938,22 @@ pub fn NullableRecord::from_ion(
     }
   }
   let ion_schema_codegen_value_0 : @ion_model.IonValue = match input_field_0 {
-    Some(field_value) => field_value
+    Some(field_value) => {
+      let field_path = "NullableRecord.value"
+      let _ = field_path
+      let field_item : @ion_model.IonValue = field_value
+      field_item
+    }
     None =>
       raise ConversionError::MissingRequiredField(path="NullableRecord.value")
   }
   let ion_schema_codegen_value_1 : NullableValue? = match input_field_1 {
-    Some(field_value) => Some(field_value)
+    Some(field_value) => {
+      let field_path = "NullableRecord.optional"
+      let _ = field_path
+      let field_item : NullableValue = field_value
+      Some(field_item)
+    }
     None => None
   }
   { value: ion_schema_codegen_value_0, optional: ion_schema_codegen_value_1, }
@@ -1044,8 +1072,8 @@ pub fn to_ion_NullableInts(items : NullableInts) -> @ion_model.IonValue {
 pub(all) struct NullableNominals {
   typed_int : NullableInt
   plain_null : @ion_model.IonValue
-  maybe_text : @ion_model.IonValue
-  maybe_typed_int : @ion_model.IonValue
+  maybe_text : @ion_model.IonValue?
+  maybe_typed_int : @ion_model.IonValue?
   optional_boolean : @ion_model.IonValue?
 }
 
@@ -1079,46 +1107,46 @@ pub fn NullableNominals::from_ion(
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "typed_int" => {
-            if input_field_0 is Some(_) {
-              raise ConversionError::DuplicateField(
-                path="NullableNominals.typed_int",
-              )
+          "typed_int" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="NullableNominals.typed_int",
+                )
+              None => Some(field_value)
             }
-            input_field_0 = Some(field_value)
-          }
-          "plain_null" => {
-            if input_field_1 is Some(_) {
-              raise ConversionError::DuplicateField(
-                path="NullableNominals.plain_null",
-              )
+          "plain_null" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="NullableNominals.plain_null",
+                )
+              None => Some(field_value)
             }
-            input_field_1 = Some(field_value)
-          }
-          "maybe_text" => {
-            if input_field_2 is Some(_) {
-              raise ConversionError::DuplicateField(
-                path="NullableNominals.maybe_text",
-              )
+          "maybe_text" =>
+            input_field_2 = match input_field_2 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="NullableNominals.maybe_text",
+                )
+              None => Some(field_value)
             }
-            input_field_2 = Some(field_value)
-          }
-          "maybe_typed_int" => {
-            if input_field_3 is Some(_) {
-              raise ConversionError::DuplicateField(
-                path="NullableNominals.maybe_typed_int",
-              )
+          "maybe_typed_int" =>
+            input_field_3 = match input_field_3 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="NullableNominals.maybe_typed_int",
+                )
+              None => Some(field_value)
             }
-            input_field_3 = Some(field_value)
-          }
-          "optional_boolean" => {
-            if input_field_4 is Some(_) {
-              raise ConversionError::DuplicateField(
-                path="NullableNominals.optional_boolean",
-              )
+          "optional_boolean" =>
+            input_field_4 = match input_field_4 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="NullableNominals.optional_boolean",
+                )
+              None => Some(field_value)
             }
-            input_field_4 = Some(field_value)
-          }
           _ =>
             raise ConversionError::UnknownField(
               path="NullableNominals." + field_name,
@@ -1133,14 +1161,19 @@ pub fn NullableNominals::from_ion(
   }
   let ion_schema_codegen_value_0 : NullableInt = match input_field_0 {
     Some(field_value) => {
-      if !ion_schema_codegen_matches_type(field_value, "$int") {
+      let field_path = "NullableNominals.typed_int"
+      let field_item : NullableInt = if ion_schema_codegen_matches_type(
+          field_value, "$int",
+        ) {
+        field_value
+      } else {
         raise ConversionError::TypeMismatch(
-          path="NullableNominals.typed_int",
+          path=field_path,
           expected="$int",
           actual=ion_schema_codegen_actual_type(field_value),
         )
       }
-      field_value
+      field_item
     }
     None =>
       raise ConversionError::MissingRequiredField(
@@ -1149,66 +1182,82 @@ pub fn NullableNominals::from_ion(
   }
   let ion_schema_codegen_value_1 : @ion_model.IonValue = match input_field_1 {
     Some(field_value) => {
-      if !ion_schema_codegen_matches_type(field_value, "$null") {
+      let field_path = "NullableNominals.plain_null"
+      let field_item : @ion_model.IonValue = if ion_schema_codegen_matches_type(
+          field_value, "$null",
+        ) {
+        field_value
+      } else {
         raise ConversionError::TypeMismatch(
-          path="NullableNominals.plain_null",
+          path=field_path,
           expected="$null",
           actual=ion_schema_codegen_actual_type(field_value),
         )
       }
-      field_value
+      field_item
     }
     None =>
       raise ConversionError::MissingRequiredField(
         path="NullableNominals.plain_null",
       )
   }
-  let ion_schema_codegen_value_2 : @ion_model.IonValue = match input_field_2 {
+  let ion_schema_codegen_value_2 : @ion_model.IonValue? = match input_field_2 {
     Some(field_value) => {
-      if !ion_schema_codegen_matches_type(field_value, "$null") {
+      let field_path = "NullableNominals.maybe_text"
+      let field_item : @ion_model.IonValue = if ion_schema_codegen_matches_type(
+          field_value, "$null",
+        ) {
+        field_value
+      } else {
         if !ion_schema_codegen_matches_type(field_value, "string") {
           raise ConversionError::TypeMismatch(
-            path="NullableNominals.maybe_text",
+            path=field_path,
             expected="string",
             actual=ion_schema_codegen_actual_type(field_value),
           )
         }
+        field_value
       }
-      field_value
+      Some(field_item)
     }
-    None =>
-      raise ConversionError::MissingRequiredField(
-        path="NullableNominals.maybe_text",
-      )
+    None => None
   }
-  let ion_schema_codegen_value_3 : @ion_model.IonValue = match input_field_3 {
+  let ion_schema_codegen_value_3 : @ion_model.IonValue? = match input_field_3 {
     Some(field_value) => {
-      if !ion_schema_codegen_matches_type(field_value, "$null") {
+      let field_path = "NullableNominals.maybe_typed_int"
+      let field_item : @ion_model.IonValue = if ion_schema_codegen_matches_type(
+          field_value, "$null",
+        ) {
+        field_value
+      } else {
         if !ion_schema_codegen_matches_type(field_value, "$int") {
           raise ConversionError::TypeMismatch(
-            path="NullableNominals.maybe_typed_int",
+            path=field_path,
             expected="$int",
             actual=ion_schema_codegen_actual_type(field_value),
           )
         }
+        field_value
       }
-      field_value
+      Some(field_item)
     }
-    None =>
-      raise ConversionError::MissingRequiredField(
-        path="NullableNominals.maybe_typed_int",
-      )
+    None => None
   }
   let ion_schema_codegen_value_4 : @ion_model.IonValue? = match input_field_4 {
     Some(field_value) => {
-      if !ion_schema_codegen_matches_type(field_value, "$bool") {
+      let field_path = "NullableNominals.optional_boolean"
+      let field_item : @ion_model.IonValue = if ion_schema_codegen_matches_type(
+          field_value, "$bool",
+        ) {
+        field_value
+      } else {
         raise ConversionError::TypeMismatch(
-          path="NullableNominals.optional_boolean",
+          path=field_path,
           expected="$bool",
           actual=ion_schema_codegen_actual_type(field_value),
         )
       }
-      Some(field_value)
+      Some(field_item)
     }
     None => None
   }
@@ -1231,12 +1280,20 @@ pub fn NullableNominals::to_ion(self : NullableNominals) -> @ion_model.IonValue 
   output_fields.push(
     (@ion_model.IonSymbol::from_text("plain_null"), self.plain_null),
   )
-  output_fields.push(
-    (@ion_model.IonSymbol::from_text("maybe_text"), self.maybe_text),
-  )
-  output_fields.push(
-    (@ion_model.IonSymbol::from_text("maybe_typed_int"), self.maybe_typed_int),
-  )
+  match self.maybe_text {
+    Some(field_value) =>
+      output_fields.push(
+        (@ion_model.IonSymbol::from_text("maybe_text"), field_value),
+      )
+    None => ()
+  }
+  match self.maybe_typed_int {
+    Some(field_value) =>
+      output_fields.push(
+        (@ion_model.IonSymbol::from_text("maybe_typed_int"), field_value),
+      )
+    None => ()
+  }
   match self.optional_boolean {
     Some(field_value) =>
       output_fields.push(
@@ -1303,4 +1360,246 @@ pub fn to_ion_MaybeNumbers(items : MaybeNumbers) -> @ion_model.IonValue {
     output_elements.push(element)
   }
   @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct OccurrenceRecord {
+  fixed : Array[String]
+  bounded : Array[@bigint.BigInt]
+  optional_name : String?
+  at_least_one : Array[Bool]
+}
+
+///|
+/// Convert an Ion struct to OccurrenceRecord with field-level diagnostics.
+pub fn OccurrenceRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> OccurrenceRecord raise ConversionError {
+  let type_path = "OccurrenceRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let input_field_0 : Array[@ion_model.IonValue] = []
+  let input_field_1 : Array[@ion_model.IonValue] = []
+  let mut input_field_2 : @ion_model.IonValue? = None
+  let input_field_3 : Array[@ion_model.IonValue] = []
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "fixed" => input_field_0.push(field_value)
+          "bounded" => input_field_1.push(field_value)
+          "optional_name" =>
+            input_field_2 = match input_field_2 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="OccurrenceRecord.optional_name",
+                )
+              None => Some(field_value)
+            }
+          "at_least_one" => input_field_3.push(field_value)
+          _ =>
+            raise ConversionError::UnknownField(
+              path="OccurrenceRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="OccurrenceRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let field_count_0 = input_field_0.length()
+  if field_count_0 < 2 {
+    raise ConversionError::FieldOccurrenceMismatch(
+      path="OccurrenceRecord.fixed",
+      expected="2",
+      actual=field_count_0,
+    )
+  }
+  if field_count_0 > 2 {
+    raise ConversionError::FieldOccurrenceMismatch(
+      path="OccurrenceRecord.fixed",
+      expected="2",
+      actual=field_count_0,
+    )
+  }
+  let ion_schema_codegen_value_0_values : Array[String] = []
+  let mut field_index_0 = 0
+  for field_value in input_field_0 {
+    let field_path = "OccurrenceRecord.fixed[" + field_index_0.to_string() + "]"
+    if field_value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+    }
+    if field_value.is_null() {
+      raise ConversionError::NullNotAllowed(path=field_path)
+    }
+    let field_item : String = match field_value.without_annotations() {
+      @ion_model.IonValue::String(converted_value) => converted_value
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=field_path,
+          expected="string",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+    }
+    ion_schema_codegen_value_0_values.push(field_item)
+    field_index_0 += 1
+  }
+  let ion_schema_codegen_value_0 : Array[String] = ion_schema_codegen_value_0_values
+  let field_count_1 = input_field_1.length()
+  if field_count_1 < 2 {
+    raise ConversionError::FieldOccurrenceMismatch(
+      path="OccurrenceRecord.bounded",
+      expected="2..4",
+      actual=field_count_1,
+    )
+  }
+  if field_count_1 > 4 {
+    raise ConversionError::FieldOccurrenceMismatch(
+      path="OccurrenceRecord.bounded",
+      expected="2..4",
+      actual=field_count_1,
+    )
+  }
+  let ion_schema_codegen_value_1_values : Array[@bigint.BigInt] = []
+  let mut field_index_1 = 0
+  for field_value in input_field_1 {
+    let field_path = "OccurrenceRecord.bounded[" +
+      field_index_1.to_string() +
+      "]"
+    if field_value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+    }
+    if field_value.is_null() {
+      raise ConversionError::NullNotAllowed(path=field_path)
+    }
+    let field_item : @bigint.BigInt = match field_value.without_annotations() {
+      @ion_model.IonValue::Int(converted_value) => converted_value
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=field_path,
+          expected="int",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+    }
+    ion_schema_codegen_value_1_values.push(field_item)
+    field_index_1 += 1
+  }
+  let ion_schema_codegen_value_1 : Array[@bigint.BigInt] = ion_schema_codegen_value_1_values
+  let ion_schema_codegen_value_2 : String? = match input_field_2 {
+    Some(field_value) => {
+      let field_path = "OccurrenceRecord.optional_name"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="string",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      Some(field_item)
+    }
+    None => None
+  }
+  let field_count_3 = input_field_3.length()
+  if field_count_3 < 1 {
+    raise ConversionError::FieldOccurrenceMismatch(
+      path="OccurrenceRecord.at_least_one",
+      expected="1+",
+      actual=field_count_3,
+    )
+  }
+  let ion_schema_codegen_value_3_values : Array[Bool] = []
+  let mut field_index_3 = 0
+  for field_value in input_field_3 {
+    let field_path = "OccurrenceRecord.at_least_one[" +
+      field_index_3.to_string() +
+      "]"
+    if field_value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+    }
+    if field_value.is_null() {
+      raise ConversionError::NullNotAllowed(path=field_path)
+    }
+    let field_item : Bool = match field_value.without_annotations() {
+      @ion_model.IonValue::Bool(converted_value) => converted_value
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=field_path,
+          expected="bool",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+    }
+    ion_schema_codegen_value_3_values.push(field_item)
+    field_index_3 += 1
+  }
+  let ion_schema_codegen_value_3 : Array[Bool] = ion_schema_codegen_value_3_values
+  {
+    fixed: ion_schema_codegen_value_0,
+    bounded: ion_schema_codegen_value_1,
+    optional_name: ion_schema_codegen_value_2,
+    at_least_one: ion_schema_codegen_value_3,
+  }
+}
+
+///|
+/// Convert OccurrenceRecord into an Ion struct in schema field order.
+pub fn OccurrenceRecord::to_ion(self : OccurrenceRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  for field_value in self.fixed {
+    output_fields.push(
+      (
+        @ion_model.IonSymbol::from_text("fixed"),
+        @ion_model.IonValue::String(field_value),
+      ),
+    )
+  }
+  for field_value in self.bounded {
+    output_fields.push(
+      (
+        @ion_model.IonSymbol::from_text("bounded"),
+        @ion_model.IonValue::Int(field_value),
+      ),
+    )
+  }
+  match self.optional_name {
+    Some(field_value) =>
+      output_fields.push(
+        (
+          @ion_model.IonSymbol::from_text("optional_name"),
+          @ion_model.IonValue::String(field_value),
+        ),
+      )
+    None => ()
+  }
+  for field_value in self.at_least_one {
+    output_fields.push(
+      (
+        @ion_model.IonSymbol::from_text("at_least_one"),
+        @ion_model.IonValue::Bool(field_value),
+      ),
+    )
+  }
+  @ion_model.IonValue::Struct(output_fields)
 }

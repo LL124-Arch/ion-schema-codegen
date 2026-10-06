@@ -3,6 +3,7 @@ pub(all) suberror ConversionError {
   TypeMismatch(path~ : String, expected~ : String, actual~ : String)
   MissingRequiredField(path~ : String)
   DuplicateField(path~ : String)
+  FieldOccurrenceMismatch(path~ : String, expected~ : String, actual~ : Int)
   UnknownField(path~ : String)
   UnknownSymbol(path~ : String, sid~ : Int)
   NullNotAllowed(path~ : String)
@@ -73,24 +74,23 @@ pub fn Person::from_ion(
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "id" => {
-            if input_field_0 is Some(_) {
-              raise ConversionError::DuplicateField(path="Person.id")
+          "id" =>
+            input_field_0 = match input_field_0 {
+              Some(_) => raise ConversionError::DuplicateField(path="Person.id")
+              None => Some(field_value)
             }
-            input_field_0 = Some(field_value)
-          }
-          "name" => {
-            if input_field_1 is Some(_) {
-              raise ConversionError::DuplicateField(path="Person.name")
+          "name" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="Person.name")
+              None => Some(field_value)
             }
-            input_field_1 = Some(field_value)
-          }
-          "nickname" => {
-            if input_field_2 is Some(_) {
-              raise ConversionError::DuplicateField(path="Person.nickname")
+          "nickname" =>
+            input_field_2 = match input_field_2 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="Person.nickname")
+              None => Some(field_value)
             }
-            input_field_2 = Some(field_value)
-          }
           _ => raise ConversionError::UnknownField(path="Person." + field_name)
         }
       None =>
@@ -102,63 +102,68 @@ pub fn Person::from_ion(
   }
   let ion_schema_codegen_value_0 : @bigint.BigInt = match input_field_0 {
     Some(field_value) => {
+      let field_path = "Person.id"
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(path="Person.id")
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="Person.id")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      match field_value.without_annotations() {
+      let field_item : @bigint.BigInt = match
+        field_value.without_annotations() {
         @ion_model.IonValue::Int(converted_value) => converted_value
         _ =>
           raise ConversionError::TypeMismatch(
-            path="Person.id",
+            path=field_path,
             expected="int",
             actual=ion_schema_codegen_actual_type(field_value),
           )
       }
+      field_item
     }
     None => raise ConversionError::MissingRequiredField(path="Person.id")
   }
   let ion_schema_codegen_value_1 : String = match input_field_1 {
     Some(field_value) => {
+      let field_path = "Person.name"
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(path="Person.name")
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="Person.name")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      match field_value.without_annotations() {
+      let field_item : String = match field_value.without_annotations() {
         @ion_model.IonValue::String(converted_value) => converted_value
         _ =>
           raise ConversionError::TypeMismatch(
-            path="Person.name",
+            path=field_path,
             expected="string",
             actual=ion_schema_codegen_actual_type(field_value),
           )
       }
+      field_item
     }
     None => raise ConversionError::MissingRequiredField(path="Person.name")
   }
   let ion_schema_codegen_value_2 : String? = match input_field_2 {
     Some(field_value) => {
+      let field_path = "Person.nickname"
       if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(
-          path="Person.nickname",
-        )
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
-        raise ConversionError::NullNotAllowed(path="Person.nickname")
+        raise ConversionError::NullNotAllowed(path=field_path)
       }
-      match field_value.without_annotations() {
-        @ion_model.IonValue::String(converted_value) => Some(converted_value)
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
         _ =>
           raise ConversionError::TypeMismatch(
-            path="Person.nickname",
+            path=field_path,
             expected="string",
             actual=ion_schema_codegen_actual_type(field_value),
           )
       }
+      Some(field_item)
     }
     None => None
   }

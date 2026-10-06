@@ -58,7 +58,7 @@ test "map nullable any to raw Ion values" {
 ///|
 test "map nullable Ion types and null-or type arguments to raw Ion values" {
   let generated = @ion-schema-codegen.generate_code(
-    "$ion_schema_2_0 type::{name: TypedInt, type: $int} type::{name: MaybeStrings, type: list, element: $null_or::string} type::{name: NullableRecord, type: struct, fields: closed::{typed_int: {type: TypedInt, occurs: required}, optional_text: {type: $null_or::string, occurs: required}}}",
+    "$ion_schema_2_0 type::{name: TypedInt, type: $int} type::{name: MaybeStrings, type: list, element: $null_or::string} type::{name: NullableRecord, type: struct, fields: closed::{typed_int: {type: TypedInt, occurs: required}, optional_text: $null_or::string}}",
   )
   assert_true(
     generated.source.contains("pub type TypedInt = @ion_model.IonValue"),
@@ -75,9 +75,14 @@ test "map nullable Ion types and null-or type arguments to raw Ion values" {
   )
   assert_true(
     generated.source.contains(
-      "ion_schema_codegen_matches_type(field_value, \"null\")",
+      "ion_schema_codegen_matches_type(field_value, \"$null\")",
     ),
   )
+  let occurrences = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: Record, type: struct, fields: closed::{values: {type: string, occurs: range::[2, 4]}}}",
+  )
+  assert_true(occurrences.source.contains("values : Array[String]"))
+  assert_true(occurrences.source.contains("FieldOccurrenceMismatch"))
   assert_eq(generated.package_imports, [
     "\"LL124-Arch/amazon-ion-moonbit-core/format_model\" @ion_model",
   ])
