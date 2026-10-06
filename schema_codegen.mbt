@@ -41,9 +41,15 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
     first_type = false
     write_named_type(output, named_type, schema.types)
     match named_type.body {
-      TypeBody::Struct(fields) => {
+      TypeBody::Struct(fields, is_open) => {
         output.write_string("\n")
-        write_struct_conversions(output, named_type, fields, schema.types)
+        write_struct_conversions(
+          output,
+          named_type,
+          fields,
+          is_open,
+          schema.types,
+        )
       }
       TypeBody::List(element_type) => {
         output.write_string("\n")
@@ -82,8 +88,13 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
     match named_type.body {
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
         validate_codegen_reference(type_ref, "type \{named_type.name}")
-      TypeBody::Struct(fields) => {
+      TypeBody::Struct(fields, is_open) => {
         let generated_fields : Array[(String, String)] = []
+        if is_open {
+          generated_fields.push(
+            ("ion_schema_codegen_open_content", "open content storage"),
+          )
+        }
         for field in fields {
           let generated_field = moonbit_field_identifier(
             field.name,
@@ -187,10 +198,10 @@ fn write_named_type(
       )
       output.write_string("\n")
     }
-    TypeBody::Struct(fields) => {
+    TypeBody::Struct(fields, is_open) => {
       output.write_string("pub(all) struct ")
       output.write_string(generated_name)
-      if fields.length() == 0 {
+      if fields.length() == 0 && !is_open {
         output.write_string(" {}\n")
         return
       }
@@ -220,6 +231,11 @@ fn write_named_type(
           output.write_string("?")
         }
         output.write_string("\n")
+      }
+      if is_open {
+        output.write_string(
+          "  ion_schema_codegen_open_content : Array[(@ion_model.IonSymbol, @ion_model.IonValue)]\n",
+        )
       }
       output.write_string("}\n")
     }
@@ -295,6 +311,7 @@ fn write_struct_conversions(
   output : StringBuilder,
   named_type : NamedType,
   fields : Array[FieldSpec],
+  is_open : Bool,
   types : Array[NamedType],
 ) -> Unit raise SchemaError {
   let name = moonbit_type_identifier(named_type.name)
@@ -317,6 +334,11 @@ fn write_struct_conversions(
   output.write_string(
     "  let input_fields = match value.without_annotations() {\n    @ion_model.IonValue::Struct(fields) => fields\n    _ => raise ConversionError::TypeMismatch(path=type_path, expected=\"struct\", actual=ion_schema_codegen_actual_type(value))\n  }\n",
   )
+  if is_open {
+    output.write_string(
+      "  let ion_schema_codegen_open_content : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []\n",
+    )
+  }
   let mut i = 0
   for field in fields {
     output.write_string(
@@ -361,17 +383,23 @@ fn write_struct_conversions(
     }
     i += 1
   }
-  output.write_string(
-    "          _ => raise ConversionError::UnknownField(path=\"",
-  )
-  output.write_string(named_type.name)
-  output.write_string(
-    ".\" + field_name)\n        }\n      None => raise ConversionError::UnknownSymbol(path=\"",
-  )
-  output.write_string(named_type.name)
-  output.write_string(
-    ".<field>\", sid=field_symbol.sid_value().unwrap_or(0))\n    }\n  }\n",
-  )
+  if is_open {
+    output.write_string(
+      "          _ => ion_schema_codegen_open_content.push((field_symbol, field_value))\n        }\n      None => ion_schema_codegen_open_content.push((field_symbol, field_value))\n    }\n  }\n",
+    )
+  } else {
+    output.write_string(
+      "          _ => raise ConversionError::UnknownField(path=\"",
+    )
+    output.write_string(named_type.name)
+    output.write_string(
+      ".\" + field_name)\n        }\n      None => raise ConversionError::UnknownSymbol(path=\"",
+    )
+    output.write_string(named_type.name)
+    output.write_string(
+      ".<field>\", sid=field_symbol.sid_value().unwrap_or(0))\n    }\n  }\n",
+    )
+  }
 
   let locals = generated_value_local_prefix(fields)
   i = 0
@@ -495,7 +523,7 @@ fn write_struct_conversions(
   }
 
   output.write_string("  {")
-  if fields.length() > 0 {
+  if fields.length() > 0 || is_open {
     output.write_string("\n")
     i = 0
     for field in fields {
@@ -510,6 +538,11 @@ fn write_struct_conversions(
       output.write_string(locals + i.to_string())
       output.write_string(",\n")
       i += 1
+    }
+    if is_open {
+      output.write_string(
+        "    ion_schema_codegen_open_content: ion_schema_codegen_open_content,\n",
+      )
     }
     output.write_string("  ")
   }
@@ -554,6 +587,11 @@ fn write_struct_conversions(
         "self." + identifier,
       )
     }
+  }
+  if is_open {
+    output.write_string(
+      "  for (field_symbol, field_value) in self.ion_schema_codegen_open_content {\n    output_fields.push((field_symbol, field_value))\n  }\n",
+    )
   }
   output.write_string("  @ion_model.IonValue::Struct(output_fields)\n}\n")
 }
@@ -960,7 +998,7 @@ fn uses_nullable_type_checks(
         if needs_nullable_type_check(type_ref, types) {
           return true
         }
-      TypeBody::Struct(fields) =>
+      TypeBody::Struct(fields, _) =>
         for field in fields {
           if needs_nullable_type_check(field.type_ref, types) {
             return true
@@ -1171,7 +1209,7 @@ fn resolve_type_ref(
           match named_type.body {
             TypeBody::Scalar(target) | TypeBody::Alias(target) =>
               resolve_type_ref(types, target)
-            TypeBody::Struct(_) => ResolvedType::Struct(name)
+            TypeBody::Struct(_, _) => ResolvedType::Struct(name)
             TypeBody::List(_) => ResolvedType::List(name)
           }
         None => raise SchemaError::UnknownType("unknown type \{name}")
@@ -1320,7 +1358,7 @@ fn referenced_type_names(body : TypeBody) -> Array[String] {
         TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
         TypeRef::NullOrNamed(name) => names.push(name)
       }
-    TypeBody::Struct(fields) =>
+    TypeBody::Struct(fields, _) =>
       for field in fields {
         match field.type_ref {
           TypeRef::Named(name) => names.push(name)
@@ -1381,7 +1419,7 @@ fn uses_bigint(types : Array[NamedType]) -> Bool raise SchemaError {
           !is_raw_ion_value_reference(type_ref, types) {
           return true
         }
-      TypeBody::Struct(fields) =>
+      TypeBody::Struct(fields, _) =>
         for field in fields {
           if matches_int(resolve_type_ref(types, field.type_ref)) &&
             !is_raw_ion_value_reference(field.type_ref, types) {
@@ -1407,7 +1445,7 @@ fn uses_model_types(types : Array[NamedType]) -> Bool raise SchemaError {
           matches_model_type(resolve_type_ref(types, type_ref)) {
           return true
         }
-      TypeBody::Struct(_) => return true
+      TypeBody::Struct(_, _) => return true
       TypeBody::List(_) => return true
     }
   }
@@ -1418,7 +1456,7 @@ fn uses_model_types(types : Array[NamedType]) -> Bool raise SchemaError {
 fn has_conversion_types(types : Array[NamedType]) -> Bool {
   for named_type in types {
     match named_type.body {
-      TypeBody::Struct(_) | TypeBody::List(_) => return true
+      TypeBody::Struct(_, _) | TypeBody::List(_) => return true
       _ => ()
     }
   }
@@ -1431,7 +1469,7 @@ fn has_nested_conversion_types(
 ) -> Bool raise SchemaError {
   for named_type in types {
     match named_type.body {
-      TypeBody::Struct(fields) =>
+      TypeBody::Struct(fields, _) =>
         for field in fields {
           match resolve_type_ref(types, field.type_ref) {
             ResolvedType::Struct(_) | ResolvedType::List(_) => return true

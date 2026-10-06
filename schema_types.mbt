@@ -34,7 +34,7 @@ priv enum TypeRef {
 priv enum TypeBody {
   Scalar(TypeRef)
   Alias(TypeRef)
-  Struct(Array[FieldSpec])
+  Struct(Array[FieldSpec], Bool)
   List(TypeRef)
 }
 

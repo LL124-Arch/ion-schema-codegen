@@ -158,6 +158,24 @@ test "generate closed structs with required and optional fields" {
 }
 
 ///|
+test "generate open structs that retain unknown fields" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: Record, type: struct, fields:{known: {type: string, occurs: required}}}",
+  )
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_open_content : Array[(@ion_model.IonSymbol, @ion_model.IonValue)]",
+    ),
+  )
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_open_content.push((field_symbol, field_value))",
+    ),
+  )
+  assert_true(generated.source.contains("self.ion_schema_codegen_open_content"))
+}
+
+///|
 test "normalize names deterministically and report keyword and name conflicts" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: my_type, type: struct, fields: closed::{'first-name': string, Name: string}} type::{name: '123-value', type: string}",

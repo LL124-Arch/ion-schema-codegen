@@ -132,7 +132,8 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
           "type \{name} cannot use element with struct",
         )
       }
-      TypeBody::Struct(parse_fields(name, fields[0]))
+      let (parsed_fields, is_open) = parse_fields(name, fields[0])
+      TypeBody::Struct(parsed_fields, is_open)
     }
     "list" => {
       if elements.length() != 1 {
@@ -171,13 +172,10 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
 fn parse_fields(
   type_name : String,
   fields_value : @model.IonValue,
-) -> Array[FieldSpec] raise SchemaError {
-  match fields_value.annotations() {
-    [annotation] if annotation.text_value() == Some("closed") => ()
-    [] =>
-      raise SchemaError::UnsupportedFeature(
-        "open fields are not supported for type \{type_name}; use closed::{...}",
-      )
+) -> (Array[FieldSpec], Bool) raise SchemaError {
+  let is_open = match fields_value.annotations() {
+    [annotation] if annotation.text_value() == Some("closed") => false
+    [] => true
     _ =>
       raise SchemaError::UnsupportedFeature(
         "fields annotations must contain only closed for type \{type_name}",
@@ -215,7 +213,7 @@ fn parse_fields(
     )
     result.push({ name: field_name, type_ref, occurrence, })
   }
-  result
+  (result, is_open)
 }
 
 ///|
@@ -654,7 +652,7 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
           type_ref,
           "element of \{named_type.name}",
         )
-      TypeBody::Struct(fields) =>
+      TypeBody::Struct(fields, _) =>
         for field in fields {
           let occurrence = if field.occurrence.min_count == 1 &&
             field.occurrence.max_count == Some(1) {

@@ -30,3 +30,6 @@ type::{name: OccurrenceRecord, type: struct, fields: closed::{
   optional_name: {type: string, occurs: range::[0, 1]},
   at_least_one: {type: bool, occurs: range::[1, max]}
 }}
+type::{name: OpenRecord, type: struct, fields:{
+  known: {type: string, occurs: required}
+}}

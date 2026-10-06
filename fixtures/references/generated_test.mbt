@@ -524,3 +524,50 @@ test "field occurs counts preserve duplicates and enforce bounds" {
   }
   assert_eq(too_few, Some(("OccurrenceRecord.fixed", "2", 1)))
 }
+
+///|
+test "open structs preserve duplicate and unresolved unknown fields" {
+  let unresolved_name = @ion_model.IonSymbol::from_sid(42)
+  let input = @ion_model.IonValue::Struct([
+    (
+      @ion_model.IonSymbol::from_text("extra"),
+      @ion_model.IonValue::String("before known"),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("known"),
+      @ion_model.IonValue::String("value"),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("extra"),
+      @ion_model.IonValue::null(kind=@ion_model.IonNull::Int),
+    ),
+    (
+      unresolved_name,
+      @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_sid(77)),
+    ),
+  ])
+  let decoded = @references.OpenRecord::from_ion(input)
+  assert_eq(decoded.known, "value")
+  assert_eq(decoded.ion_schema_codegen_open_content.length(), 3)
+  assert_eq(
+    @references.OpenRecord::to_ion(decoded),
+    @ion_model.IonValue::Struct([
+      (
+        @ion_model.IonSymbol::from_text("known"),
+        @ion_model.IonValue::String("value"),
+      ),
+      (
+        @ion_model.IonSymbol::from_text("extra"),
+        @ion_model.IonValue::String("before known"),
+      ),
+      (
+        @ion_model.IonSymbol::from_text("extra"),
+        @ion_model.IonValue::null(kind=@ion_model.IonNull::Int),
+      ),
+      (
+        @ion_model.IonSymbol::from_sid(42),
+        @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_sid(77)),
+      ),
+    ]),
+  )
+}

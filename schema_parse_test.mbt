@@ -170,15 +170,9 @@ test "reject missing declarations and unknown references" {
 }
 
 ///|
-test "reject unsupported open constraints and imports" {
-  let open_fields = expect_schema_error(
+test "accept open fields and reject unsupported constraints and imports" {
+  @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: Person, type: struct, fields: {name: string}}",
-  )
-  assert_true(
-    match open_fields {
-      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
-      _ => false
-    },
   )
 
   let unsupported_constraint = expect_schema_error(

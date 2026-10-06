@@ -1603,3 +1603,92 @@ pub fn OccurrenceRecord::to_ion(self : OccurrenceRecord) -> @ion_model.IonValue 
   }
   @ion_model.IonValue::Struct(output_fields)
 }
+
+///|
+pub(all) struct OpenRecord {
+  known : String
+  ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ]
+}
+
+///|
+/// Convert an Ion struct to OpenRecord with field-level diagnostics.
+pub fn OpenRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> OpenRecord raise ConversionError {
+  let type_path = "OpenRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ] = []
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "known" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="OpenRecord.known")
+              None => Some(field_value)
+            }
+          _ => ion_schema_codegen_open_content.push((field_symbol, field_value))
+        }
+      None => ion_schema_codegen_open_content.push((field_symbol, field_value))
+    }
+  }
+  let ion_schema_codegen_value_0 : String = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "OpenRecord.known"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="string",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None => raise ConversionError::MissingRequiredField(path="OpenRecord.known")
+  }
+  { known: ion_schema_codegen_value_0, ion_schema_codegen_open_content, }
+}
+
+///|
+/// Convert OpenRecord into an Ion struct in schema field order.
+pub fn OpenRecord::to_ion(self : OpenRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("known"),
+      @ion_model.IonValue::String(self.known),
+    ),
+  )
+  for (field_symbol, field_value) in self.ion_schema_codegen_open_content {
+    output_fields.push((field_symbol, field_value))
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}
