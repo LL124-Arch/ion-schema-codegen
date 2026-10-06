@@ -381,3 +381,54 @@ test "reject unsupported element targets and forms" {
     },
   )
 }
+
+///|
+test "accept ordered_elements with required optional fixed and ranged positions" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: Item, type: int} type::{name: Values, type: list, ordered_elements:[Item, {type: string, occurs: optional}, {type: bool, occurs: 2}, {type: symbol, occurs: range::[1, 3]}]} type::{name: Expression, type: sexp, ordered_elements:[symbol, {type: Item, occurs: range::[1, 2]}]} type::{name: Stream, type: document, ordered_elements:[string, {type: int, occurs: optional}]}",
+  )
+}
+
+///|
+test "reject unsupported ordered_elements forms and targets" {
+  let scalar = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Invalid, type: string, ordered_elements:[int]}",
+  )
+  assert_true(
+    match scalar {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let struct_target = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Invalid, type: struct, fields:{value: int}, ordered_elements:[int]}",
+  )
+  assert_true(
+    match struct_target {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let distinct = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Invalid, type: sexp, ordered_elements:[distinct::int]}",
+  )
+  assert_true(
+    match distinct {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let inline_type = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Invalid, type: document, ordered_elements:[{type: int, codepoint_length: 1}]}",
+  )
+  assert_true(
+    match inline_type {
+      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}

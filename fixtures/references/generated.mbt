@@ -471,6 +471,1320 @@ fn ion_schema_codegen_prefix_error(
 }
 
 ///|
+fn ion_schema_codegen_ordered_matches_OrderedValues_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedValues_1(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "string") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="string",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedValues_2(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "bool") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="bool",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedValues_3(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "symbol") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="symbol",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_OrderedValues(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 4 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[4][value_count] = true
+  let mut ordered_start_3 = 0
+  while ordered_start_3 <= value_count {
+    let mut ordered_count_3 = 2
+    let mut ordered_found_3 = false
+    let mut ordered_prefix_matches_3 = true
+    while ordered_count_3 <= value_count - ordered_start_3 &&
+          ordered_count_3 <= 2 &&
+          ordered_prefix_matches_3 {
+      if ordered_count_3 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedValues_3(
+          values[ordered_start_3 + ordered_count_3 - 1],
+        ) {
+        ordered_prefix_matches_3 = false
+      }
+      if ordered_prefix_matches_3 &&
+        possible[4][ordered_start_3 + ordered_count_3] {
+        ordered_found_3 = true
+      }
+      ordered_count_3 += 1
+    }
+    possible[3][ordered_start_3] = ordered_found_3
+    ordered_start_3 += 1
+  }
+  let mut ordered_start_2 = 0
+  while ordered_start_2 <= value_count {
+    let mut ordered_count_2 = 1
+    let mut ordered_found_2 = false
+    let mut ordered_prefix_matches_2 = true
+    while ordered_count_2 <= value_count - ordered_start_2 &&
+          ordered_count_2 <= 2 &&
+          ordered_prefix_matches_2 {
+      if ordered_count_2 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedValues_2(
+          values[ordered_start_2 + ordered_count_2 - 1],
+        ) {
+        ordered_prefix_matches_2 = false
+      }
+      if ordered_prefix_matches_2 &&
+        possible[3][ordered_start_2 + ordered_count_2] {
+        ordered_found_2 = true
+      }
+      ordered_count_2 += 1
+    }
+    possible[2][ordered_start_2] = ordered_found_2
+    ordered_start_2 += 1
+  }
+  let mut ordered_start_1 = 0
+  while ordered_start_1 <= value_count {
+    let mut ordered_count_1 = 0
+    let mut ordered_found_1 = false
+    let mut ordered_prefix_matches_1 = true
+    while ordered_count_1 <= value_count - ordered_start_1 &&
+          ordered_count_1 <= 1 &&
+          ordered_prefix_matches_1 {
+      if ordered_count_1 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedValues_1(
+          values[ordered_start_1 + ordered_count_1 - 1],
+        ) {
+        ordered_prefix_matches_1 = false
+      }
+      if ordered_prefix_matches_1 &&
+        possible[2][ordered_start_1 + ordered_count_1] {
+        ordered_found_1 = true
+      }
+      ordered_count_1 += 1
+    }
+    possible[1][ordered_start_1] = ordered_found_1
+    ordered_start_1 += 1
+  }
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 1
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 1 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedValues_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedValues_0(values[probe_index]) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedValues_1(values[probe_index]) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedValues_2(values[probe_index]) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedValues_3(values[probe_index]) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedBaseList_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_OrderedBaseList(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 1 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[1][value_count] = true
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 1
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 3 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedBaseList_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedBaseList_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedAliasList_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_OrderedAliasList(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 1 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[1][value_count] = true
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 2
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 2 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedAliasList_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedAliasList_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedBacktrack_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "any") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="any",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedBacktrack_1(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "string") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="string",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_OrderedBacktrack(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 2 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[2][value_count] = true
+  let mut ordered_start_1 = 0
+  while ordered_start_1 <= value_count {
+    let mut ordered_count_1 = 1
+    let mut ordered_found_1 = false
+    let mut ordered_prefix_matches_1 = true
+    while ordered_count_1 <= value_count - ordered_start_1 &&
+          ordered_count_1 <= 1 &&
+          ordered_prefix_matches_1 {
+      if ordered_count_1 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedBacktrack_1(
+          values[ordered_start_1 + ordered_count_1 - 1],
+        ) {
+        ordered_prefix_matches_1 = false
+      }
+      if ordered_prefix_matches_1 &&
+        possible[2][ordered_start_1 + ordered_count_1] {
+        ordered_found_1 = true
+      }
+      ordered_count_1 += 1
+    }
+    possible[1][ordered_start_1] = ordered_found_1
+    ordered_start_1 += 1
+  }
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 0
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 1 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedBacktrack_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedBacktrack_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedBacktrack_1(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedExpression_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "symbol") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="symbol",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedExpression_1(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_OrderedExpression(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 2 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[2][value_count] = true
+  let mut ordered_start_1 = 0
+  while ordered_start_1 <= value_count {
+    let mut ordered_count_1 = 1
+    let mut ordered_found_1 = false
+    let mut ordered_prefix_matches_1 = true
+    while ordered_count_1 <= value_count - ordered_start_1 &&
+          ordered_count_1 <= 2 &&
+          ordered_prefix_matches_1 {
+      if ordered_count_1 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedExpression_1(
+          values[ordered_start_1 + ordered_count_1 - 1],
+        ) {
+        ordered_prefix_matches_1 = false
+      }
+      if ordered_prefix_matches_1 &&
+        possible[2][ordered_start_1 + ordered_count_1] {
+        ordered_found_1 = true
+      }
+      ordered_count_1 += 1
+    }
+    possible[1][ordered_start_1] = ordered_found_1
+    ordered_start_1 += 1
+  }
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 1
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 1 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedExpression_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedExpression_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedExpression_1(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedDocument_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "string") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="string",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedDocument_1(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_OrderedDocument(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 2 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[2][value_count] = true
+  let mut ordered_start_1 = 0
+  while ordered_start_1 <= value_count {
+    let mut ordered_count_1 = 0
+    let mut ordered_found_1 = false
+    let mut ordered_prefix_matches_1 = true
+    while ordered_count_1 <= value_count - ordered_start_1 &&
+          ordered_count_1 <= 1 &&
+          ordered_prefix_matches_1 {
+      if ordered_count_1 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedDocument_1(
+          values[ordered_start_1 + ordered_count_1 - 1],
+        ) {
+        ordered_prefix_matches_1 = false
+      }
+      if ordered_prefix_matches_1 &&
+        possible[2][ordered_start_1 + ordered_count_1] {
+        ordered_found_1 = true
+      }
+      ordered_count_1 += 1
+    }
+    possible[1][ordered_start_1] = ordered_found_1
+    ordered_start_1 += 1
+  }
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 1
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 1 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedDocument_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedDocument_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedDocument_1(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedDocumentAlias_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "string") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="string",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedDocumentAlias_1(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_OrderedDocumentAlias(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 2 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[2][value_count] = true
+  let mut ordered_start_1 = 0
+  while ordered_start_1 <= value_count {
+    let mut ordered_count_1 = 1
+    let mut ordered_found_1 = false
+    let mut ordered_prefix_matches_1 = true
+    while ordered_count_1 <= value_count - ordered_start_1 &&
+          ordered_count_1 <= 1 &&
+          ordered_prefix_matches_1 {
+      if ordered_count_1 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedDocumentAlias_1(
+          values[ordered_start_1 + ordered_count_1 - 1],
+        ) {
+        ordered_prefix_matches_1 = false
+      }
+      if ordered_prefix_matches_1 &&
+        possible[2][ordered_start_1 + ordered_count_1] {
+        ordered_found_1 = true
+      }
+      ordered_count_1 += 1
+    }
+    possible[1][ordered_start_1] = ordered_found_1
+    ordered_start_1 += 1
+  }
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 1
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 1 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedDocumentAlias_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedDocumentAlias_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedDocumentAlias_1(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedIdentity_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "any") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="any",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedIdentity_1(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "any") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="any",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_OrderedIdentity(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 2 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[2][value_count] = true
+  let mut ordered_start_1 = 0
+  while ordered_start_1 <= value_count {
+    let mut ordered_count_1 = 0
+    let mut ordered_found_1 = false
+    let mut ordered_prefix_matches_1 = true
+    while ordered_count_1 <= value_count - ordered_start_1 &&
+          ordered_prefix_matches_1 {
+      if ordered_count_1 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedIdentity_1(
+          values[ordered_start_1 + ordered_count_1 - 1],
+        ) {
+        ordered_prefix_matches_1 = false
+      }
+      if ordered_prefix_matches_1 &&
+        possible[2][ordered_start_1 + ordered_count_1] {
+        ordered_found_1 = true
+      }
+      ordered_count_1 += 1
+    }
+    possible[1][ordered_start_1] = ordered_found_1
+    ordered_start_1 += 1
+  }
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 1
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 1 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedIdentity_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedIdentity_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedIdentity_1(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedNullableList_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !is_valid_values_AllowedScore(value) {
+      raise ConversionError::InvalidValue(
+        path="ordered_elements",
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_OrderedNullableList_1(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "$null") {
+      if !ion_schema_codegen_matches_type(value, "int") {
+        raise ConversionError::TypeMismatch(
+          path="ordered_elements",
+          expected="int",
+          actual=ion_schema_codegen_actual_type(value),
+        )
+      }
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_OrderedNullableList(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 2 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[2][value_count] = true
+  let mut ordered_start_1 = 0
+  while ordered_start_1 <= value_count {
+    let mut ordered_count_1 = 1
+    let mut ordered_found_1 = false
+    let mut ordered_prefix_matches_1 = true
+    while ordered_count_1 <= value_count - ordered_start_1 &&
+          ordered_count_1 <= 1 &&
+          ordered_prefix_matches_1 {
+      if ordered_count_1 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedNullableList_1(
+          values[ordered_start_1 + ordered_count_1 - 1],
+        ) {
+        ordered_prefix_matches_1 = false
+      }
+      if ordered_prefix_matches_1 &&
+        possible[2][ordered_start_1 + ordered_count_1] {
+        ordered_found_1 = true
+      }
+      ordered_count_1 += 1
+    }
+    possible[1][ordered_start_1] = ordered_found_1
+    ordered_start_1 += 1
+  }
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 1
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 1 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_OrderedNullableList_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedNullableList_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_OrderedNullableList_1(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
 pub(all) struct Address {
   city : String?
 }
@@ -3207,6 +4521,16 @@ pub fn IntExpressionRecord::from_ion(
           "[" +
           ion_schema_codegen_sexp_element_index.to_string() +
           "]"
+        if ion_schema_codegen_sexp_element_value.annotations().length() > 0 {
+          raise ConversionError::AnnotatedValueNotSupported(
+            path=ion_schema_codegen_sexp_element_path,
+          )
+        }
+        if ion_schema_codegen_sexp_element_value.is_null() {
+          raise ConversionError::NullNotAllowed(
+            path=ion_schema_codegen_sexp_element_path,
+          )
+        }
         if !ion_schema_codegen_matches_type(
             ion_schema_codegen_sexp_element_value, "int",
           ) {
@@ -3261,24 +4585,34 @@ pub fn from_ion_document_TextDocument(
       actual=values.length().to_string(),
     )
   }
-  let mut ion_schema_codegen_document_index_47 = 0
-  for ion_schema_codegen_document_value_47 in values {
-    let ion_schema_codegen_document_path_47 = type_path +
+  let mut ion_schema_codegen_document_index_59 = 0
+  for ion_schema_codegen_document_value_59 in values {
+    let ion_schema_codegen_document_path_59 = type_path +
       "[" +
-      ion_schema_codegen_document_index_47.to_string() +
+      ion_schema_codegen_document_index_59.to_string() +
       "]"
+    if ion_schema_codegen_document_value_59.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(
+        path=ion_schema_codegen_document_path_59,
+      )
+    }
+    if ion_schema_codegen_document_value_59.is_null() {
+      raise ConversionError::NullNotAllowed(
+        path=ion_schema_codegen_document_path_59,
+      )
+    }
     if !ion_schema_codegen_matches_type(
-        ion_schema_codegen_document_value_47, "string",
+        ion_schema_codegen_document_value_59, "string",
       ) {
       raise ConversionError::TypeMismatch(
-        path=ion_schema_codegen_document_path_47,
+        path=ion_schema_codegen_document_path_59,
         expected="string",
         actual=ion_schema_codegen_actual_type(
-          ion_schema_codegen_document_value_47,
+          ion_schema_codegen_document_value_59,
         ),
       )
     }
-    ion_schema_codegen_document_index_47 += 1
+    ion_schema_codegen_document_index_59 += 1
   }
   values
 }
@@ -3307,24 +4641,34 @@ pub fn from_ion_document_TextDocumentAlias(
       actual=values.length().to_string(),
     )
   }
-  let mut ion_schema_codegen_document_index_47 = 0
-  for ion_schema_codegen_document_value_47 in values {
-    let ion_schema_codegen_document_path_47 = type_path +
+  let mut ion_schema_codegen_document_index_59 = 0
+  for ion_schema_codegen_document_value_59 in values {
+    let ion_schema_codegen_document_path_59 = type_path +
       "[" +
-      ion_schema_codegen_document_index_47.to_string() +
+      ion_schema_codegen_document_index_59.to_string() +
       "]"
+    if ion_schema_codegen_document_value_59.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(
+        path=ion_schema_codegen_document_path_59,
+      )
+    }
+    if ion_schema_codegen_document_value_59.is_null() {
+      raise ConversionError::NullNotAllowed(
+        path=ion_schema_codegen_document_path_59,
+      )
+    }
     if !ion_schema_codegen_matches_type(
-        ion_schema_codegen_document_value_47, "string",
+        ion_schema_codegen_document_value_59, "string",
       ) {
       raise ConversionError::TypeMismatch(
-        path=ion_schema_codegen_document_path_47,
+        path=ion_schema_codegen_document_path_59,
         expected="string",
         actual=ion_schema_codegen_actual_type(
-          ion_schema_codegen_document_value_47,
+          ion_schema_codegen_document_value_59,
         ),
       )
     }
-    ion_schema_codegen_document_index_47 += 1
+    ion_schema_codegen_document_index_59 += 1
   }
   if values.length() < 1 || values.length() > 3 {
     raise ConversionError::InvalidValue(
@@ -3333,24 +4677,34 @@ pub fn from_ion_document_TextDocumentAlias(
       actual=values.length().to_string(),
     )
   }
-  let mut ion_schema_codegen_document_index_46 = 0
-  for ion_schema_codegen_document_value_46 in values {
-    let ion_schema_codegen_document_path_46 = type_path +
+  let mut ion_schema_codegen_document_index_58 = 0
+  for ion_schema_codegen_document_value_58 in values {
+    let ion_schema_codegen_document_path_58 = type_path +
       "[" +
-      ion_schema_codegen_document_index_46.to_string() +
+      ion_schema_codegen_document_index_58.to_string() +
       "]"
+    if ion_schema_codegen_document_value_58.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(
+        path=ion_schema_codegen_document_path_58,
+      )
+    }
+    if ion_schema_codegen_document_value_58.is_null() {
+      raise ConversionError::NullNotAllowed(
+        path=ion_schema_codegen_document_path_58,
+      )
+    }
     if !ion_schema_codegen_matches_type(
-        ion_schema_codegen_document_value_46, "string",
+        ion_schema_codegen_document_value_58, "string",
       ) {
       raise ConversionError::TypeMismatch(
-        path=ion_schema_codegen_document_path_46,
+        path=ion_schema_codegen_document_path_58,
         expected="string",
         actual=ion_schema_codegen_actual_type(
-          ion_schema_codegen_document_value_46,
+          ion_schema_codegen_document_value_58,
         ),
       )
     }
-    ion_schema_codegen_document_index_46 += 1
+    ion_schema_codegen_document_index_58 += 1
   }
   values
 }
@@ -3405,6 +4759,16 @@ pub fn ElementRecord::from_ion(
       "[" +
       ion_schema_codegen_struct_element_index.to_string() +
       "]"
+    if ion_schema_codegen_struct_element_value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(
+        path=ion_schema_codegen_struct_element_path,
+      )
+    }
+    if ion_schema_codegen_struct_element_value.is_null() {
+      raise ConversionError::NullNotAllowed(
+        path=ion_schema_codegen_struct_element_path,
+      )
+    }
     if !ion_schema_codegen_matches_type(
         ion_schema_codegen_struct_element_value, "int",
       ) {
@@ -3567,6 +4931,16 @@ pub fn StringFields::from_ion(
       "[" +
       ion_schema_codegen_struct_element_index.to_string() +
       "]"
+    if ion_schema_codegen_struct_element_value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(
+        path=ion_schema_codegen_struct_element_path,
+      )
+    }
+    if ion_schema_codegen_struct_element_value.is_null() {
+      raise ConversionError::NullNotAllowed(
+        path=ion_schema_codegen_struct_element_path,
+      )
+    }
     if !ion_schema_codegen_matches_type(
         ion_schema_codegen_struct_element_value, "string",
       ) {
@@ -3603,4 +4977,503 @@ pub fn StringFields::to_ion(self : StringFields) -> @ion_model.IonValue {
     output_fields.push((field_symbol, field_value))
   }
   @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type NullableExpression = Array[@ion_model.IonValue]
+
+///|
+pub(all) struct NullableExpressionRecord {
+  expression : NullableExpression
+}
+
+///|
+/// Convert an Ion struct to NullableExpressionRecord with field-level diagnostics.
+pub fn NullableExpressionRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> NullableExpressionRecord raise ConversionError {
+  let type_path = "NullableExpressionRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "expression" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="NullableExpressionRecord.expression",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="NullableExpressionRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="NullableExpressionRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : NullableExpression = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "NullableExpressionRecord.expression"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : NullableExpression = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Sexp(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="sexp",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      let ion_schema_codegen_sexp_elements = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Sexp(elements) => elements
+        _ =>
+          raise ConversionError::InvalidValue(
+            path=field_path,
+            constraint="element",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      let mut ion_schema_codegen_sexp_element_index = 0
+      for
+        ion_schema_codegen_sexp_element_value in ion_schema_codegen_sexp_elements {
+        let ion_schema_codegen_sexp_element_path = field_path +
+          "[" +
+          ion_schema_codegen_sexp_element_index.to_string() +
+          "]"
+        if !ion_schema_codegen_matches_type(
+            ion_schema_codegen_sexp_element_value, "$null",
+          ) {
+          if !ion_schema_codegen_matches_type(
+              ion_schema_codegen_sexp_element_value, "int",
+            ) {
+            raise ConversionError::TypeMismatch(
+              path=ion_schema_codegen_sexp_element_path,
+              expected="int",
+              actual=ion_schema_codegen_actual_type(
+                ion_schema_codegen_sexp_element_value,
+              ),
+            )
+          }
+        }
+        ion_schema_codegen_sexp_element_index += 1
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="NullableExpressionRecord.expression",
+      )
+  }
+  { expression: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert NullableExpressionRecord into an Ion struct in schema field order.
+pub fn NullableExpressionRecord::to_ion(
+  self : NullableExpressionRecord,
+) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("expression"),
+      @ion_model.IonValue::Sexp(self.expression),
+    ),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type OrderedValues = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion list to OrderedValues while validating its ordered elements.
+pub fn from_ion_OrderedValues(
+  value : @ion_model.IonValue,
+) -> OrderedValues raise ConversionError {
+  let type_path = "OrderedValues"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  ion_schema_codegen_validate_ordered_OrderedValues(input_elements, type_path)
+  input_elements
+}
+
+///|
+/// Convert OrderedValues into an Ion list.
+pub fn to_ion_OrderedValues(items : OrderedValues) -> @ion_model.IonValue {
+  @ion_model.IonValue::List(items)
+}
+
+///|
+pub type OrderedBaseList = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion list to OrderedBaseList while validating its ordered elements.
+pub fn from_ion_OrderedBaseList(
+  value : @ion_model.IonValue,
+) -> OrderedBaseList raise ConversionError {
+  let type_path = "OrderedBaseList"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  ion_schema_codegen_validate_ordered_OrderedBaseList(input_elements, type_path)
+  input_elements
+}
+
+///|
+/// Convert OrderedBaseList into an Ion list.
+pub fn to_ion_OrderedBaseList(items : OrderedBaseList) -> @ion_model.IonValue {
+  @ion_model.IonValue::List(items)
+}
+
+///|
+pub type OrderedAliasList = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion list to OrderedAliasList while validating its ordered elements.
+pub fn from_ion_OrderedAliasList(
+  value : @ion_model.IonValue,
+) -> OrderedAliasList raise ConversionError {
+  let type_path = "OrderedAliasList"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  ion_schema_codegen_validate_ordered_OrderedAliasList(
+    input_elements, type_path,
+  )
+  ion_schema_codegen_validate_ordered_OrderedBaseList(input_elements, type_path)
+  input_elements
+}
+
+///|
+/// Convert OrderedAliasList into an Ion list.
+pub fn to_ion_OrderedAliasList(items : OrderedAliasList) -> @ion_model.IonValue {
+  @ion_model.IonValue::List(items)
+}
+
+///|
+pub type OrderedBacktrack = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion list to OrderedBacktrack while validating its ordered elements.
+pub fn from_ion_OrderedBacktrack(
+  value : @ion_model.IonValue,
+) -> OrderedBacktrack raise ConversionError {
+  let type_path = "OrderedBacktrack"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  ion_schema_codegen_validate_ordered_OrderedBacktrack(
+    input_elements, type_path,
+  )
+  input_elements
+}
+
+///|
+/// Convert OrderedBacktrack into an Ion list.
+pub fn to_ion_OrderedBacktrack(items : OrderedBacktrack) -> @ion_model.IonValue {
+  @ion_model.IonValue::List(items)
+}
+
+///|
+pub type OrderedExpression = Array[@ion_model.IonValue]
+
+///|
+pub(all) struct OrderedExpressionRecord {
+  expression : OrderedExpression
+}
+
+///|
+/// Convert an Ion struct to OrderedExpressionRecord with field-level diagnostics.
+pub fn OrderedExpressionRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> OrderedExpressionRecord raise ConversionError {
+  let type_path = "OrderedExpressionRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "expression" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="OrderedExpressionRecord.expression",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="OrderedExpressionRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="OrderedExpressionRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : OrderedExpression = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "OrderedExpressionRecord.expression"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : OrderedExpression = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Sexp(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="sexp",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      let ion_schema_codegen_ordered_sexp_OrderedExpression = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Sexp(values) => values
+        _ =>
+          raise ConversionError::InvalidValue(
+            path=field_path,
+            constraint="ordered_elements",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      ion_schema_codegen_validate_ordered_OrderedExpression(
+        ion_schema_codegen_ordered_sexp_OrderedExpression, field_path,
+      )
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="OrderedExpressionRecord.expression",
+      )
+  }
+  { expression: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert OrderedExpressionRecord into an Ion struct in schema field order.
+pub fn OrderedExpressionRecord::to_ion(
+  self : OrderedExpressionRecord,
+) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("expression"),
+      @ion_model.IonValue::Sexp(self.expression),
+    ),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type OrderedDocument = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion document stream to OrderedDocument.
+pub fn from_ion_document_OrderedDocument(
+  values : Array[@ion_model.IonValue],
+) -> OrderedDocument raise ConversionError {
+  let type_path = "OrderedDocument"
+  ion_schema_codegen_validate_ordered_OrderedDocument(values, type_path)
+  values
+}
+
+///|
+/// Convert OrderedDocument to an Ion document stream.
+pub fn to_ion_document_OrderedDocument(
+  values : OrderedDocument,
+) -> Array[@ion_model.IonValue] {
+  values
+}
+
+///|
+pub type OrderedDocumentAlias = OrderedDocument
+
+///|
+/// Convert an Ion document stream to OrderedDocumentAlias.
+pub fn from_ion_document_OrderedDocumentAlias(
+  values : Array[@ion_model.IonValue],
+) -> OrderedDocumentAlias raise ConversionError {
+  let type_path = "OrderedDocumentAlias"
+  ion_schema_codegen_validate_ordered_OrderedDocumentAlias(values, type_path)
+  ion_schema_codegen_validate_ordered_OrderedDocument(values, type_path)
+  values
+}
+
+///|
+/// Convert OrderedDocumentAlias to an Ion document stream.
+pub fn to_ion_document_OrderedDocumentAlias(
+  values : OrderedDocumentAlias,
+) -> Array[@ion_model.IonValue] {
+  values
+}
+
+///|
+pub type OrderedIdentity = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion list to OrderedIdentity while validating its ordered elements.
+pub fn from_ion_OrderedIdentity(
+  value : @ion_model.IonValue,
+) -> OrderedIdentity raise ConversionError {
+  let type_path = "OrderedIdentity"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  ion_schema_codegen_validate_ordered_OrderedIdentity(input_elements, type_path)
+  input_elements
+}
+
+///|
+/// Convert OrderedIdentity into an Ion list.
+pub fn to_ion_OrderedIdentity(items : OrderedIdentity) -> @ion_model.IonValue {
+  @ion_model.IonValue::List(items)
+}
+
+///|
+pub type OrderedNullableList = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion list to OrderedNullableList while validating its ordered elements.
+pub fn from_ion_OrderedNullableList(
+  value : @ion_model.IonValue,
+) -> OrderedNullableList raise ConversionError {
+  let type_path = "OrderedNullableList"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  ion_schema_codegen_validate_ordered_OrderedNullableList(
+    input_elements, type_path,
+  )
+  input_elements
+}
+
+///|
+/// Convert OrderedNullableList into an Ion list.
+pub fn to_ion_OrderedNullableList(
+  items : OrderedNullableList,
+) -> @ion_model.IonValue {
+  @ion_model.IonValue::List(items)
 }

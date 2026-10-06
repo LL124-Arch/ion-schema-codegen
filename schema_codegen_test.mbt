@@ -429,3 +429,28 @@ test "generate element validators for structs S-expressions and documents" {
   assert_true(generated.source.contains("ion_schema_codegen_document_index_"))
   assert_true(generated.source.contains("expected=\"int\""))
 }
+
+///|
+test "generate raw ordered sequence validators with occurrence ranges" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: OrderedList, type: list, ordered_elements:[int, {type: string, occurs: optional}, {type: bool, occurs: range::[1, 2]}]} type::{name: OrderedSexp, type: sexp, ordered_elements:[symbol, {type: int, occurs: 2}]} type::{name: OrderedDocument, type: document, ordered_elements:[string]}",
+  )
+  assert_true(
+    generated.source.contains(
+      "pub type OrderedList = Array[@ion_model.IonValue]",
+    ),
+  )
+  assert_true(
+    generated.source.contains("ion_schema_codegen_validate_ordered_OrderedList"),
+  )
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_ordered_matches_OrderedSexp_1",
+    ),
+  )
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_validate_ordered_OrderedDocument",
+    ),
+  )
+}

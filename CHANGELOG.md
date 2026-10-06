@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.14.0 — 2026-10-07
+
+- 支持 list、sexp 和 document 的 `ordered_elements`，包含 required、optional、固定次数及范围 `occurs`，并校验整个序列被完整消费。
+- 异质序列以原始 `IonValue` 数组往返，保留类型、注解和 decimal 精度；不合法项的错误路径包含序列下标。
+
 ## 0.13.0 — 2026-10-07
 
 - 支持 struct、sexp 和 document 的 `element` 约束，逐项验证字段值或顶层值，并保留 struct 的重复与开放字段。

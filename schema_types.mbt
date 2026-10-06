@@ -51,6 +51,12 @@ priv struct IntegerRange {
 }
 
 ///|
+priv struct OrderedElementSpec {
+  type_ref : TypeRef
+  occurrence : FieldOccurrence
+}
+
+///|
 priv struct FieldSpec {
   name : String
   type_ref : TypeRef
@@ -62,6 +68,7 @@ priv struct NamedType {
   name : String
   body : TypeBody
   element_type : TypeRef?
+  ordered_elements : Array[OrderedElementSpec]?
   valid_values : Array[@model.IonValue]?
   container_lengths : Array[IntegerRange]
   codepoint_lengths : Array[IntegerRange]

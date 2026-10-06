@@ -68,3 +68,26 @@ type::{name: ElementRecord, type: struct, fields:{
   repeated: {type: int, occurs: range::[1, max]}
 }, element: int}
 type::{name: StringFields, type: struct, element: string}
+type::{name: NullableExpression, type: sexp, element: $null_or::int}
+type::{name: NullableExpressionRecord, type: struct, fields: closed::{expression: {type: NullableExpression, occurs: required}}}
+type::{name: OrderedValues, type: list, ordered_elements:[
+  int,
+  {type: string, occurs: optional},
+  {type: bool, occurs: range::[1, 2]},
+  {type: symbol, occurs: 2}
+]}
+type::{name: OrderedBaseList, type: list, ordered_elements:[{type: int, occurs: range::[1, 3]}]}
+type::{name: OrderedAliasList, type: OrderedBaseList, ordered_elements:[{type: int, occurs: 2}]}
+type::{name: OrderedBacktrack, type: list, ordered_elements:[{type: any, occurs: optional}, string]}
+type::{name: OrderedExpression, type: sexp, ordered_elements:[
+  symbol,
+  {type: int, occurs: range::[1, 2]}
+]}
+type::{name: OrderedExpressionRecord, type: struct, fields: closed::{expression: {type: OrderedExpression, occurs: required}}}
+type::{name: OrderedDocument, type: document, ordered_elements:[
+  string,
+  {type: int, occurs: optional}
+]}
+type::{name: OrderedDocumentAlias, type: OrderedDocument, ordered_elements:[string, int]}
+type::{name: OrderedIdentity, type: list, ordered_elements:[any, {type: any, occurs: range::[0, max]}]}
+type::{name: OrderedNullableList, type: list, ordered_elements:[AllowedScore, $null_or::int]}

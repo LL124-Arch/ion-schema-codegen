@@ -11,6 +11,7 @@
 - 开放与封闭结构体字段；可用 closed 注解限制额外字段。字段支持必选、可选及整数/区间 `occurs`；可重复字段映射为数组，未知字段和值模型按原顺序保留。
 - `element` 支持 list、sexp、document 和 struct 中每个值的类型约束；struct 可与 `fields` 组合，也可仅用 `element` 校验并保留开放字段。
 - 列表元素支持受支持标量或同一 Schema 命名类型；sexp、document 和 struct 元素按输入顺序逐项校验并在错误路径中标明位置。
+- `ordered_elements` 支持 list、sexp 和 document 的异质顺序约束，包含 required、optional、固定次数和整数范围 `occurs`；回溯匹配完整消费序列，并以 `Array[@ion_model.IonValue]` 保存原始值。
 - Ion `sexp` 作为 `Array[@ion_model.IonValue]`，支持结构体字段及列表元素；表达式内部值与顺序保持为 Ion 值模型。
 - Ion Schema `any` 作为 `@ion_model.IonValue`，可用于字段、列表元素和命名别名；任意非 null `IonValue`（含注解及嵌套值）原样往返。
 - Ion Schema `$any` 也作为 `@ion_model.IonValue`，可在字段、列表元素和命名别名中保留 plain null、typed null 及注解。

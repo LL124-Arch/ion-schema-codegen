@@ -940,3 +940,193 @@ test "document element constraints validate each top-level value" {
   }
   assert_eq(too_short, Some(("TextDocumentAlias", "container_length", "1")))
 }
+
+///|
+test "ordered_elements preserve heterogeneous list order and occurrences" {
+  let minimum = @ion_model.IonValue::List([
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(7)),
+    @ion_model.IonValue::Bool(true),
+    @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("left")),
+    @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("right")),
+  ])
+  let parsed_minimum = @references.from_ion_OrderedValues(minimum)
+  assert_eq(@references.to_ion_OrderedValues(parsed_minimum), minimum)
+
+  let maximum = @ion_model.IonValue::List([
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(7)),
+    @ion_model.IonValue::String("optional"),
+    @ion_model.IonValue::Bool(true),
+    @ion_model.IonValue::Bool(false),
+    @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("left")),
+    @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("right")),
+  ])
+  let parsed_maximum = @references.from_ion_OrderedValues(maximum)
+  assert_eq(@references.to_ion_OrderedValues(parsed_maximum), maximum)
+
+  let alias_input = @ion_model.IonValue::List([
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(2)),
+  ])
+  let alias_values = @references.from_ion_OrderedAliasList(alias_input)
+  assert_eq(@references.to_ion_OrderedAliasList(alias_values), alias_input)
+  let backtracked = @ion_model.IonValue::List([
+    @ion_model.IonValue::String("must satisfy the second position"),
+  ])
+  assert_eq(
+    @references.to_ion_OrderedBacktrack(
+      @references.from_ion_OrderedBacktrack(backtracked),
+    ),
+    backtracked,
+  )
+
+  let nullable = @ion_model.IonValue::List([
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(20)),
+    @ion_model.IonValue::null(kind=@ion_model.IonNull::Null),
+  ])
+  assert_eq(
+    @references.to_ion_OrderedNullableList(
+      @references.from_ion_OrderedNullableList(nullable),
+    ),
+    nullable,
+  )
+
+  let invalid = try {
+    let _ = @references.from_ion_OrderedValues(
+      @ion_model.IonValue::List([
+        @ion_model.IonValue::Int(@bigint.BigInt::from_int(7)),
+        @ion_model.IonValue::Blob(Bytes::from_array([1])),
+        @ion_model.IonValue::Bool(true),
+        @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("left")),
+        @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("right")),
+      ]),
+    )
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(invalid, Some(("OrderedValues[1]", "ordered_elements", "blob")))
+
+  let missing = try {
+    let _ = @references.from_ion_OrderedValues(@ion_model.IonValue::List([]))
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(
+    missing,
+    Some(("OrderedValues[0]", "ordered_elements", "sequence length 0")),
+  )
+}
+
+///|
+test "ordered_elements validate S-expression and document positions" {
+  let expression = @ion_model.IonValue::Sexp([
+    @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("op")),
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(2)),
+  ])
+  let expression_record = @references.OrderedExpressionRecord::from_ion(
+    @ion_model.IonValue::Struct([
+      (@ion_model.IonSymbol::from_text("expression"), expression),
+    ]),
+  )
+  assert_eq(
+    @references.OrderedExpressionRecord::to_ion(expression_record),
+    @ion_model.IonValue::Struct([
+      (@ion_model.IonSymbol::from_text("expression"), expression),
+    ]),
+  )
+
+  let invalid_expression = try {
+    let _ = @references.OrderedExpressionRecord::from_ion(
+      @ion_model.IonValue::Struct([
+        (
+          @ion_model.IonSymbol::from_text("expression"),
+          @ion_model.IonValue::Sexp([
+            @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("op")),
+            @ion_model.IonValue::Blob(Bytes::from_array([1])),
+          ]),
+        ),
+      ]),
+    )
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(
+    invalid_expression,
+    Some(("OrderedExpressionRecord.expression[1]", "ordered_elements", "blob")),
+  )
+
+  let document = [
+    @ion_model.IonValue::String("header"),
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(3)),
+  ]
+  let parsed_document = @references.from_ion_document_OrderedDocument(document)
+  assert_eq(
+    @references.to_ion_document_OrderedDocument(parsed_document),
+    document,
+  )
+  let document_alias = @references.from_ion_document_OrderedDocumentAlias(
+    document,
+  )
+  assert_eq(
+    @references.to_ion_document_OrderedDocumentAlias(document_alias),
+    document,
+  )
+
+  let invalid_document = try {
+    let _ = @references.from_ion_document_OrderedDocument([
+      @ion_model.IonValue::String("header"),
+      @ion_model.IonValue::Bool(true),
+    ])
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(
+    invalid_document,
+    Some(("OrderedDocument[1]", "ordered_elements", "bool")),
+  )
+}
+
+///|
+test "ordered_elements retain annotations and decimal precision" {
+  let annotation = [@ion_model.IonSymbol::from_text("meta")][:]
+  let annotated = @ion_model.IonValue::Int(@bigint.BigInt::from_int(9)).with_annotations(
+    annotation,
+  )
+  let decimal = @ion_model.IonValue::Decimal(
+    @ion_model.IonDecimal::new(
+      coefficient=@bigint.BigInt::from_int(123),
+      exponent=-2,
+    ),
+  )
+  let input = @ion_model.IonValue::List([annotated, decimal])
+  let values = @references.from_ion_OrderedIdentity(input)
+  assert_eq(@references.to_ion_OrderedIdentity(values), input)
+}
+
+///|
+test "element constraints accept nullable type arguments" {
+  let input = @ion_model.IonValue::Struct([
+    (
+      @ion_model.IonSymbol::from_text("expression"),
+      @ion_model.IonValue::Sexp([
+        @ion_model.IonValue::Int(@bigint.BigInt::from_int(4)),
+        @ion_model.IonValue::null(kind=@ion_model.IonNull::Null),
+      ]),
+    ),
+  ])
+  let record = @references.NullableExpressionRecord::from_ion(input)
+  assert_eq(record.expression.length(), 2)
+  assert_eq(@references.NullableExpressionRecord::to_ion(record), input)
+}

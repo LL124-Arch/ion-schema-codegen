@@ -113,6 +113,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let base_name = type_symbol_name(type_value, "type \{name}")
   let fields = value.get_fields("fields")
   let elements = value.get_fields("element")
+  let ordered_elements_fields = value.get_fields("ordered_elements")
   let valid_values_fields = value.get_fields("valid_values")
   let container_length_fields = value.get_fields("container_length")
   let codepoint_length_fields = value.get_fields("codepoint_length")
@@ -126,6 +127,12 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let element_type = match elements {
     [] => None
     [element] => Some(parse_element_type(element, "element of " + name))
+    _ => None
+  }
+  let ordered_elements = match ordered_elements_fields {
+    [] => None
+    [ordered_value] =>
+      Some(parse_ordered_elements(ordered_value, "type " + name))
     _ => None
   }
   validate_type_definition_fields(
@@ -188,9 +195,10 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
           "valid_values is only supported on scalar types at type \{name}",
         )
       }
-      if elements.length() != 1 {
+      if elements.length() != 1 &&
+        !(elements.length() == 0 && ordered_elements is Some(_)) {
         raise SchemaError::InvalidSchema(
-          "type \{name} must declare exactly one element constraint",
+          "type \{name} must declare element or ordered_elements",
         )
       }
       if fields.length() != 0 {
@@ -198,7 +206,12 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
           "type \{name} cannot use fields with list",
         )
       }
-      TypeBody::List(parse_element_type(elements[0], "element of \{name}"))
+      let list_element_type = match elements {
+        [element] => parse_element_type(element, "element of \{name}")
+        [] => TypeRef::Builtin("$any")
+        _ => TypeRef::Builtin("$any")
+      }
+      TypeBody::List(list_element_type)
     }
     _ => {
       if fields.length() != 0 {
@@ -221,6 +234,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     name,
     body,
     element_type,
+    ordered_elements,
     valid_values,
     container_lengths,
     codepoint_lengths,
@@ -434,6 +448,83 @@ fn parse_element_type(
   context : String,
 ) -> TypeRef raise SchemaError {
   parse_type_argument_reference(value, context)
+}
+
+///|
+fn parse_ordered_elements(
+  value : @model.IonValue,
+  context : String,
+) -> Array[OrderedElementSpec] raise SchemaError {
+  let values = match value.annotations() {
+    [] =>
+      match value.without_annotations() {
+        @model.IonValue::List(values) => values
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "ordered_elements must be an Ion list at " + context,
+          )
+      }
+    _ =>
+      raise SchemaError::UnsupportedFeature(
+        "annotated ordered_elements lists are not supported at " + context,
+      )
+  }
+  let result : Array[OrderedElementSpec] = []
+  let mut index = 0
+  for item in values {
+    let item_context = "ordered_elements[" +
+      index.to_string() +
+      "] at " +
+      context
+    let (type_ref, occurrence) = parse_ordered_type_argument(item, item_context)
+    result.push({ type_ref, occurrence, })
+    index += 1
+  }
+  result
+}
+
+///|
+fn parse_ordered_type_argument(
+  value : @model.IonValue,
+  context : String,
+) -> (TypeRef, FieldOccurrence) raise SchemaError {
+  match value.without_annotations() {
+    @model.IonValue::Struct(_) => {
+      if value.annotations().length() > 0 {
+        raise SchemaError::UnsupportedFeature(
+          "annotated ordered_elements type arguments are not supported at " +
+          context,
+        )
+      }
+      validate_allowed_fields(value, ["type", "occurs"], context)
+      let type_ref = parse_type_argument_reference(
+        required_single_field(value, "type", context),
+        context,
+      )
+      let occurrence_values = value.get_fields("occurs")
+      let occurrence = match occurrence_values {
+        [] => { min_count: 1, max_count: Some(1), }
+        [occurs_value] => {
+          if is_null_or_reference(type_ref) {
+            raise SchemaError::InvalidOccurs(
+              "$null_or cannot be combined with explicit occurs at " + context,
+            )
+          }
+          parse_occurs(occurs_value, context)
+        }
+        _ =>
+          raise SchemaError::InvalidOccurs(
+            "occurs may appear at most once at " + context,
+          )
+      }
+      (type_ref, occurrence)
+    }
+    _ =>
+      (
+        parse_type_argument_reference(value, context),
+        { min_count: 1, max_count: Some(1), },
+      )
+  }
 }
 
 ///|
@@ -664,12 +755,15 @@ fn validate_type_definition_fields(
   validate_allowed_fields(
     value,
     [
-      "name", "type", "fields", "element", "valid_values", "container_length", "codepoint_length",
-      "utf8_byte_length", "byte_length",
+      "name", "type", "fields", "element", "ordered_elements", "valid_values", "container_length",
+      "codepoint_length", "utf8_byte_length", "byte_length",
     ],
     "type \{type_name}",
   )
-  if fields_count > 1 || elements_count > 1 || valid_values_count > 1 {
+  if fields_count > 1 ||
+    elements_count > 1 ||
+    valid_values_count > 1 ||
+    value.get_fields("ordered_elements").length() > 1 {
     raise SchemaError::InvalidSchema(
       "duplicate fields or constraints at type \{type_name}",
     )
@@ -841,8 +935,44 @@ fn supports_element_constraint(
 }
 
 ///|
+fn supports_ordered_elements(
+  types : Array[NamedType],
+  named_type : NamedType,
+) -> Bool raise SchemaError {
+  match named_type.body {
+    TypeBody::List(_) => true
+    TypeBody::Struct(_, _) => false
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::List(_) => true
+        ResolvedType::Struct(_) => false
+        ResolvedType::Scalar(name) =>
+          contains_string(["sexp", "$sexp", "document"], name)
+      }
+  }
+}
+
+///|
 fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError {
   for named_type in types {
+    match named_type.ordered_elements {
+      Some(ordered_elements) => {
+        if !supports_ordered_elements(types, named_type) {
+          raise SchemaError::UnsupportedFeature(
+            "ordered_elements applies only to list, sexp, or document values at type " +
+            named_type.name,
+          )
+        }
+        for ordered_element in ordered_elements {
+          validate_type_reference(
+            types,
+            ordered_element.type_ref,
+            "ordered_elements of " + named_type.name,
+          )
+        }
+      }
+      None => ()
+    }
     match named_type.element_type {
       Some(element_type) => {
         if !supports_element_constraint(types, named_type) {

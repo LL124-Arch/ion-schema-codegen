@@ -31,7 +31,10 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
     output.write_string("\n")
     write_ion_type_helpers(
       output,
-      uses_nullable_type_checks(schema.types) || has_valid_values(schema.types),
+      uses_nullable_type_checks(schema.types) ||
+      has_valid_values(schema.types) ||
+      has_element_constraints(schema.types) ||
+      has_ordered_elements(schema.types),
     )
     if has_container_length_constraints(schema.types) {
       output.write_string("\n")
@@ -50,6 +53,10 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
     if has_nested_conversion_types(schema.types) {
       output.write_string("\n")
       write_prefix_error_helper(output)
+    }
+    if has_ordered_elements(schema.types) {
+      output.write_string("\n")
+      write_ordered_element_helpers(output, schema.types)
     }
     output.write_string("\n")
   }
@@ -77,12 +84,20 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
       }
       TypeBody::List(element_type) => {
         output.write_string("\n")
-        write_list_conversions(output, named_type, element_type, schema.types)
+        if named_type.ordered_elements is Some(_) {
+          write_ordered_list_conversions(output, named_type, schema.types)
+        } else {
+          write_list_conversions(output, named_type, element_type, schema.types)
+        }
       }
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
         if is_document_type(resolve_type_ref(schema.types, type_ref)) {
           output.write_string("\n")
           write_document_conversions(output, named_type, schema.types)
+        } else if named_type.ordered_elements is Some(_) &&
+          is_list_type(resolve_type_ref(schema.types, type_ref)) {
+          output.write_string("\n")
+          write_ordered_list_conversions(output, named_type, schema.types)
         }
     }
   }
@@ -112,12 +127,30 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
     match named_type.element_type {
       Some(element_type) => {
         validate_codegen_reference(
-          element_type, "element of \\{named_type.name}",
+          element_type,
+          "element of \{named_type.name}",
         )
         reject_document_reference(
-          element_type, types, "element of \\{named_type.name}",
+          element_type,
+          types,
+          "element of \{named_type.name}",
         )
       }
+      None => ()
+    }
+    match named_type.ordered_elements {
+      Some(ordered_elements) =>
+        for ordered_element in ordered_elements {
+          validate_codegen_reference(
+            ordered_element.type_ref,
+            "ordered_elements of \{named_type.name}",
+          )
+          reject_document_reference(
+            ordered_element.type_ref,
+            types,
+            "ordered_elements of \{named_type.name}",
+          )
+        }
       None => ()
     }
 
@@ -225,13 +258,21 @@ fn write_named_type(
       output.write_string("pub type ")
       output.write_string(generated_name)
       output.write_string(" = ")
-      output.write_string(
-        moonbit_type_for_reference_in(
-          type_ref,
-          types,
-          "type \{named_type.name}",
-        ),
-      )
+      let resolves_to_list = match resolve_type_ref(types, type_ref) {
+        ResolvedType::List(_) => true
+        _ => false
+      }
+      if named_type.ordered_elements is Some(_) && resolves_to_list {
+        output.write_string("Array[@ion_model.IonValue]")
+      } else {
+        output.write_string(
+          moonbit_type_for_reference_in(
+            type_ref,
+            types,
+            "type \{named_type.name}",
+          ),
+        )
+      }
       output.write_string("\n")
     }
     TypeBody::Struct(fields, is_open) => {
@@ -278,15 +319,19 @@ fn write_named_type(
     TypeBody::List(element_type) => {
       output.write_string("pub type ")
       output.write_string(generated_name)
-      output.write_string(" = Array[")
-      output.write_string(
-        moonbit_type_for_reference_in(
-          element_type,
-          types,
-          "element of \{named_type.name}",
-        ),
-      )
-      output.write_string("]\n")
+      if named_type.ordered_elements is Some(_) {
+        output.write_string(" = Array[@ion_model.IonValue]\n")
+      } else {
+        output.write_string(" = Array[")
+        output.write_string(
+          moonbit_type_for_reference_in(
+            element_type,
+            types,
+            "element of \{named_type.name}",
+          ),
+        )
+        output.write_string("]\n")
+      }
     }
   }
 }
@@ -306,6 +351,7 @@ fn write_document_conversions(
   output.write_string(generated_name)
   if named_type.container_lengths.length() > 0 ||
     named_type.element_type is Some(_) ||
+    named_type.ordered_elements is Some(_) ||
     has_document_alias_constraints(named_type, types, types.length()) {
     output.write_string(" raise ConversionError {\n  let type_path = \"")
     output.write_string(named_type.name)
@@ -347,6 +393,7 @@ fn has_document_alias_constraints(
         Some(target) =>
           target.container_lengths.length() > 0 ||
           target.element_type is Some(_) ||
+          target.ordered_elements is Some(_) ||
           has_document_alias_constraints(target, types, remaining - 1)
         None => false
       }
@@ -383,6 +430,9 @@ fn write_document_constraint_chain(
       )
     None => ()
   }
+  write_ordered_sequence_check(
+    output, named_type, values_expression, path_expression, indent,
+  )
   match named_type.body {
     TypeBody::Alias(TypeRef::Named(next)) =>
       match find_named_type(types, next) {
@@ -526,6 +576,57 @@ fn write_named_element_checks(
 }
 
 ///|
+fn write_named_ordered_checks(
+  output : StringBuilder,
+  named_type : NamedType,
+  types : Array[NamedType],
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  if named_type.ordered_elements is None {
+    return
+  }
+  match named_type.body {
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return
+    _ => ()
+  }
+  let base_type = match named_type.body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) => type_ref
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return
+  }
+  match resolve_type_ref(types, base_type) {
+    ResolvedType::Scalar("sexp" | "$sexp") => {
+      let generated_name = moonbit_type_identifier(named_type.name)
+      let sequence_name = "ion_schema_codegen_ordered_sexp_" + generated_name
+      output.write_string(
+        indent +
+        "let " +
+        sequence_name +
+        " = match " +
+        value_expression +
+        ".without_annotations() {\n" +
+        indent +
+        "  @ion_model.IonValue::Sexp(values) => values\n" +
+        indent +
+        "  _ => raise ConversionError::InvalidValue(path=" +
+        path_expression +
+        ", constraint=\"ordered_elements\", actual=ion_schema_codegen_actual_type(" +
+        value_expression +
+        "))\n" +
+        indent +
+        "}\n",
+      )
+      write_ordered_sequence_check(
+        output, named_type, sequence_name, path_expression, indent,
+      )
+    }
+    ResolvedType::Scalar(_) | ResolvedType::Struct(_) | ResolvedType::List(_) =>
+      ()
+  }
+}
+
+///|
 fn write_named_sequence_element_checks(
   output : StringBuilder,
   element_type : TypeRef,
@@ -644,6 +745,35 @@ fn write_element_item_validation(
   path_expression : String,
   indent : String,
 ) -> Unit raise SchemaError {
+  if !is_raw_ion_value_reference(element_type, types) &&
+    !reference_has_valid_values(element_type, types) {
+    output.write_string(
+      indent +
+      "if " +
+      value_expression +
+      ".annotations().length() > 0 {\n" +
+      indent +
+      "  raise ConversionError::AnnotatedValueNotSupported(path=" +
+      path_expression +
+      ")\n" +
+      indent +
+      "}\n",
+    )
+  }
+  if !reference_accepts_null(element_type, types) {
+    output.write_string(
+      indent +
+      "if " +
+      value_expression +
+      ".is_null() {\n" +
+      indent +
+      "  raise ConversionError::NullNotAllowed(path=" +
+      path_expression +
+      ")\n" +
+      indent +
+      "}\n",
+    )
+  }
   if is_null_or_type_ref(element_type) {
     output.write_string(
       indent +
@@ -668,6 +798,189 @@ fn write_element_item_validation(
   write_reference_valid_values_checks(
     output, element_type, types, value_expression, path_expression, indent,
   )
+}
+
+///|
+fn ordered_elements_validator_name(
+  named_type : NamedType,
+) -> String raise SchemaError {
+  "ion_schema_codegen_validate_ordered_" +
+  moonbit_type_identifier(named_type.name)
+}
+
+///|
+fn ordered_element_matcher_name(
+  named_type : NamedType,
+  index : Int,
+) -> String raise SchemaError {
+  "ion_schema_codegen_ordered_matches_" +
+  moonbit_type_identifier(named_type.name) +
+  "_" +
+  index.to_string()
+}
+
+///|
+fn write_ordered_element_helpers(
+  output : StringBuilder,
+  types : Array[NamedType],
+) -> Unit raise SchemaError {
+  for named_type in types {
+    match named_type.ordered_elements {
+      Some(ordered_elements) => {
+        let mut index = 0
+        for ordered_element in ordered_elements {
+          output.write_string(
+            "///|\nfn " +
+            ordered_element_matcher_name(named_type, index) +
+            "(value : @ion_model.IonValue) -> Bool {\n  try {\n",
+          )
+          write_element_item_validation(
+            output,
+            ordered_element.type_ref,
+            "value",
+            types,
+            "\"ordered_elements\"",
+            "    ",
+          )
+          output.write_string(
+            "    true\n  } catch {\n    _ => false\n  }\n}\n\n",
+          )
+          index += 1
+        }
+        write_ordered_sequence_validator(output, named_type, ordered_elements)
+      }
+      None => ()
+    }
+  }
+}
+
+///|
+fn write_ordered_sequence_validator(
+  output : StringBuilder,
+  named_type : NamedType,
+  ordered_elements : Array[OrderedElementSpec],
+) -> Unit raise SchemaError {
+  let validator_name = ordered_elements_validator_name(named_type)
+  let element_count = ordered_elements.length()
+  output.write_string(
+    "///|\nfn " +
+    validator_name +
+    "(\n  values : Array[@ion_model.IonValue],\n  path : String,\n) -> Unit raise ConversionError {\n  let value_count = values.length()\n  let possible : Array[Array[Bool]] = []\n  let mut row_index = 0\n  while row_index <= " +
+    element_count.to_string() +
+    " {\n    let row : Array[Bool] = []\n    let mut column_index = 0\n    while column_index <= value_count {\n      row.push(false)\n      column_index += 1\n    }\n    possible.push(row)\n    row_index += 1\n  }\n  possible[" +
+    element_count.to_string() +
+    "][value_count] = true\n",
+  )
+
+  let mut index = element_count
+  while index > 0 {
+    index -= 1
+    let ordered_element = ordered_elements[index]
+    let row = index + 1
+    let start_name = "ordered_start_" + index.to_string()
+    let count_name = "ordered_count_" + index.to_string()
+    let found_name = "ordered_found_" + index.to_string()
+    let prefix_name = "ordered_prefix_matches_" + index.to_string()
+    let matcher_name = ordered_element_matcher_name(named_type, index)
+    output.write_string(
+      "  let mut " +
+      start_name +
+      " = 0\n  while " +
+      start_name +
+      " <= value_count {\n    let mut " +
+      count_name +
+      " = " +
+      ordered_element.occurrence.min_count.to_string() +
+      "\n    let mut " +
+      found_name +
+      " = false\n    let mut " +
+      prefix_name +
+      " = true\n    while " +
+      count_name +
+      " <= value_count - " +
+      start_name,
+    )
+    match ordered_element.occurrence.max_count {
+      Some(maximum) =>
+        output.write_string(" && " + count_name + " <= " + maximum.to_string())
+      None => ()
+    }
+    output.write_string(
+      " && " +
+      prefix_name +
+      " {\n      if " +
+      count_name +
+      " > 0 && !" +
+      matcher_name +
+      "(values[" +
+      start_name +
+      " + " +
+      count_name +
+      " - 1]) {\n        " +
+      prefix_name +
+      " = false\n      }\n      if " +
+      prefix_name +
+      " && possible[" +
+      row.to_string() +
+      "][" +
+      start_name +
+      " + " +
+      count_name +
+      "] {\n        " +
+      found_name +
+      " = true\n      }\n      " +
+      count_name +
+      " += 1\n    }\n    possible[" +
+      index.to_string() +
+      "][" +
+      start_name +
+      "] = " +
+      found_name +
+      "\n    " +
+      start_name +
+      " += 1\n  }\n",
+    )
+  }
+
+  output.write_string(
+    "  if !possible[0][0] {\n    let mut failure_index = value_count\n    let mut probe_index = 0\n    while probe_index < value_count {\n      let mut recognized = false\n",
+  )
+  index = 0
+  for _ in ordered_elements {
+    let matcher_name = ordered_element_matcher_name(named_type, index)
+    output.write_string(
+      "      if !recognized && " +
+      matcher_name +
+      "(values[probe_index]) {\n        recognized = true\n      }\n",
+    )
+    index += 1
+  }
+  output.write_string(
+    "      if !recognized && failure_index == value_count {\n        failure_index = probe_index\n      }\n      probe_index += 1\n    }\n    let actual = if failure_index < value_count {\n      ion_schema_codegen_actual_type(values[failure_index])\n    } else {\n      \"sequence length \" + value_count.to_string()\n    }\n    raise ConversionError::InvalidValue(\n      path=path + \"[\" + failure_index.to_string() + \"]\",\n      constraint=\"ordered_elements\",\n      actual=actual,\n    )\n  }\n}\n\n",
+  )
+}
+
+///|
+fn write_ordered_sequence_check(
+  output : StringBuilder,
+  named_type : NamedType,
+  values_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  match named_type.ordered_elements {
+    Some(_) =>
+      output.write_string(
+        indent +
+        ordered_elements_validator_name(named_type) +
+        "(" +
+        values_expression +
+        ", " +
+        path_expression +
+        ")\n",
+      )
+    None => ()
+  }
 }
 
 ///|
@@ -696,6 +1009,26 @@ fn write_ion_type_helpers(
 fn has_container_length_constraints(types : Array[NamedType]) -> Bool {
   for named_type in types {
     if named_type.container_lengths.length() > 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn has_ordered_elements(types : Array[NamedType]) -> Bool {
+  for named_type in types {
+    if named_type.ordered_elements is Some(_) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn has_element_constraints(types : Array[NamedType]) -> Bool {
+  for named_type in types {
+    if named_type.element_type is Some(_) {
       return true
     }
   }
@@ -1142,6 +1475,153 @@ fn is_required_field(occurrence : FieldOccurrence) -> Bool {
 }
 
 ///|
+fn is_list_type(resolved : ResolvedType) -> Bool {
+  match resolved {
+    ResolvedType::List(_) => true
+    _ => false
+  }
+}
+
+///|
+fn write_ordered_list_conversions(
+  output : StringBuilder,
+  named_type : NamedType,
+  types : Array[NamedType],
+) -> Unit raise SchemaError {
+  let generated_name = moonbit_type_identifier(named_type.name)
+  output.write_string(
+    "///|\n/// Convert an Ion list to " +
+    generated_name +
+    " while validating its ordered elements.\npub fn from_ion_" +
+    generated_name +
+    "(\n  value : @ion_model.IonValue,\n) -> " +
+    generated_name +
+    " raise ConversionError {\n  let type_path = \"" +
+    named_type.name +
+    "\"\n  if value.is_null() {\n    raise ConversionError::NullNotAllowed(path=type_path)\n  }\n  if value.annotations().length() > 0 {\n    raise ConversionError::AnnotatedValueNotSupported(path=type_path)\n  }\n  let input_elements = match value.without_annotations() {\n    @ion_model.IonValue::List(elements) => elements\n    _ => raise ConversionError::TypeMismatch(path=type_path, expected=\"list\", actual=ion_schema_codegen_actual_type(value))\n  }\n",
+  )
+  write_ordered_list_constraint_chain(
+    output,
+    named_type,
+    types,
+    "input_elements",
+    "type_path",
+    "  ",
+    types.length(),
+  )
+  output.write_string("  input_elements\n}\n\n")
+  output.write_string(
+    "///|\n/// Convert " +
+    generated_name +
+    " into an Ion list.\npub fn to_ion_" +
+    generated_name +
+    "(items : " +
+    generated_name +
+    ") -> @ion_model.IonValue {\n  @ion_model.IonValue::List(items)\n}\n",
+  )
+}
+
+///|
+fn write_ordered_list_constraint_chain(
+  output : StringBuilder,
+  named_type : NamedType,
+  types : Array[NamedType],
+  values_expression : String,
+  path_expression : String,
+  indent : String,
+  remaining : Int,
+) -> Unit raise SchemaError {
+  if remaining <= 0 {
+    return
+  }
+  write_integer_range_checks(
+    output,
+    named_type.container_lengths,
+    values_expression + ".length()",
+    path_expression,
+    "container_length",
+    indent,
+  )
+  match named_type.element_type {
+    Some(element_type) =>
+      write_sequence_element_checks(
+        output,
+        element_type,
+        types,
+        values_expression,
+        path_expression,
+        indent,
+        "ion_schema_codegen_ordered_list_" + remaining.to_string(),
+      )
+    None => ()
+  }
+  write_ordered_sequence_check(
+    output, named_type, values_expression, path_expression, indent,
+  )
+  match named_type.body {
+    TypeBody::Alias(TypeRef::Named(next)) =>
+      match find_named_type(types, next) {
+        Some(target) =>
+          write_ordered_list_constraint_chain(
+            output,
+            target,
+            types,
+            values_expression,
+            path_expression,
+            indent,
+            remaining - 1,
+          )
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn write_sequence_element_checks(
+  output : StringBuilder,
+  element_type : TypeRef,
+  types : Array[NamedType],
+  values_expression : String,
+  path_expression : String,
+  indent : String,
+  variable_prefix : String,
+) -> Unit raise SchemaError {
+  let index_name = variable_prefix + "_index"
+  let element_name = variable_prefix + "_value"
+  let element_path = variable_prefix + "_path"
+  output.write_string(
+    indent +
+    "let mut " +
+    index_name +
+    " = 0\n" +
+    indent +
+    "for " +
+    element_name +
+    " in " +
+    values_expression +
+    " {\n" +
+    indent +
+    "  let " +
+    element_path +
+    " = " +
+    path_expression +
+    " + \"[\" + " +
+    index_name +
+    ".to_string() + \"]\"\n",
+  )
+  write_element_item_validation(
+    output,
+    element_type,
+    element_name,
+    types,
+    element_path,
+    indent + "  ",
+  )
+  output.write_string(indent + "  " + index_name + " += 1\n" + indent + "}\n")
+}
+
+///|
 fn write_list_conversions(
   output : StringBuilder,
   named_type : NamedType,
@@ -1558,6 +2038,15 @@ fn uses_nullable_type_checks(
   types : Array[NamedType],
 ) -> Bool raise SchemaError {
   for named_type in types {
+    match named_type.ordered_elements {
+      Some(ordered_elements) =>
+        for ordered_element in ordered_elements {
+          if needs_nullable_type_check(ordered_element.type_ref, types) {
+            return true
+          }
+        }
+      None => ()
+    }
     match named_type.element_type {
       Some(type_ref) if needs_nullable_type_check(type_ref, types) =>
         return true
@@ -1808,15 +2297,33 @@ fn ion_from_expression(
   types : Array[NamedType],
   error_prefix : String,
 ) -> String raise SchemaError {
-  let from_expression = match resolve_type_ref(types, type_ref) {
-    ResolvedType::Struct(name) =>
-      moonbit_type_identifier(name) + "::from_ion(" + value_expression + ")"
-    ResolvedType::List(name) =>
-      "from_ion_" + moonbit_type_identifier(name) + "(" + value_expression + ")"
-    ResolvedType::Scalar(_) =>
-      raise SchemaError::UnsupportedFeature(
-        "internal named conversion requested for scalar type",
-      )
+  let ordered_conversion_name = match type_ref {
+    TypeRef::Named(name) =>
+      match find_named_type(types, name) {
+        Some(named_type) if named_type.ordered_elements is Some(_) &&
+          is_list_type(resolve_type_ref(types, type_ref)) =>
+          Some(moonbit_type_identifier(named_type.name))
+        _ => None
+      }
+    _ => None
+  }
+  let from_expression = match ordered_conversion_name {
+    Some(name) => "from_ion_" + name + "(" + value_expression + ")"
+    None =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Struct(name) =>
+          moonbit_type_identifier(name) + "::from_ion(" + value_expression + ")"
+        ResolvedType::List(name) =>
+          "from_ion_" +
+          moonbit_type_identifier(name) +
+          "(" +
+          value_expression +
+          ")"
+        ResolvedType::Scalar(_) =>
+          raise SchemaError::UnsupportedFeature(
+            "internal named conversion requested for scalar type",
+          )
+      }
   }
   "try " +
   from_expression +
@@ -1831,20 +2338,38 @@ fn ion_value_expression(
   value_expression : String,
   types : Array[NamedType],
 ) -> String raise SchemaError {
-  match resolve_type_ref(types, type_ref) {
-    ResolvedType::Scalar("any" | "$any" | "number") => value_expression
-    ResolvedType::Scalar(name) if name.has_prefix("$") => value_expression
-    _ if is_null_or_type_ref(type_ref) => value_expression
-    ResolvedType::Scalar("document") =>
-      raise SchemaError::UnsupportedFeature(
-        "document streams cannot be embedded as a single Ion value",
-      )
-    ResolvedType::Scalar(name) =>
-      ion_value_variant(name) + "(" + value_expression + ")"
-    ResolvedType::Struct(name) =>
-      moonbit_type_identifier(name) + "::to_ion(" + value_expression + ")"
-    ResolvedType::List(name) =>
-      "to_ion_" + moonbit_type_identifier(name) + "(" + value_expression + ")"
+  let ordered_conversion_name = match type_ref {
+    TypeRef::Named(name) =>
+      match find_named_type(types, name) {
+        Some(named_type) if named_type.ordered_elements is Some(_) &&
+          is_list_type(resolve_type_ref(types, type_ref)) =>
+          Some(moonbit_type_identifier(named_type.name))
+        _ => None
+      }
+    _ => None
+  }
+  match ordered_conversion_name {
+    Some(name) => "to_ion_" + name + "(" + value_expression + ")"
+    None =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Scalar("any" | "$any" | "number") => value_expression
+        ResolvedType::Scalar(name) if name.has_prefix("$") => value_expression
+        _ if is_null_or_type_ref(type_ref) => value_expression
+        ResolvedType::Scalar("document") =>
+          raise SchemaError::UnsupportedFeature(
+            "document streams cannot be embedded as a single Ion value",
+          )
+        ResolvedType::Scalar(name) =>
+          ion_value_variant(name) + "(" + value_expression + ")"
+        ResolvedType::Struct(name) =>
+          moonbit_type_identifier(name) + "::to_ion(" + value_expression + ")"
+        ResolvedType::List(name) =>
+          "to_ion_" +
+          moonbit_type_identifier(name) +
+          "(" +
+          value_expression +
+          ")"
+      }
   }
 }
 
@@ -1941,6 +2466,16 @@ fn referenced_type_names(named_type : NamedType) -> Array[String] {
     Some(TypeRef::Named(name) | TypeRef::NullOrNamed(name)) => names.push(name)
     Some(TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_)) | None => ()
   }
+  match named_type.ordered_elements {
+    Some(ordered_elements) =>
+      for ordered_element in ordered_elements {
+        match ordered_element.type_ref {
+          TypeRef::Named(name) | TypeRef::NullOrNamed(name) => names.push(name)
+          TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+        }
+      }
+    None => ()
+  }
   names
 }
 
@@ -1987,6 +2522,17 @@ fn moonbit_type_for_builtin(
 ///|
 fn uses_bigint(types : Array[NamedType]) -> Bool raise SchemaError {
   for named_type in types {
+    match named_type.ordered_elements {
+      Some(ordered_elements) =>
+        for ordered_element in ordered_elements {
+          let type_ref = ordered_element.type_ref
+          if matches_int(resolve_type_ref(types, type_ref)) &&
+            !is_raw_ion_value_reference(type_ref, types) {
+            return true
+          }
+        }
+      None => ()
+    }
     match named_type.element_type {
       Some(type_ref) if matches_int(resolve_type_ref(types, type_ref)) &&
         !is_raw_ion_value_reference(type_ref, types) => return true
@@ -2037,6 +2583,7 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
     if named_type.valid_values is Some(_) ||
       named_type.container_lengths.length() > 0 ||
       named_type.element_type is Some(_) ||
+      named_type.ordered_elements is Some(_) ||
       named_type.codepoint_lengths.length() > 0 ||
       named_type.utf8_byte_lengths.length() > 0 ||
       named_type.byte_lengths.length() > 0 {
@@ -2055,6 +2602,16 @@ fn has_nested_conversion_types(
   types : Array[NamedType],
 ) -> Bool raise SchemaError {
   for named_type in types {
+    match named_type.ordered_elements {
+      Some(ordered_elements) =>
+        for ordered_element in ordered_elements {
+          match resolve_type_ref(types, ordered_element.type_ref) {
+            ResolvedType::Struct(_) | ResolvedType::List(_) => return true
+            ResolvedType::Scalar(_) => ()
+          }
+        }
+      None => ()
+    }
     match named_type.element_type {
       Some(element_type) =>
         match resolve_type_ref(types, element_type) {
