@@ -63,6 +63,9 @@ priv struct NamedType {
   body : TypeBody
   valid_values : Array[@model.IonValue]?
   container_lengths : Array[IntegerRange]
+  codepoint_lengths : Array[IntegerRange]
+  utf8_byte_lengths : Array[IntegerRange]
+  byte_lengths : Array[IntegerRange]
 }
 
 ///|

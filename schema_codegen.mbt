@@ -37,6 +37,10 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
       output.write_string("\n")
       write_container_length_helper(output)
     }
+    if has_content_length_constraints(schema.types) {
+      output.write_string("\n")
+      write_content_length_helpers(output, schema.types)
+    }
     if has_valid_values(schema.types) {
       output.write_string("\n")
       write_valid_values_helpers(output)
@@ -359,12 +363,30 @@ fn write_container_length_value_checks(
   path_expression : String,
   indent : String,
 ) -> Unit {
+  write_ion_value_integer_range_checks(
+    output, ranges, value_expression, path_expression, "container_length", "ion_schema_codegen_container_length",
+    indent,
+  )
+}
+
+///|
+fn write_ion_value_integer_range_checks(
+  output : StringBuilder,
+  ranges : Array[IntegerRange],
+  value_expression : String,
+  path_expression : String,
+  constraint : String,
+  measure_function : String,
+  indent : String,
+) -> Unit {
   if ranges.length() == 0 {
     return
   }
   output.write_string(
     indent +
-    "match ion_schema_codegen_container_length(" +
+    "match " +
+    measure_function +
+    "(" +
     value_expression +
     ") {\n" +
     indent +
@@ -375,7 +397,7 @@ fn write_container_length_value_checks(
     ranges,
     "actual_length",
     path_expression,
-    "container_length",
+    constraint,
     indent + "    ",
   )
   output.write_string(
@@ -388,7 +410,9 @@ fn write_container_length_value_checks(
     path_expression +
     ",\n" +
     indent +
-    "    constraint=\"container_length\",\n" +
+    "    constraint=\"" +
+    constraint +
+    "\",\n" +
     indent +
     "    actual=ion_schema_codegen_actual_type(" +
     value_expression +
@@ -1636,7 +1660,10 @@ fn uses_model_types(types : Array[NamedType]) -> Bool raise SchemaError {
 fn has_conversion_types(types : Array[NamedType]) -> Bool {
   for named_type in types {
     if named_type.valid_values is Some(_) ||
-      named_type.container_lengths.length() > 0 {
+      named_type.container_lengths.length() > 0 ||
+      named_type.codepoint_lengths.length() > 0 ||
+      named_type.utf8_byte_lengths.length() > 0 ||
+      named_type.byte_lengths.length() > 0 {
       return true
     }
     match named_type.body {

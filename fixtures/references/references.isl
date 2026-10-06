@@ -49,3 +49,13 @@ type::{name: SizedRecord, type: struct, fields:{known: string}, container_length
 type::{name: SizedExpression, type: sexp, container_length: 2}
 type::{name: SizedExpressionRecord, type: struct, fields: closed::{expression: {type: SizedExpression, occurs: required}}}
 type::{name: SizedDocument, type: document, container_length: range::[1, 3]}
+type::{name: LimitedText, type: string, codepoint_length: 2, utf8_byte_length: 5}
+type::{name: LimitedSymbol, type: symbol, codepoint_length: 1, utf8_byte_length: 3}
+type::{name: LimitedBlob, type: blob, byte_length: range::[2, 4]}
+type::{name: LimitedClob, type: clob, byte_length: 4}
+type::{name: ContentLengthRecord, type: struct, fields: closed::{
+  text: {type: LimitedText, occurs: required},
+  symbol: {type: LimitedSymbol, occurs: required},
+  blob: {type: LimitedBlob, occurs: required},
+  clob: {type: LimitedClob, occurs: required}
+}}

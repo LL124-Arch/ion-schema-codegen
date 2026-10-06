@@ -115,6 +115,9 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let elements = value.get_fields("element")
   let valid_values_fields = value.get_fields("valid_values")
   let container_length_fields = value.get_fields("container_length")
+  let codepoint_length_fields = value.get_fields("codepoint_length")
+  let utf8_byte_length_fields = value.get_fields("utf8_byte_length")
+  let byte_length_fields = value.get_fields("byte_length")
   validate_type_definition_fields(
     value,
     name,
@@ -140,6 +143,15 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       ),
     )
   }
+  let codepoint_lengths = parse_integer_constraint_fields(
+    codepoint_length_fields, "codepoint_length", name,
+  )
+  let utf8_byte_lengths = parse_integer_constraint_fields(
+    utf8_byte_length_fields, "utf8_byte_length", name,
+  )
+  let byte_lengths = parse_integer_constraint_fields(
+    byte_length_fields, "byte_length", name,
+  )
 
   let body = match base_name {
     "struct" => {
@@ -196,7 +208,33 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       }
     }
   }
-  { name, body, valid_values, container_lengths, }
+  {
+    name,
+    body,
+    valid_values,
+    container_lengths,
+    codepoint_lengths,
+    utf8_byte_lengths,
+    byte_lengths,
+  }
+}
+
+///|
+fn parse_integer_constraint_fields(
+  values : Array[@model.IonValue],
+  constraint : String,
+  type_name : String,
+) -> Array[IntegerRange] raise SchemaError {
+  let ranges : Array[IntegerRange] = []
+  for value in values {
+    ranges.push(
+      parse_integer_constraint_range(
+        value,
+        constraint + " at type " + type_name,
+      ),
+    )
+  }
+  ranges
 }
 
 ///|
@@ -615,7 +653,10 @@ fn validate_type_definition_fields(
 ) -> Unit raise SchemaError {
   validate_allowed_fields(
     value,
-    ["name", "type", "fields", "element", "valid_values", "container_length"],
+    [
+      "name", "type", "fields", "element", "valid_values", "container_length", "codepoint_length",
+      "utf8_byte_length", "byte_length",
+    ],
     "type \{type_name}",
   )
   if fields_count > 1 || elements_count > 1 || valid_values_count > 1 {
@@ -758,12 +799,49 @@ fn supports_container_length(
 }
 
 ///|
+fn supports_integer_content_length(
+  types : Array[NamedType],
+  body : TypeBody,
+  allowed_types : Array[String],
+) -> Bool raise SchemaError {
+  match body {
+    TypeBody::Struct(_, _) | TypeBody::List(_) => false
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Scalar(name) => contains_string(allowed_types, name)
+        ResolvedType::Struct(_) | ResolvedType::List(_) => false
+      }
+  }
+}
+
+///|
 fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError {
   for named_type in types {
     if named_type.container_lengths.length() > 0 &&
       !supports_container_length(types, named_type.body) {
       raise SchemaError::UnsupportedFeature(
         "container_length applies only to list, sexp, struct, or document at type " +
+        named_type.name,
+      )
+    }
+    if (
+        named_type.codepoint_lengths.length() > 0 ||
+        named_type.utf8_byte_lengths.length() > 0
+      ) &&
+      !supports_integer_content_length(types, named_type.body, [
+        "string", "symbol", "$string", "$symbol",
+      ]) {
+      raise SchemaError::UnsupportedFeature(
+        "codepoint_length and utf8_byte_length apply only to string or symbol values at type " +
+        named_type.name,
+      )
+    }
+    if named_type.byte_lengths.length() > 0 &&
+      !supports_integer_content_length(types, named_type.body, [
+        "blob", "clob", "$blob", "$clob",
+      ]) {
+      raise SchemaError::UnsupportedFeature(
+        "byte_length applies only to blob or clob values at type " +
         named_type.name,
       )
     }

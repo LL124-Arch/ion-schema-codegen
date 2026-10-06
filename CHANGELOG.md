@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.12.0 — 2026-10-07
+
+- 支持 string / symbol 的 `codepoint_length` 与 `utf8_byte_length`，以及 blob / clob 的 `byte_length` 精确值和整数区间。
+- Unicode 长度按码点或 UTF-8 编码字节计算，LOB 长度按载荷原始字节计算；转换错误包含字段路径、约束名和实际长度。
+
 ## 0.11.0 — 2026-10-07
 
 - 支持 list、sexp、struct 和 document 的 container_length 精确值及整数区间。

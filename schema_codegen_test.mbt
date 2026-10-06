@@ -398,3 +398,21 @@ test "generate container_length checks for containers and document streams" {
   )
   assert_true(generated.source.contains("constraint=\"container_length\""))
 }
+
+///|
+test "generate Unicode and LOB length validators" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: LimitedText, type: string, codepoint_length: 2, utf8_byte_length: range::[2, 8]} type::{name: LimitedBlob, type: blob, byte_length: 3} type::{name: TextRecord, type: struct, fields: closed::{text: {type: LimitedText, occurs: required}, blob: {type: LimitedBlob, occurs: required}}}",
+  )
+  assert_true(generated.source.contains("text.char_length()"))
+  assert_true(generated.source.contains("codepoint <= 0x7F"))
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_utf8_byte_length(field_value)",
+    ),
+  )
+  assert_true(
+    generated.source.contains("ion_schema_codegen_byte_length(field_value)"),
+  )
+  assert_true(generated.source.contains("constraint=\"byte_length\""))
+}

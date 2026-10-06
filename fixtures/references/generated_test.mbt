@@ -709,3 +709,72 @@ test "container_length validates list struct sexp and document values" {
   }
   assert_eq(short_document, Some(("SizedDocument", "container_length", "0")))
 }
+
+///|
+fn content_record_input(text : String, blob : Bytes) -> @ion_model.IonValue {
+  @ion_model.IonValue::Struct([
+    (@ion_model.IonSymbol::from_text("text"), @ion_model.IonValue::String(text)),
+    (
+      @ion_model.IonSymbol::from_text("symbol"),
+      @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("猫")),
+    ),
+    (@ion_model.IonSymbol::from_text("blob"), @ion_model.IonValue::Blob(blob)),
+    (
+      @ion_model.IonSymbol::from_text("clob"),
+      @ion_model.IonValue::Clob(Bytes::from_array([4, 5, 6, 7])),
+    ),
+  ])
+}
+
+///|
+test "content length constraints count Unicode and LOB bytes" {
+  let input = content_record_input("A🤣", Bytes::from_array([1, 2, 3]))
+  let record = @references.ContentLengthRecord::from_ion(input)
+  assert_eq(record.text, "A🤣")
+  assert_eq(record.symbol.text_value(), Some("猫"))
+  assert_eq(record.blob.length(), 3)
+  assert_eq(record.clob.length(), 4)
+  assert_eq(@references.ContentLengthRecord::to_ion(record), input)
+
+  let short_text = try {
+    let _ = @references.ContentLengthRecord::from_ion(
+      content_record_input("A", Bytes::from_array([1, 2, 3])),
+    )
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(
+    short_text,
+    Some(("ContentLengthRecord.text", "codepoint_length", "1")),
+  )
+
+  let short_utf8 = try {
+    let _ = @references.ContentLengthRecord::from_ion(
+      content_record_input("AA", Bytes::from_array([1, 2, 3])),
+    )
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(
+    short_utf8,
+    Some(("ContentLengthRecord.text", "utf8_byte_length", "2")),
+  )
+
+  let short_blob = try {
+    let _ = @references.ContentLengthRecord::from_ion(
+      content_record_input("A🤣", Bytes::from_array([1])),
+    )
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(short_blob, Some(("ContentLengthRecord.blob", "byte_length", "1")))
+}

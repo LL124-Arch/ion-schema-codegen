@@ -300,3 +300,43 @@ test "reject invalid container_length values and targets" {
     },
   )
 }
+
+///|
+test "accept content length constraints on strings symbols blobs and clobs" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: LimitedText, type: string, codepoint_length: range::[1, 8], utf8_byte_length: range::[2, 32]} type::{name: TextAlias, type: LimitedText, codepoint_length: 2} type::{name: LimitedSymbol, type: symbol, codepoint_length: 1, utf8_byte_length: 3} type::{name: LimitedBlob, type: blob, byte_length: range::[1, 8]} type::{name: LimitedClob, type: clob, byte_length: 4}",
+  )
+}
+
+///|
+test "reject content length constraints on incompatible types" {
+  let integer_codepoints = expect_schema_error(
+    "$ion_schema_2_0 type::{name: InvalidText, type: int, codepoint_length: 2}",
+  )
+  assert_true(
+    match integer_codepoints {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let string_bytes = expect_schema_error(
+    "$ion_schema_2_0 type::{name: InvalidBytes, type: string, byte_length: 2}",
+  )
+  assert_true(
+    match string_bytes {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let negative = expect_schema_error(
+    "$ion_schema_2_0 type::{name: InvalidRange, type: string, utf8_byte_length: -1}",
+  )
+  assert_true(
+    match negative {
+      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+      _ => false
+    },
+  )
+}
