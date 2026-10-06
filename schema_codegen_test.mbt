@@ -377,3 +377,24 @@ test "generate S-expression aliases fields and list elements" {
     "\"LL124-Arch/amazon-ion-moonbit-core/format_model\" @ion_model",
   ])
 }
+
+///|
+test "generate container_length checks for containers and document streams" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: SizedList, type: list, element: int, container_length: range::[1, 4]} type::{name: SizedStruct, type: struct, fields: {}, container_length: 2} type::{name: SizedDocument, type: document, container_length: 3}",
+  )
+  assert_true(
+    generated.source.contains(
+      "if input_elements.length() < 1 || input_elements.length() > 4",
+    ),
+  )
+  assert_true(
+    generated.source.contains(
+      "if input_fields.length() < 2 || input_fields.length() > 2",
+    ),
+  )
+  assert_true(
+    generated.source.contains("if values.length() < 3 || values.length() > 3"),
+  )
+  assert_true(generated.source.contains("constraint=\"container_length\""))
+}

@@ -204,6 +204,13 @@ fn write_named_valid_values_checks(
           "}\n",
         )
       }
+      write_container_length_value_checks(
+        output,
+        named_type.container_lengths,
+        value_expression,
+        path_expression,
+        indent,
+      )
       match named_type.body {
         TypeBody::Alias(TypeRef::Named(next)) =>
           write_named_valid_values_checks(

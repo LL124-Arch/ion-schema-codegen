@@ -45,6 +45,12 @@ priv struct FieldOccurrence {
 }
 
 ///|
+priv struct IntegerRange {
+  minimum : Int
+  maximum : Int?
+}
+
+///|
 priv struct FieldSpec {
   name : String
   type_ref : TypeRef
@@ -56,6 +62,7 @@ priv struct NamedType {
   name : String
   body : TypeBody
   valid_values : Array[@model.IonValue]?
+  container_lengths : Array[IntegerRange]
 }
 
 ///|

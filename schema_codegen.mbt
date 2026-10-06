@@ -33,6 +33,10 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
       output,
       uses_nullable_type_checks(schema.types) || has_valid_values(schema.types),
     )
+    if has_container_length_constraints(schema.types) {
+      output.write_string("\n")
+      write_container_length_helper(output)
+    }
     if has_valid_values(schema.types) {
       output.write_string("\n")
       write_valid_values_helpers(output)
@@ -283,7 +287,22 @@ fn write_document_conversions(
   output.write_string(generated_name)
   output.write_string("(\n  values : Array[@ion_model.IonValue],\n) -> ")
   output.write_string(generated_name)
-  output.write_string(" {\n  values\n}\n\n")
+  if named_type.container_lengths.length() > 0 {
+    output.write_string(" raise ConversionError {\n  let type_path = \"")
+    output.write_string(named_type.name)
+    output.write_string("\"\n")
+    write_integer_range_checks(
+      output,
+      named_type.container_lengths,
+      "values.length()",
+      "type_path",
+      "container_length",
+      "  ",
+    )
+    output.write_string("  values\n}\n\n")
+  } else {
+    output.write_string(" {\n  values\n}\n\n")
+  }
   output.write_string("///|\n/// Convert ")
   output.write_string(generated_name)
   output.write_string(" to an Ion document stream.\npub fn to_ion_document_")
@@ -311,6 +330,118 @@ fn write_ion_type_helpers(
   if include_nullable_matcher {
     output.write_string(
       "///|\nfn ion_schema_codegen_matches_type(\n  value : @ion_model.IonValue,\n  expected : String,\n) -> Bool {\n  let kind = value.kind()\n  let is_null = value.is_null()\n  match expected {\n    \"any\" => !is_null\n    \"$any\" => true\n    \"$null\" => is_null && kind == @ion_model.IonNull::Null\n    \"bool\" => !is_null && kind == @ion_model.IonNull::Bool\n    \"$bool\" => kind == @ion_model.IonNull::Bool\n    \"int\" => !is_null && kind == @ion_model.IonNull::Int\n    \"$int\" => kind == @ion_model.IonNull::Int\n    \"float\" => !is_null && kind == @ion_model.IonNull::Float\n    \"$float\" => kind == @ion_model.IonNull::Float\n    \"decimal\" => !is_null && kind == @ion_model.IonNull::Decimal\n    \"$decimal\" => kind == @ion_model.IonNull::Decimal\n    \"string\" => !is_null && kind == @ion_model.IonNull::String\n    \"$string\" => kind == @ion_model.IonNull::String\n    \"symbol\" => !is_null && kind == @ion_model.IonNull::Symbol\n    \"$symbol\" => kind == @ion_model.IonNull::Symbol\n    \"timestamp\" => !is_null && kind == @ion_model.IonNull::Timestamp\n    \"$timestamp\" => kind == @ion_model.IonNull::Timestamp\n    \"blob\" => !is_null && kind == @ion_model.IonNull::Blob\n    \"$blob\" => kind == @ion_model.IonNull::Blob\n    \"clob\" => !is_null && kind == @ion_model.IonNull::Clob\n    \"$clob\" => kind == @ion_model.IonNull::Clob\n    \"list\" => !is_null && kind == @ion_model.IonNull::List\n    \"$list\" => kind == @ion_model.IonNull::List\n    \"sexp\" => !is_null && kind == @ion_model.IonNull::Sexp\n    \"$sexp\" => kind == @ion_model.IonNull::Sexp\n    \"struct\" => !is_null && kind == @ion_model.IonNull::Struct\n    \"$struct\" => kind == @ion_model.IonNull::Struct\n    \"number\" | \"$number\" =>\n      (kind == @ion_model.IonNull::Int ||\n        kind == @ion_model.IonNull::Float ||\n        kind == @ion_model.IonNull::Decimal) && (expected == \"$number\" || !is_null)\n    \"text\" | \"$text\" =>\n      (kind == @ion_model.IonNull::String || kind == @ion_model.IonNull::Symbol) &&\n      (expected == \"$text\" || !is_null)\n    \"lob\" | \"$lob\" =>\n      (kind == @ion_model.IonNull::Blob || kind == @ion_model.IonNull::Clob) &&\n      (expected == \"$lob\" || !is_null)\n    _ => false\n  }\n}\n",
+    )
+  }
+}
+
+///|
+fn has_container_length_constraints(types : Array[NamedType]) -> Bool {
+  for named_type in types {
+    if named_type.container_lengths.length() > 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn write_container_length_helper(output : StringBuilder) -> Unit {
+  output.write_string(
+    "///|\nfn ion_schema_codegen_container_length(\n  value : @ion_model.IonValue,\n) -> Int? {\n  match value.without_annotations() {\n    @ion_model.IonValue::List(elements) => Some(elements.length())\n    @ion_model.IonValue::Sexp(elements) => Some(elements.length())\n    @ion_model.IonValue::Struct(fields) => Some(fields.length())\n    _ => None\n  }\n}\n",
+  )
+}
+
+///|
+fn write_container_length_value_checks(
+  output : StringBuilder,
+  ranges : Array[IntegerRange],
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit {
+  if ranges.length() == 0 {
+    return
+  }
+  output.write_string(
+    indent +
+    "match ion_schema_codegen_container_length(" +
+    value_expression +
+    ") {\n" +
+    indent +
+    "  Some(actual_length) => {\n",
+  )
+  write_integer_range_checks(
+    output,
+    ranges,
+    "actual_length",
+    path_expression,
+    "container_length",
+    indent + "    ",
+  )
+  output.write_string(
+    indent +
+    "  }\n" +
+    indent +
+    "  None => raise ConversionError::InvalidValue(\n" +
+    indent +
+    "    path=" +
+    path_expression +
+    ",\n" +
+    indent +
+    "    constraint=\"container_length\",\n" +
+    indent +
+    "    actual=ion_schema_codegen_actual_type(" +
+    value_expression +
+    "),\n" +
+    indent +
+    "  )\n" +
+    indent +
+    "}\n",
+  )
+}
+
+///|
+fn write_integer_range_checks(
+  output : StringBuilder,
+  ranges : Array[IntegerRange],
+  actual_expression : String,
+  path_expression : String,
+  constraint : String,
+  indent : String,
+) -> Unit {
+  for range in ranges {
+    let mut invalid_condition = actual_expression +
+      " < " +
+      range.minimum.to_string()
+    match range.maximum {
+      Some(maximum) =>
+        invalid_condition = invalid_condition +
+          " || " +
+          actual_expression +
+          " > " +
+          maximum.to_string()
+      None => ()
+    }
+    output.write_string(indent + "if " + invalid_condition + " {\n")
+    output.write_string(
+      indent +
+      "  raise ConversionError::InvalidValue(\n" +
+      indent +
+      "    path=" +
+      path_expression +
+      ",\n" +
+      indent +
+      "    constraint=\"" +
+      constraint +
+      "\",\n" +
+      indent +
+      "    actual=" +
+      actual_expression +
+      ".to_string(),\n" +
+      indent +
+      "  )\n" +
+      indent +
+      "}\n",
     )
   }
 }
@@ -349,6 +480,14 @@ fn write_struct_conversions(
   )
   output.write_string(
     "  let input_fields = match value.without_annotations() {\n    @ion_model.IonValue::Struct(fields) => fields\n    _ => raise ConversionError::TypeMismatch(path=type_path, expected=\"struct\", actual=ion_schema_codegen_actual_type(value))\n  }\n",
+  )
+  write_integer_range_checks(
+    output,
+    named_type.container_lengths,
+    "input_fields.length()",
+    "type_path",
+    "container_length",
+    "  ",
   )
   if is_open {
     output.write_string(
@@ -655,6 +794,14 @@ fn write_list_conversions(
   )
   output.write_string(
     "  let input_elements = match value.without_annotations() {\n    @ion_model.IonValue::List(elements) => elements\n    _ =>\n      raise ConversionError::TypeMismatch(\n        path=type_path,\n        expected=\"list\",\n        actual=ion_schema_codegen_actual_type(value),\n      )\n  }\n",
+  )
+  write_integer_range_checks(
+    output,
+    named_type.container_lengths,
+    "input_elements.length()",
+    "type_path",
+    "container_length",
+    "  ",
   )
   output.write_string("  let converted : ")
   output.write_string(generated_name)
@@ -1488,7 +1635,8 @@ fn uses_model_types(types : Array[NamedType]) -> Bool raise SchemaError {
 ///|
 fn has_conversion_types(types : Array[NamedType]) -> Bool {
   for named_type in types {
-    if named_type.valid_values is Some(_) {
+    if named_type.valid_values is Some(_) ||
+      named_type.container_lengths.length() > 0 {
       return true
     }
     match named_type.body {

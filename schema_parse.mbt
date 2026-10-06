@@ -114,6 +114,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let fields = value.get_fields("fields")
   let elements = value.get_fields("element")
   let valid_values_fields = value.get_fields("valid_values")
+  let container_length_fields = value.get_fields("container_length")
   validate_type_definition_fields(
     value,
     name,
@@ -129,6 +130,15 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       raise SchemaError::InvalidSchema(
         "valid_values may appear at most once at type \{name}",
       )
+  }
+  let container_lengths : Array[IntegerRange] = []
+  for container_length in container_length_fields {
+    container_lengths.push(
+      parse_integer_constraint_range(
+        container_length,
+        "container_length at type " + name,
+      ),
+    )
   }
 
   let body = match base_name {
@@ -186,7 +196,44 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       }
     }
   }
-  { name, body, valid_values, }
+  { name, body, valid_values, container_lengths, }
+}
+
+///|
+fn parse_integer_constraint_range(
+  value : @model.IonValue,
+  context : String,
+) -> IntegerRange raise SchemaError {
+  let occurrence = match value.annotations() {
+    [] =>
+      match value.without_annotations() {
+        @model.IonValue::Int(_) =>
+          parse_occurs(value, context) catch {
+            SchemaError::InvalidOccurs(_) =>
+              raise SchemaError::InvalidSchema(
+                "invalid integer range at " + context,
+              )
+            error => raise error
+          }
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "expected a non-negative integer or range:: value at " + context,
+          )
+      }
+    [annotation] if annotation.text_value() == Some("range") =>
+      parse_occurs(value, context) catch {
+        SchemaError::InvalidOccurs(_) =>
+          raise SchemaError::InvalidSchema(
+            "invalid integer range at " + context,
+          )
+        error => raise error
+      }
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "expected an unannotated integer or range:: value at " + context,
+      )
+  }
+  { minimum: occurrence.min_count, maximum: occurrence.max_count, }
 }
 
 ///|
@@ -568,7 +615,7 @@ fn validate_type_definition_fields(
 ) -> Unit raise SchemaError {
   validate_allowed_fields(
     value,
-    ["name", "type", "fields", "element", "valid_values"],
+    ["name", "type", "fields", "element", "valid_values", "container_length"],
     "type \{type_name}",
   )
   if fields_count > 1 || elements_count > 1 || valid_values_count > 1 {
@@ -692,8 +739,34 @@ fn has_late_schema_version(values : ArrayView[@model.IonValue]) -> Bool {
 }
 
 ///|
+fn supports_container_length(
+  types : Array[NamedType],
+  body : TypeBody,
+) -> Bool raise SchemaError {
+  match body {
+    TypeBody::Struct(_, _) | TypeBody::List(_) => true
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Struct(_) | ResolvedType::List(_) => true
+        ResolvedType::Scalar(name) =>
+          contains_string(
+            ["sexp", "document", "$list", "$sexp", "$struct"],
+            name,
+          )
+      }
+  }
+}
+
+///|
 fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError {
   for named_type in types {
+    if named_type.container_lengths.length() > 0 &&
+      !supports_container_length(types, named_type.body) {
+      raise SchemaError::UnsupportedFeature(
+        "container_length applies only to list, sexp, struct, or document at type " +
+        named_type.name,
+      )
+    }
     if named_type.valid_values is Some(valid_values) {
       match named_type.body {
         TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>

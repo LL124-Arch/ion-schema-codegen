@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.11.0 — 2026-10-07
+
+- 支持 list、sexp、struct 和 document 的 container_length 精确值及整数区间。
+- 转换按结构体字段总出现次数和 document 顶层值数计算长度，并返回带路径的约束错误。
+
 ## 0.10.0 — 2026-10-07
 
 - 支持 `valid_values: range::[...]` 及集合中混合普通值与数值/timestamp 范围。

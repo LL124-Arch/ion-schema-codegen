@@ -571,3 +571,141 @@ test "open structs preserve duplicate and unresolved unknown fields" {
     ]),
   )
 }
+
+///|
+test "container_length validates list struct sexp and document values" {
+  let list = @references.from_ion_SizedList(
+    @ion_model.IonValue::List([
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(2)),
+    ]),
+  )
+  assert_eq(list, [@bigint.BigInt::from_int(1), @bigint.BigInt::from_int(2)])
+  assert_eq(
+    @references.to_ion_SizedList(list),
+    @ion_model.IonValue::List([
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(2)),
+    ]),
+  )
+
+  let short_list = try {
+    let _ = @references.from_ion_SizedList(@ion_model.IonValue::List([]))
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(short_list, Some(("SizedList", "container_length", "0")))
+
+  let record = @references.SizedRecord::from_ion(
+    @ion_model.IonValue::Struct([
+      (
+        @ion_model.IonSymbol::from_text("known"),
+        @ion_model.IonValue::String("value"),
+      ),
+      (
+        @ion_model.IonSymbol::from_text("extra"),
+        @ion_model.IonValue::Bool(true),
+      ),
+    ]),
+  )
+  assert_eq(record.known, Some("value"))
+  assert_eq(record.ion_schema_codegen_open_content.length(), 1)
+
+  let oversized_record = try {
+    let _ = @references.SizedRecord::from_ion(
+      @ion_model.IonValue::Struct([
+        (
+          @ion_model.IonSymbol::from_text("known"),
+          @ion_model.IonValue::String("value"),
+        ),
+        (
+          @ion_model.IonSymbol::from_text("extra"),
+          @ion_model.IonValue::Bool(true),
+        ),
+        (
+          @ion_model.IonSymbol::from_text("extra"),
+          @ion_model.IonValue::Bool(false),
+        ),
+        (
+          @ion_model.IonSymbol::from_text("another"),
+          @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+        ),
+        (
+          @ion_model.IonSymbol::from_text("last"),
+          @ion_model.IonValue::String("extra"),
+        ),
+      ]),
+    )
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(oversized_record, Some(("SizedRecord", "container_length", "5")))
+
+  let null_list = try {
+    let _ = @references.from_ion_SizedList(
+      @ion_model.IonValue::null(kind=@ion_model.IonNull::List),
+    )
+    None
+  } catch {
+    @references.ConversionError::NullNotAllowed(path~) => Some(path)
+    _ => None
+  }
+  assert_eq(null_list, Some("SizedList"))
+
+  let expression = @references.SizedExpressionRecord::from_ion(
+    @ion_model.IonValue::Struct([
+      (
+        @ion_model.IonSymbol::from_text("expression"),
+        @ion_model.IonValue::Sexp([
+          @ion_model.IonValue::Symbol(@ion_model.IonSymbol::from_text("add")),
+          @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+        ]),
+      ),
+    ]),
+  )
+  assert_eq(expression.expression.length(), 2)
+
+  let expression_error = try {
+    let _ = @references.SizedExpressionRecord::from_ion(
+      @ion_model.IonValue::Struct([
+        (
+          @ion_model.IonSymbol::from_text("expression"),
+          @ion_model.IonValue::Sexp([@ion_model.IonValue::Bool(true)]),
+        ),
+      ]),
+    )
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(
+    expression_error,
+    Some(("SizedExpressionRecord.expression", "container_length", "1")),
+  )
+
+  let document = @references.from_ion_document_SizedDocument([
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+    @ion_model.IonValue::String("two"),
+  ])
+  assert_eq(@references.to_ion_document_SizedDocument(document), [
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+    @ion_model.IonValue::String("two"),
+  ])
+  let short_document = try {
+    let _ = @references.from_ion_document_SizedDocument([])
+    None
+  } catch {
+    @references.ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      Some((path, constraint, actual))
+    _ => None
+  }
+  assert_eq(short_document, Some(("SizedDocument", "container_length", "0")))
+}

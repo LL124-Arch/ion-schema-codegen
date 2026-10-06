@@ -93,6 +93,16 @@ fn ion_schema_codegen_matches_type(
 }
 
 ///|
+fn ion_schema_codegen_container_length(value : @ion_model.IonValue) -> Int? {
+  match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => Some(elements.length())
+    @ion_model.IonValue::Sexp(elements) => Some(elements.length())
+    @ion_model.IonValue::Struct(fields) => Some(fields.length())
+    _ => None
+  }
+}
+
+///|
 fn ion_schema_codegen_valid_values_equal(
   left : @ion_model.IonValue,
   right : @ion_model.IonValue,
@@ -2419,4 +2429,311 @@ pub fn NumberRecord::to_ion(self : NumberRecord) -> @ion_model.IonValue {
   let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
   output_fields.push((@ion_model.IonSymbol::from_text("number"), self.number))
   @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type SizedList = Array[@bigint.BigInt]
+
+///|
+/// Convert an Ion list to SizedList with element-level diagnostics.
+pub fn from_ion_SizedList(
+  value : @ion_model.IonValue,
+) -> SizedList raise ConversionError {
+  let type_path = "SizedList"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  if input_elements.length() < 1 || input_elements.length() > 3 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=input_elements.length().to_string(),
+    )
+  }
+  let converted : SizedList = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=element_path)
+    }
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : @bigint.BigInt = match element.without_annotations() {
+      @ion_model.IonValue::Int(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="int",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert SizedList into an Ion list.
+pub fn to_ion_SizedList(items : SizedList) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(@ion_model.IonValue::Int(element))
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct SizedRecord {
+  known : String?
+  ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ]
+}
+
+///|
+/// Convert an Ion struct to SizedRecord with field-level diagnostics.
+pub fn SizedRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> SizedRecord raise ConversionError {
+  let type_path = "SizedRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  if input_fields.length() < 2 || input_fields.length() > 4 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=input_fields.length().to_string(),
+    )
+  }
+  let ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ] = []
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "known" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="SizedRecord.known")
+              None => Some(field_value)
+            }
+          _ => ion_schema_codegen_open_content.push((field_symbol, field_value))
+        }
+      None => ion_schema_codegen_open_content.push((field_symbol, field_value))
+    }
+  }
+  let ion_schema_codegen_value_0 : String? = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "SizedRecord.known"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="string",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      Some(field_item)
+    }
+    None => None
+  }
+  { known: ion_schema_codegen_value_0, ion_schema_codegen_open_content, }
+}
+
+///|
+/// Convert SizedRecord into an Ion struct in schema field order.
+pub fn SizedRecord::to_ion(self : SizedRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  match self.known {
+    Some(field_value) =>
+      output_fields.push(
+        (
+          @ion_model.IonSymbol::from_text("known"),
+          @ion_model.IonValue::String(field_value),
+        ),
+      )
+    None => ()
+  }
+  for (field_symbol, field_value) in self.ion_schema_codegen_open_content {
+    output_fields.push((field_symbol, field_value))
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type SizedExpression = Array[@ion_model.IonValue]
+
+///|
+pub(all) struct SizedExpressionRecord {
+  expression : SizedExpression
+}
+
+///|
+/// Convert an Ion struct to SizedExpressionRecord with field-level diagnostics.
+pub fn SizedExpressionRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> SizedExpressionRecord raise ConversionError {
+  let type_path = "SizedExpressionRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "expression" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="SizedExpressionRecord.expression",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="SizedExpressionRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="SizedExpressionRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : SizedExpression = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "SizedExpressionRecord.expression"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : SizedExpression = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Sexp(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="sexp",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      match ion_schema_codegen_container_length(field_value) {
+        Some(actual_length) =>
+          if actual_length < 2 || actual_length > 2 {
+            raise ConversionError::InvalidValue(
+              path=field_path,
+              constraint="container_length",
+              actual=actual_length.to_string(),
+            )
+          }
+        None =>
+          raise ConversionError::InvalidValue(
+            path=field_path,
+            constraint="container_length",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="SizedExpressionRecord.expression",
+      )
+  }
+  { expression: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert SizedExpressionRecord into an Ion struct in schema field order.
+pub fn SizedExpressionRecord::to_ion(
+  self : SizedExpressionRecord,
+) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("expression"),
+      @ion_model.IonValue::Sexp(self.expression),
+    ),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type SizedDocument = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion document stream to SizedDocument.
+pub fn from_ion_document_SizedDocument(
+  values : Array[@ion_model.IonValue],
+) -> SizedDocument raise ConversionError {
+  let type_path = "SizedDocument"
+  if values.length() < 1 || values.length() > 3 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=values.length().to_string(),
+    )
+  }
+  values
+}
+
+///|
+/// Convert SizedDocument to an Ion document stream.
+pub fn to_ion_document_SizedDocument(
+  values : SizedDocument,
+) -> Array[@ion_model.IonValue] {
+  values
 }

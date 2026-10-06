@@ -260,3 +260,43 @@ test "accept S-expressions as scalar type references" {
     "$ion_schema_2_0 type::{name: Expression, type: sexp} type::{name: Expressions, type: list, element: Expression} type::{name: ExpressionRecord, type: struct, fields: closed::{expression: {type: Expression, occurs: required}}}",
   )
 }
+
+///|
+test "accept container_length on supported containers and aliases" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: SizedList, type: list, element: int, container_length: range::[1, 4]} type::{name: ListAlias, type: SizedList, container_length: 2} type::{name: SizedStruct, type: struct, fields: {}, container_length: range::[min, 3]} type::{name: SizedSexp, type: sexp, container_length: 1} type::{name: SizedDocument, type: document, container_length: 2}",
+  )
+}
+
+///|
+test "reject invalid container_length values and targets" {
+  let negative = expect_schema_error(
+    "$ion_schema_2_0 type::{name: SizedList, type: list, element: int, container_length: -1}",
+  )
+  assert_true(
+    match negative {
+      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+      _ => false
+    },
+  )
+
+  let empty_range = expect_schema_error(
+    "$ion_schema_2_0 type::{name: SizedList, type: list, element: int, container_length: range::[min, max]}",
+  )
+  assert_true(
+    match empty_range {
+      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+      _ => false
+    },
+  )
+
+  let scalar_target = expect_schema_error(
+    "$ion_schema_2_0 type::{name: SizedText, type: string, container_length: 2}",
+  )
+  assert_true(
+    match scalar_target {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}

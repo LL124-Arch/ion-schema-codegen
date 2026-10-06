@@ -44,3 +44,8 @@ type::{name: MixedScore, type: int, valid_values: [0, range::[2, 4], 9]}
 type::{name: TimestampWindow, type: timestamp, valid_values: range::[2000-01-01T, exclusive::2001-01-01T]}
 type::{name: NumberWindow, type: number, valid_values: range::[exclusive::0.0, 10.5]}
 type::{name: NumberRecord, type: struct, fields: closed::{number: {type: NumberWindow, occurs: required}}}
+type::{name: SizedList, type: list, element: int, container_length: range::[1, 3]}
+type::{name: SizedRecord, type: struct, fields:{known: string}, container_length: range::[2, 4]}
+type::{name: SizedExpression, type: sexp, container_length: 2}
+type::{name: SizedExpressionRecord, type: struct, fields: closed::{expression: {type: SizedExpression, occurs: required}}}
+type::{name: SizedDocument, type: document, container_length: range::[1, 3]}

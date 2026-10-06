@@ -4,6 +4,7 @@
 
 ## 支持范围
 
+- `container_length` 支持 list、sexp、struct 和 document 的精确长度与整数范围；struct 按字段总出现次数计数，document 按顶层值数计数。
 - 标量：`bool`、`int`、`float`、`decimal`、`string`、`symbol`、`timestamp`、`blob` 和 `clob`。
 - 数值联合类型 `number` / `$number` 可作为 `IonValue` 使用，并检查其 int、float 或 decimal 成员类型。
 - 开放与封闭结构体字段；可用 closed 注解限制额外字段。字段支持必选、可选及整数/区间 `occurs`；可重复字段映射为数组，未知字段和值模型按原顺序保留。
@@ -18,7 +19,7 @@
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
-项目不实现完整的 Ion Schema 校验器。跨 Schema 导入、递归类型、长度、正则、注解和类型代数等约束会显式报错。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
+项目不实现完整的 Ion Schema 校验器。跨 Schema 导入、递归类型、文本和 LOB 长度、正则、注解和类型代数等约束会显式报错。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
 
 ## 安装与检查
 
