@@ -107,6 +107,279 @@ fn ion_schema_codegen_valid_values_equal(
 }
 
 ///|
+fn ion_schema_codegen_has_annotation(
+  value : @ion_model.IonValue,
+  expected : String,
+) -> Bool {
+  for annotation in value.annotations() {
+    if annotation.text_value() == Some(expected) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ion_schema_codegen_is_minimum(value : @ion_model.IonValue) -> Bool {
+  match value.without_annotations() {
+    @ion_model.IonValue::Symbol(symbol) => symbol.text_value() == Some("min")
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_is_maximum(value : @ion_model.IonValue) -> Bool {
+  match value.without_annotations() {
+    @ion_model.IonValue::Symbol(symbol) => symbol.text_value() == Some("max")
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_valid_values_match(
+  value : @ion_model.IonValue,
+  candidate : @ion_model.IonValue,
+) -> Bool {
+  if ion_schema_codegen_has_annotation(candidate, "range") {
+    ion_schema_codegen_range_contains(value, candidate)
+  } else {
+    ion_schema_codegen_valid_values_equal(value, candidate)
+  }
+}
+
+///|
+fn ion_schema_codegen_range_contains(
+  value : @ion_model.IonValue,
+  range : @ion_model.IonValue,
+) -> Bool {
+  if value.is_null() {
+    return false
+  }
+  match range.without_annotations() {
+    @ion_model.IonValue::List([minimum, maximum]) => {
+      let minimum_matches = if ion_schema_codegen_is_minimum(minimum) {
+        true
+      } else {
+        match ion_schema_codegen_compare_values(value, minimum) {
+          Some(order) =>
+            order > 0 ||
+            (
+              order == 0 &&
+              !ion_schema_codegen_has_annotation(minimum, "exclusive")
+            )
+          None => false
+        }
+      }
+      let maximum_matches = if ion_schema_codegen_is_maximum(maximum) {
+        true
+      } else {
+        match ion_schema_codegen_compare_values(value, maximum) {
+          Some(order) =>
+            order < 0 ||
+            (
+              order == 0 &&
+              !ion_schema_codegen_has_annotation(maximum, "exclusive")
+            )
+          None => false
+        }
+      }
+      minimum_matches && maximum_matches
+    }
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_compare_values(
+  left : @ion_model.IonValue,
+  right : @ion_model.IonValue,
+) -> Int? {
+  match
+    (
+      ion_schema_codegen_number_parts(left),
+      ion_schema_codegen_number_parts(right),
+    ) {
+    (
+      Some((left_coefficient, left_exponent)),
+      Some((right_coefficient, right_exponent)),
+    ) =>
+      Some(
+        ion_schema_codegen_compare_decimal_parts(
+          left_coefficient, left_exponent, right_coefficient, right_exponent,
+        ),
+      )
+    _ =>
+      match (left.without_annotations(), right.without_annotations()) {
+        (
+          @ion_model.IonValue::Timestamp(left),
+          @ion_model.IonValue::Timestamp(right),
+        ) => Some(ion_schema_codegen_compare_timestamps(left, right))
+        _ => None
+      }
+  }
+}
+
+///|
+fn ion_schema_codegen_power(base : Int, exponent : Int) -> @bigint.BigInt {
+  @bigint.BigInt::pow(
+    @bigint.BigInt::from_int(base),
+    @bigint.BigInt::from_int(exponent),
+  )
+}
+
+///|
+fn ion_schema_codegen_number_parts(
+  value : @ion_model.IonValue,
+) -> (@bigint.BigInt, Int)? {
+  match value.without_annotations() {
+    @ion_model.IonValue::Int(value) => Some((value, 0))
+    @ion_model.IonValue::Decimal(value) =>
+      Some((value.coefficient(), value.exponent()))
+    @ion_model.IonValue::Float(value) => ion_schema_codegen_float_parts(value)
+    _ => None
+  }
+}
+
+///|
+fn ion_schema_codegen_float_parts(value : Float) -> (@bigint.BigInt, Int)? {
+  let bits = value.reinterpret_as_uint()
+  let exponent_bits = ((bits >> 23) & 0xFF).reinterpret_as_int()
+  let fraction_bits = (bits & 0x7FFFFF).reinterpret_as_int()
+  if exponent_bits == 0xFF {
+    return None
+  }
+  let significand = if exponent_bits == 0 {
+    fraction_bits
+  } else {
+    fraction_bits + 0x800000
+  }
+  let binary_exponent = if exponent_bits == 0 {
+    -149
+  } else {
+    exponent_bits - 127 - 23
+  }
+  let mut coefficient = @bigint.BigInt::from_int(significand)
+  let decimal_exponent = if binary_exponent >= 0 {
+    coefficient = coefficient * ion_schema_codegen_power(2, binary_exponent)
+    0
+  } else {
+    coefficient = coefficient * ion_schema_codegen_power(5, -binary_exponent)
+    binary_exponent
+  }
+  if (bits & 0x80000000) != 0 {
+    coefficient = coefficient.neg()
+  }
+  Some((coefficient, decimal_exponent))
+}
+
+///|
+fn ion_schema_codegen_compare_decimal_parts(
+  left_coefficient : @bigint.BigInt,
+  left_exponent : Int,
+  right_coefficient : @bigint.BigInt,
+  right_exponent : Int,
+) -> Int {
+  let left_sign = left_coefficient.compare_int(0)
+  let right_sign = right_coefficient.compare_int(0)
+  if left_sign != right_sign {
+    return if left_sign < right_sign { -1 } else { 1 }
+  }
+  if left_sign == 0 {
+    return 0
+  }
+  let left_order = @bigint.BigInt::from_int(
+      left_coefficient.to_string().length(),
+    ) +
+    @bigint.BigInt::from_int(left_exponent)
+  let right_order = @bigint.BigInt::from_int(
+      right_coefficient.to_string().length(),
+    ) +
+    @bigint.BigInt::from_int(right_exponent)
+  let order = left_order.compare(right_order)
+  if order != 0 {
+    return if left_sign < 0 { -order } else { order }
+  }
+  let common_exponent = if left_exponent < right_exponent {
+    left_exponent
+  } else {
+    right_exponent
+  }
+  let left_scaled = left_coefficient *
+    ion_schema_codegen_power(10, left_exponent - common_exponent)
+  let right_scaled = right_coefficient *
+    ion_schema_codegen_power(10, right_exponent - common_exponent)
+  left_scaled.compare(right_scaled)
+}
+
+///|
+fn ion_schema_codegen_is_leap_year(year : Int) -> Bool {
+  year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+}
+
+///|
+fn ion_schema_codegen_days_in_month(year : Int, month : Int) -> Int {
+  match month {
+    1 | 3 | 5 | 7 | 8 | 10 | 12 => 31
+    4 | 6 | 9 | 11 => 30
+    2 => if ion_schema_codegen_is_leap_year(year) { 29 } else { 28 }
+    _ => 30
+  }
+}
+
+///|
+fn ion_schema_codegen_timestamp_seconds(
+  timestamp : @ion_model.IonTimestamp,
+) -> @bigint.BigInt {
+  let previous_year = @bigint.BigInt::from_int(timestamp.year()) -
+    @bigint.BigInt::from_int(1)
+  let mut days = previous_year * @bigint.BigInt::from_int(365) +
+    previous_year / @bigint.BigInt::from_int(4) -
+    previous_year / @bigint.BigInt::from_int(100) +
+    previous_year / @bigint.BigInt::from_int(400)
+  let month = timestamp.month().unwrap_or(1)
+  for prior_month in 1..<month {
+    days = days +
+      @bigint.BigInt::from_int(
+        ion_schema_codegen_days_in_month(timestamp.year(), prior_month),
+      )
+  }
+  if month > 2 && ion_schema_codegen_is_leap_year(timestamp.year()) {
+    days = days + @bigint.BigInt::from_int(1)
+  }
+  days = days + @bigint.BigInt::from_int(timestamp.day().unwrap_or(1) - 1)
+  let local_seconds = timestamp.hour().unwrap_or(0) * 3600 +
+    timestamp.minute().unwrap_or(0) * 60 +
+    timestamp.second().unwrap_or(0)
+  days * @bigint.BigInt::from_int(86400) +
+  @bigint.BigInt::from_int(local_seconds) -
+  @bigint.BigInt::from_int(timestamp.offset_minutes().unwrap_or(0) * 60)
+}
+
+///|
+fn ion_schema_codegen_compare_timestamps(
+  left : @ion_model.IonTimestamp,
+  right : @ion_model.IonTimestamp,
+) -> Int {
+  let seconds_order = ion_schema_codegen_timestamp_seconds(left).compare(
+    ion_schema_codegen_timestamp_seconds(right),
+  )
+  if seconds_order != 0 {
+    return seconds_order
+  }
+  let left_fraction = left
+    .fraction_coefficient()
+    .unwrap_or(@bigint.BigInt::from_int(0))
+  let left_exponent = left.fraction_exponent().unwrap_or(0)
+  let right_fraction = right
+    .fraction_coefficient()
+    .unwrap_or(@bigint.BigInt::from_int(0))
+  let right_exponent = right.fraction_exponent().unwrap_or(0)
+  ion_schema_codegen_compare_decimal_parts(
+    left_fraction, left_exponent, right_fraction, right_exponent,
+  )
+}
+
+///|
 fn ion_schema_codegen_prefix_error(
   error : ConversionError,
   prefix : String,
@@ -1714,11 +1987,11 @@ pub fn OpenRecord::to_ion(self : OpenRecord) -> @ion_model.IonValue {
 pub type AllowedScore = @bigint.BigInt
 
 ///|
-/// Test whether an Ion value is in the valid_values set for AllowedScore.
+/// Test whether an Ion value satisfies valid_values for AllowedScore.
 pub fn is_valid_values_AllowedScore(value : @ion_model.IonValue) -> Bool {
   let allowed_values = @ion.parse_text("10\n20") catch { _ => [] }
   for candidate in allowed_values {
-    if ion_schema_codegen_valid_values_equal(value, candidate) {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
       return true
     }
   }
@@ -1902,5 +2175,248 @@ pub fn ScoredRecord::to_ion(self : ScoredRecord) -> @ion_model.IonValue {
       @ion_model.IonValue::Int(self.score),
     ),
   )
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type BoundedScore = @bigint.BigInt
+
+///|
+/// Test whether an Ion value satisfies valid_values for BoundedScore.
+pub fn is_valid_values_BoundedScore(value : @ion_model.IonValue) -> Bool {
+  let allowed_values = @ion.parse_text("range::[min, exclusive::100]") catch {
+    _ => []
+  }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Validate the Ion type and valid_values set for BoundedScore.
+pub fn validate_BoundedScore(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "int") {
+    raise ConversionError::TypeMismatch(
+      path="BoundedScore",
+      expected="int",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !is_valid_values_BoundedScore(value) {
+    raise ConversionError::InvalidValue(
+      path="BoundedScore",
+      constraint="valid_values",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub type MixedScore = @bigint.BigInt
+
+///|
+/// Test whether an Ion value satisfies valid_values for MixedScore.
+pub fn is_valid_values_MixedScore(value : @ion_model.IonValue) -> Bool {
+  let allowed_values = @ion.parse_text("0\nrange::[2, 4]\n9") catch { _ => [] }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Validate the Ion type and valid_values set for MixedScore.
+pub fn validate_MixedScore(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "int") {
+    raise ConversionError::TypeMismatch(
+      path="MixedScore",
+      expected="int",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !is_valid_values_MixedScore(value) {
+    raise ConversionError::InvalidValue(
+      path="MixedScore",
+      constraint="valid_values",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub type TimestampWindow = @ion_model.IonTimestamp
+
+///|
+/// Test whether an Ion value satisfies valid_values for TimestampWindow.
+pub fn is_valid_values_TimestampWindow(value : @ion_model.IonValue) -> Bool {
+  let allowed_values = @ion.parse_text(
+    "range::[2000-01-01, exclusive::2001-01-01]",
+  ) catch {
+    _ => []
+  }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Validate the Ion type and valid_values set for TimestampWindow.
+pub fn validate_TimestampWindow(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampWindow",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !is_valid_values_TimestampWindow(value) {
+    raise ConversionError::InvalidValue(
+      path="TimestampWindow",
+      constraint="valid_values",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub type NumberWindow = @ion_model.IonValue
+
+///|
+/// Test whether an Ion value satisfies valid_values for NumberWindow.
+pub fn is_valid_values_NumberWindow(value : @ion_model.IonValue) -> Bool {
+  let allowed_values = @ion.parse_text("range::[exclusive::0d-1, 105d-1]") catch {
+    _ => []
+  }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Validate the Ion type and valid_values set for NumberWindow.
+pub fn validate_NumberWindow(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "number") {
+    raise ConversionError::TypeMismatch(
+      path="NumberWindow",
+      expected="number",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !is_valid_values_NumberWindow(value) {
+    raise ConversionError::InvalidValue(
+      path="NumberWindow",
+      constraint="valid_values",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub(all) struct NumberRecord {
+  number : NumberWindow
+}
+
+///|
+/// Convert an Ion struct to NumberRecord with field-level diagnostics.
+pub fn NumberRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> NumberRecord raise ConversionError {
+  let type_path = "NumberRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "number" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="NumberRecord.number",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="NumberRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="NumberRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : NumberWindow = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "NumberRecord.number"
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : NumberWindow = if ion_schema_codegen_matches_type(
+          field_value, "number",
+        ) {
+        field_value
+      } else {
+        raise ConversionError::TypeMismatch(
+          path=field_path,
+          expected="number",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      if !is_valid_values_NumberWindow(field_value) {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="valid_values",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(path="NumberRecord.number")
+  }
+  { number: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert NumberRecord into an Ion struct in schema field order.
+pub fn NumberRecord::to_ion(self : NumberRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push((@ion_model.IonSymbol::from_text("number"), self.number))
   @ion_model.IonValue::Struct(output_fields)
 }

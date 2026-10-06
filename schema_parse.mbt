@@ -195,21 +195,25 @@ fn parse_valid_values(
   context : String,
 ) -> Array[@model.IonValue] raise SchemaError {
   match value.annotations() {
-    [] => ()
+    [] =>
+      match value.without_annotations() {
+        @model.IonValue::List(values) => values
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "valid_values must be an Ion list at \{context}",
+          )
+      }
     [annotation] if annotation.text_value() == Some("range") =>
-      raise SchemaError::UnsupportedFeature(
-        "valid_values range constraints are not supported at \{context}",
-      )
+      match value.without_annotations() {
+        @model.IonValue::List(_) => [value]
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "valid_values range must be a two-bound Ion list at \{context}",
+          )
+      }
     _ =>
       raise SchemaError::UnsupportedFeature(
         "annotated valid_values sets are not supported at \{context}",
-      )
-  }
-  match value.without_annotations() {
-    @model.IonValue::List(values) => values
-    _ =>
-      raise SchemaError::InvalidSchema(
-        "valid_values must be an Ion list at \{context}",
       )
   }
 }
@@ -690,7 +694,7 @@ fn has_late_schema_version(values : ArrayView[@model.IonValue]) -> Bool {
 ///|
 fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError {
   for named_type in types {
-    if named_type.valid_values is Some(_) {
+    if named_type.valid_values is Some(valid_values) {
       match named_type.body {
         TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
           if !is_valid_values_target(types, type_ref) {
@@ -702,6 +706,26 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
           raise SchemaError::UnsupportedFeature(
             "valid_values is supported only for scalar Ion types at type \{named_type.name}",
           )
+      }
+      match named_type.body {
+        TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+          for candidate in valid_values {
+            match candidate.annotations() {
+              [] => ()
+              [annotation] if annotation.text_value() == Some("range") =>
+                validate_valid_values_range(
+                  types,
+                  type_ref,
+                  candidate,
+                  "type \{named_type.name}",
+                )
+              _ =>
+                raise SchemaError::UnsupportedFeature(
+                  "valid_values entries must be unannotated values or range:: constraints at type \{named_type.name}",
+                )
+            }
+          }
+        TypeBody::Struct(_, _) | TypeBody::List(_) => ()
       }
     }
     match named_type.body {
@@ -779,11 +803,134 @@ fn is_valid_values_scalar_name(name : String) -> Bool {
   contains_string(
     [
       "bool", "int", "float", "decimal", "string", "symbol", "timestamp", "blob",
-      "clob", "$null", "$bool", "$int", "$float", "$decimal", "$string", "$symbol",
-      "$timestamp", "$blob", "$clob", "$number", "$text", "$lob",
+      "number", "clob", "$null", "$bool", "$int", "$float", "$decimal", "$string",
+      "$symbol", "$timestamp", "$blob", "$clob", "$number", "$text", "$lob",
     ],
     name,
   )
+}
+
+///|
+fn validate_valid_values_range(
+  types : Array[NamedType],
+  type_ref : TypeRef,
+  range : @model.IonValue,
+  context : String,
+) -> Unit raise SchemaError {
+  match range.without_annotations() {
+    @model.IonValue::List([minimum, maximum]) => {
+      let (minimum_kind, _) = parse_range_endpoint(minimum, true, context)
+      let (maximum_kind, _) = parse_range_endpoint(maximum, false, context)
+      if minimum_kind == "min" && maximum_kind == "max" {
+        raise SchemaError::InvalidSchema(
+          "a valid_values range cannot use both min and max at " + context,
+        )
+      }
+      let range_kind = if minimum_kind == "min" {
+        maximum_kind
+      } else if maximum_kind == "max" {
+        minimum_kind
+      } else if minimum_kind == maximum_kind {
+        minimum_kind
+      } else {
+        raise SchemaError::InvalidSchema(
+          "valid_values range bounds must have the same Ion type at " + context,
+        )
+      }
+      if !valid_values_range_type(types, type_ref, range_kind) {
+        raise SchemaError::InvalidSchema(
+          "a " +
+          range_kind +
+          " valid_values range does not apply to the declared type at " +
+          context,
+        )
+      }
+    }
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "valid_values range must contain exactly two bounds at " + context,
+      )
+  }
+}
+
+///|
+fn parse_range_endpoint(
+  value : @model.IonValue,
+  is_minimum : Bool,
+  context : String,
+) -> (String, Bool) raise SchemaError {
+  let exclusive = match value.annotations() {
+    [] => false
+    [annotation] if annotation.text_value() == Some("exclusive") => true
+    _ =>
+      raise SchemaError::UnsupportedFeature(
+        "range bounds may only use the exclusive annotation at " + context,
+      )
+  }
+  let kind = match value.without_annotations() {
+    @model.IonValue::Symbol(symbol) =>
+      match symbol.text_value() {
+        Some("min") => "min"
+        Some("max") => "max"
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "range symbol bounds must be min or max at " + context,
+          )
+      }
+    @model.IonValue::Int(_) => "int"
+    @model.IonValue::Decimal(_) => "decimal"
+    @model.IonValue::Float(number) =>
+      if number.is_nan() || number.is_inf() {
+        raise SchemaError::InvalidSchema(
+          "range bounds must be finite numbers at " + context,
+        )
+      } else {
+        "float"
+      }
+    @model.IonValue::Timestamp(_) => "timestamp"
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "range bounds must be numbers, timestamps, min, or max at " + context,
+      )
+  }
+  if kind == "min" && !is_minimum {
+    raise SchemaError::InvalidSchema(
+      "min is only valid as the first range bound at " + context,
+    )
+  }
+  if kind == "max" && is_minimum {
+    raise SchemaError::InvalidSchema(
+      "max is only valid as the second range bound at " + context,
+    )
+  }
+  if (kind == "min" || kind == "max") && exclusive {
+    raise SchemaError::InvalidSchema(
+      "min and max cannot use the exclusive annotation at " + context,
+    )
+  }
+  (kind, exclusive)
+}
+
+///|
+fn valid_values_range_type(
+  types : Array[NamedType],
+  type_ref : TypeRef,
+  range_kind : String,
+) -> Bool raise SchemaError {
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar(name) =>
+      if contains_string(["int", "float", "decimal"], range_kind) {
+        contains_string(
+          [
+            "int", "float", "decimal", "number", "$int", "$float", "$decimal", "$number",
+          ],
+          name,
+        )
+      } else {
+        name == "timestamp" || name == "$timestamp"
+      }
+    ResolvedType::Struct(_) | ResolvedType::List(_) => false
+  }
 }
 
 ///|
@@ -819,9 +966,9 @@ fn is_supported_scalar(name : String) -> Bool {
   contains_string(
     [
       "bool", "int", "float", "decimal", "string", "symbol", "timestamp", "blob",
-      "clob", "sexp", "any", "$any", "document", "$null", "$bool", "$int", "$float",
-      "$decimal", "$string", "$symbol", "$timestamp", "$blob", "$clob", "$list",
-      "$sexp", "$struct", "$number", "$text", "$lob",
+      "clob", "sexp", "any", "$any", "number", "document", "$null", "$bool", "$int",
+      "$float", "$decimal", "$string", "$symbol", "$timestamp", "$blob", "$clob",
+      "$list", "$sexp", "$struct", "$number", "$text", "$lob",
     ],
     name,
   )

@@ -21,7 +21,7 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
   if has_valid_values(schema.types) {
     package_imports.push("\"LL124-Arch/amazon-ion-moonbit-core\" @ion")
   }
-  if uses_bigint(schema.types) {
+  if uses_bigint(schema.types) || has_valid_values(schema.types) {
     package_imports.push("\"moonbitlang/core/bigint\"")
   }
 
@@ -36,6 +36,8 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
     if has_valid_values(schema.types) {
       output.write_string("\n")
       write_valid_values_helpers(output)
+      output.write_string("\n")
+      write_valid_values_range_helpers(output)
     }
     if has_nested_conversion_types(schema.types) {
       output.write_string("\n")
@@ -695,6 +697,8 @@ fn write_list_conversions(
   } else {
     match resolve_type_ref(types, element_type) {
       ResolvedType::Scalar("any" | "$any") => output.write_string("element\n")
+      ResolvedType::Scalar("number") =>
+        write_scalar_type_value(output, "element", "number", "element_path", "")
       ResolvedType::Scalar(scalar_name) if scalar_name.has_prefix("$") =>
         write_scalar_type_value(
           output, "element", scalar_name, "element_path", "",
@@ -902,6 +906,10 @@ fn write_field_item_conversion(
     match resolve_type_ref(types, field.type_ref) {
       ResolvedType::Scalar("any" | "$any") =>
         output.write_string("field_value\n")
+      ResolvedType::Scalar("number") =>
+        write_scalar_type_value(
+          output, "field_value", "number", "field_path", "",
+        )
       ResolvedType::Scalar(scalar_name) if scalar_name.has_prefix("$") =>
         write_scalar_type_value(
           output, "field_value", scalar_name, "field_path", "",
@@ -981,7 +989,7 @@ fn is_raw_ion_value_reference(
     return true
   }
   match resolve_type_ref(types, type_ref) {
-    ResolvedType::Scalar("any" | "$any") => true
+    ResolvedType::Scalar("any" | "$any" | "number") => true
     ResolvedType::Scalar(name) => name.has_prefix("$")
     _ => false
   }
@@ -1287,7 +1295,7 @@ fn ion_value_expression(
   types : Array[NamedType],
 ) -> String raise SchemaError {
   match resolve_type_ref(types, type_ref) {
-    ResolvedType::Scalar("any" | "$any") => value_expression
+    ResolvedType::Scalar("any" | "$any" | "number") => value_expression
     ResolvedType::Scalar(name) if name.has_prefix("$") => value_expression
     _ if is_null_or_type_ref(type_ref) => value_expression
     ResolvedType::Scalar("document") =>
@@ -1410,7 +1418,7 @@ fn moonbit_type_for_builtin(
     "timestamp" => "@ion_model.IonTimestamp"
     "blob" | "clob" => "Bytes"
     "sexp" => "Array[@ion_model.IonValue]"
-    "any" | "$any" => "@ion_model.IonValue"
+    "any" | "$any" | "number" => "@ion_model.IonValue"
     "$null"
     | "$bool"
     | "$int"
@@ -1530,6 +1538,7 @@ fn matches_model_type(resolved : ResolvedType) -> Bool {
       "decimal"
       | "symbol"
       | "timestamp"
+      | "number"
       | "sexp"
       | "any"
       | "$any"

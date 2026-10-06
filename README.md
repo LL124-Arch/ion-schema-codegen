@@ -5,6 +5,7 @@
 ## 支持范围
 
 - 标量：`bool`、`int`、`float`、`decimal`、`string`、`symbol`、`timestamp`、`blob` 和 `clob`。
+- 数值联合类型 `number` / `$number` 可作为 `IonValue` 使用，并检查其 int、float 或 decimal 成员类型。
 - 开放与封闭结构体字段；可用 closed 注解限制额外字段。字段支持必选、可选及整数/区间 `occurs`；可重复字段映射为数组，未知字段和值模型按原顺序保留。
 - 元素为受支持标量或同一 Schema 命名类型的列表。
 - Ion `sexp` 作为 `Array[@ion_model.IonValue]`，支持结构体字段及列表元素；表达式内部值与顺序保持为 Ion 值模型。
@@ -13,10 +14,11 @@
 - nullable built-in（如 `$int`、`$string`、`$null`）以及 type argument 的 `$null_or::T` 映射为原始 `@ion_model.IonValue`，保留 null kind、注解和值；转换时仍按对应 Schema 类型检查。
 - Ion Schema `document` 作为有序的 `Array[@ion_model.IonValue]` 顶层流；生成 `from_ion_document_Type` / `to_ion_document_Type` 函数，并支持同 Schema 别名。
 - 标量命名类型支持有限 `valid_values` 集合；集合成员比较遵循 Ion 值等价规则并忽略注解，字段与列表元素转换会报告约束失败路径。
+- `valid_values` 支持数值和 timestamp 的 `range::[...]`，包括 `min` / `max`、闭区间和 `exclusive::` 边界；上下界需匹配范围类型，数值范围按数学值比较。
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
-项目不实现完整的 Ion Schema 校验器。跨 Schema 导入、递归类型、`valid_values` 范围、长度、正则、注解和类型代数等约束会显式报错。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
+项目不实现完整的 Ion Schema 校验器。跨 Schema 导入、递归类型、长度、正则、注解和类型代数等约束会显式报错。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
 
 ## 安装与检查
 

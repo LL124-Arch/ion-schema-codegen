@@ -39,3 +39,8 @@ type::{name: AllowedScores, type: list, element: AllowedScoreAlias}
 type::{name: ScoredRecord, type: struct, fields: closed::{
   score: {type: AllowedScoreAlias, occurs: required}
 }}
+type::{name: BoundedScore, type: int, valid_values: range::[min, exclusive::100]}
+type::{name: MixedScore, type: int, valid_values: [0, range::[2, 4], 9]}
+type::{name: TimestampWindow, type: timestamp, valid_values: range::[2000-01-01T, exclusive::2001-01-01T]}
+type::{name: NumberWindow, type: number, valid_values: range::[exclusive::0.0, 10.5]}
+type::{name: NumberRecord, type: struct, fields: closed::{number: {type: NumberWindow, occurs: required}}}
