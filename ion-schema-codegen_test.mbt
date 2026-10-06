@@ -6,6 +6,11 @@ test "Ion codec dependency parses schema-shaped input" {
 
 ///|
 test "Ion codec preserves multiple top-level document values" {
+  let empty : Array[@model.IonValue] = []
+  let encoded_empty = @ion.encode_text(empty)
+  assert_eq(encoded_empty, "")
+  assert_eq(@ion.parse_text(encoded_empty), empty)
+
   let values = @ion.parse_text("1 foo::null.int {nested: [2, 3]}")
   let encoded = @ion.encode_text(values)
   assert_eq(@ion.parse_text(encoded), values)
