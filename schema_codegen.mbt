@@ -26,7 +26,7 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
   if has_conversion_types(schema.types) {
     write_conversion_error(output)
     output.write_string("\n")
-    write_ion_type_helpers(output)
+    write_ion_type_helpers(output, uses_nullable_type_checks(schema.types))
     if has_nested_conversion_types(schema.types) {
       output.write_string("\n")
       write_prefix_error_helper(output)
@@ -161,6 +161,7 @@ fn validate_codegen_reference(
   match type_ref {
     TypeRef::Builtin(name) => ignore(moonbit_type_for_builtin(name, context))
     TypeRef::Named(_) => ()
+    TypeRef::NullOrBuiltin(_) | TypeRef::NullOrNamed(_) => ()
   }
 }
 
@@ -264,10 +265,18 @@ fn write_conversion_error(output : StringBuilder) -> Unit {
 }
 
 ///|
-fn write_ion_type_helpers(output : StringBuilder) -> Unit {
+fn write_ion_type_helpers(
+  output : StringBuilder,
+  include_nullable_matcher : Bool,
+) -> Unit {
   output.write_string(
     "///|\nfn ion_schema_codegen_kind_name(kind : @ion_model.IonNull) -> String {\n  match kind {\n    @ion_model.IonNull::Null => \"null\"\n    @ion_model.IonNull::Bool => \"bool\"\n    @ion_model.IonNull::Int => \"int\"\n    @ion_model.IonNull::Float => \"float\"\n    @ion_model.IonNull::Decimal => \"decimal\"\n    @ion_model.IonNull::Timestamp => \"timestamp\"\n    @ion_model.IonNull::Symbol => \"symbol\"\n    @ion_model.IonNull::String => \"string\"\n    @ion_model.IonNull::Blob => \"blob\"\n    @ion_model.IonNull::Clob => \"clob\"\n    @ion_model.IonNull::List => \"list\"\n    @ion_model.IonNull::Sexp => \"sexp\"\n    @ion_model.IonNull::Struct => \"struct\"\n  }\n}\n\n///|\nfn ion_schema_codegen_actual_type(value : @ion_model.IonValue) -> String {\n  let kind = value.kind()\n  match (value.is_null(), kind) {\n    (true, @ion_model.IonNull::Null) => \"null\"\n    (true, typed_kind) => \"null.\\{ion_schema_codegen_kind_name(typed_kind)}\"\n    (false, actual_kind) => ion_schema_codegen_kind_name(actual_kind)\n  }\n}\n",
   )
+  if include_nullable_matcher {
+    output.write_string(
+      "///|\nfn ion_schema_codegen_matches_type(\n  value : @ion_model.IonValue,\n  expected : String,\n) -> Bool {\n  let kind = value.kind()\n  let is_null = value.is_null()\n  match expected {\n    \"any\" => !is_null\n    \"$any\" => true\n    \"$null\" => is_null && kind == @ion_model.IonNull::Null\n    \"bool\" => !is_null && kind == @ion_model.IonNull::Bool\n    \"$bool\" => kind == @ion_model.IonNull::Bool\n    \"int\" => !is_null && kind == @ion_model.IonNull::Int\n    \"$int\" => kind == @ion_model.IonNull::Int\n    \"float\" => !is_null && kind == @ion_model.IonNull::Float\n    \"$float\" => kind == @ion_model.IonNull::Float\n    \"decimal\" => !is_null && kind == @ion_model.IonNull::Decimal\n    \"$decimal\" => kind == @ion_model.IonNull::Decimal\n    \"string\" => !is_null && kind == @ion_model.IonNull::String\n    \"$string\" => kind == @ion_model.IonNull::String\n    \"symbol\" => !is_null && kind == @ion_model.IonNull::Symbol\n    \"$symbol\" => kind == @ion_model.IonNull::Symbol\n    \"timestamp\" => !is_null && kind == @ion_model.IonNull::Timestamp\n    \"$timestamp\" => kind == @ion_model.IonNull::Timestamp\n    \"blob\" => !is_null && kind == @ion_model.IonNull::Blob\n    \"$blob\" => kind == @ion_model.IonNull::Blob\n    \"clob\" => !is_null && kind == @ion_model.IonNull::Clob\n    \"$clob\" => kind == @ion_model.IonNull::Clob\n    \"list\" => !is_null && kind == @ion_model.IonNull::List\n    \"$list\" => kind == @ion_model.IonNull::List\n    \"sexp\" => !is_null && kind == @ion_model.IonNull::Sexp\n    \"$sexp\" => kind == @ion_model.IonNull::Sexp\n    \"struct\" => !is_null && kind == @ion_model.IonNull::Struct\n    \"$struct\" => kind == @ion_model.IonNull::Struct\n    \"number\" | \"$number\" =>\n      (kind == @ion_model.IonNull::Int ||\n        kind == @ion_model.IonNull::Float ||\n        kind == @ion_model.IonNull::Decimal) && (expected == \"$number\" || !is_null)\n    \"text\" | \"$text\" =>\n      (kind == @ion_model.IonNull::String || kind == @ion_model.IonNull::Symbol) &&\n      (expected == \"$text\" || !is_null)\n    \"lob\" | \"$lob\" =>\n      (kind == @ion_model.IonNull::Blob || kind == @ion_model.IonNull::Clob) &&\n      (expected == \"$lob\" || !is_null)\n    _ => false\n  }\n}\n",
+    )
+  }
 }
 
 ///|
@@ -366,14 +375,8 @@ fn write_struct_conversions(
       " = match input_field_" +
       index.to_string() +
       " {"
-    let is_raw_ion_value = match resolve_type_ref(types, field.type_ref) {
-      ResolvedType::Scalar("any" | "$any") => true
-      _ => false
-    }
-    let allows_null = match resolve_type_ref(types, field.type_ref) {
-      ResolvedType::Scalar("$any") => true
-      _ => false
-    }
+    let is_raw_ion_value = is_raw_ion_value_reference(field.type_ref, types)
+    let allows_null = reference_accepts_null(field.type_ref, types)
     if declaration.length() > 80 {
       output.write_string(
         "  let " +
@@ -387,7 +390,7 @@ fn write_struct_conversions(
     } else {
       output.write_string(declaration + "\n")
     }
-    if allows_null {
+    if is_universal_any_reference(field.type_ref, types) {
       output.write_string("    Some(field_value) => ")
       match field.occurrence {
         FieldOccurrence::Optional => output.write_string("Some(field_value)")
@@ -408,63 +411,101 @@ fn write_struct_conversions(
         )
         output.write_string("      }\n")
       }
-      output.write_string("      if field_value.is_null() {\n")
-      write_path_error(
-        output,
-        "        ",
-        "NullNotAllowed",
-        named_type.name + "." + field.name,
-      )
-      output.write_string("      }\n")
-      match resolve_type_ref(types, field.type_ref) {
-        ResolvedType::Scalar("any" | "$any") =>
-          match field.occurrence {
-            FieldOccurrence::Optional =>
-              output.write_string("      Some(field_value)\n")
-            FieldOccurrence::Required =>
-              output.write_string("      field_value\n")
-          }
-        ResolvedType::Scalar(scalar_name) => {
-          output.write_string(
-            "      match field_value.without_annotations() {\n        ",
-          )
-          output.write_string(ion_value_variant(scalar_name))
-          output.write_string("(converted_value) => ")
-          match field.occurrence {
-            FieldOccurrence::Optional =>
-              output.write_string("Some(converted_value)")
-            FieldOccurrence::Required => output.write_string("converted_value")
-          }
-          output.write_string(
-            "\n        _ =>\n          raise ConversionError::TypeMismatch(\n            path=\"",
-          )
-          output.write_string(named_type.name)
-          output.write_char('.')
-          output.write_string(field.name)
-          output.write_string("\",\n            expected=\"")
-          output.write_string(ion_type_name)
-          output.write_string(
-            "\",\n            actual=ion_schema_codegen_actual_type(field_value),\n          )\n      }\n",
-          )
+      if !allows_null {
+        output.write_string("      if field_value.is_null() {\n")
+        write_path_error(
+          output,
+          "        ",
+          "NullNotAllowed",
+          named_type.name + "." + field.name,
+        )
+        output.write_string("      }\n")
+      }
+      if is_null_or_type_ref(field.type_ref) {
+        output.write_string(
+          "      if !ion_schema_codegen_matches_type(field_value, \"$null\") {\n",
+        )
+        write_type_validation(
+          output,
+          nullable_inner_type_ref(field.type_ref),
+          "field_value",
+          types,
+          named_type.name + "." + field.name,
+          "        ",
+        )
+        output.write_string("      }\n      ")
+        match field.occurrence {
+          FieldOccurrence::Optional =>
+            output.write_string("Some(field_value)\n")
+          FieldOccurrence::Required => output.write_string("field_value\n")
         }
-        ResolvedType::Struct(_) | ResolvedType::List(_) => {
-          if is_optional_field(field.occurrence) {
-            output.write_string("      Some(")
-          } else {
-            output.write_string("      ")
-          }
-          output.write_string(
-            ion_from_expression(
-              field.type_ref,
+      } else {
+        match resolve_type_ref(types, field.type_ref) {
+          ResolvedType::Scalar("any" | "$any") =>
+            match field.occurrence {
+              FieldOccurrence::Optional =>
+                output.write_string("      Some(field_value)\n")
+              FieldOccurrence::Required =>
+                output.write_string("      field_value\n")
+            }
+          ResolvedType::Scalar(scalar_name) if scalar_name.has_prefix("$") => {
+            write_scalar_type_check(
+              output,
               "field_value",
-              types,
-              "\"" + named_type.name + "." + field.name + ".\"",
-            ),
-          )
-          if is_optional_field(field.occurrence) {
-            output.write_char(')')
+              scalar_name,
+              named_type.name + "." + field.name,
+              "      ",
+            )
+            match field.occurrence {
+              FieldOccurrence::Optional =>
+                output.write_string("      Some(field_value)\n")
+              FieldOccurrence::Required =>
+                output.write_string("      field_value\n")
+            }
           }
-          output.write_string("\n")
+          ResolvedType::Scalar(scalar_name) => {
+            output.write_string(
+              "      match field_value.without_annotations() {\n        ",
+            )
+            output.write_string(ion_value_variant(scalar_name))
+            output.write_string("(converted_value) => ")
+            match field.occurrence {
+              FieldOccurrence::Optional =>
+                output.write_string("Some(converted_value)")
+              FieldOccurrence::Required =>
+                output.write_string("converted_value")
+            }
+            output.write_string(
+              "\n        _ =>\n          raise ConversionError::TypeMismatch(\n            path=\"",
+            )
+            output.write_string(named_type.name)
+            output.write_char('.')
+            output.write_string(field.name)
+            output.write_string("\",\n            expected=\"")
+            output.write_string(ion_type_name)
+            output.write_string(
+              "\",\n            actual=ion_schema_codegen_actual_type(field_value),\n          )\n      }\n",
+            )
+          }
+          ResolvedType::Struct(_) | ResolvedType::List(_) => {
+            if is_optional_field(field.occurrence) {
+              output.write_string("      Some(")
+            } else {
+              output.write_string("      ")
+            }
+            output.write_string(
+              ion_from_expression(
+                field.type_ref,
+                "field_value",
+                types,
+                "\"" + named_type.name + "." + field.name + ".\"",
+              ),
+            )
+            if is_optional_field(field.occurrence) {
+              output.write_char(')')
+            }
+            output.write_string("\n")
+          }
         }
       }
       output.write_string("    }\n")
@@ -603,14 +644,11 @@ fn write_list_conversions(
     "element of \{named_type.name}",
   )
   let expected_type = expected_ion_type(element_type, types)
-  let is_raw_ion_value = match resolve_type_ref(types, element_type) {
-    ResolvedType::Scalar("any" | "$any") => true
-    _ => false
-  }
-  let allows_null = match resolve_type_ref(types, element_type) {
-    ResolvedType::Scalar("$any") => true
-    _ => false
-  }
+  let is_raw_ion_value = is_raw_ion_value_reference(element_type, types)
+  let allows_null = reference_accepts_null(element_type, types)
+  let needs_element_path = !is_raw_ion_value ||
+    !allows_null ||
+    !is_universal_any_reference(element_type, types)
   output.write_string("///|\n/// Convert an Ion list to ")
   output.write_string(generated_name)
   output.write_string(" with element-level diagnostics.\npub fn ")
@@ -634,11 +672,11 @@ fn write_list_conversions(
   output.write_string("  let converted : ")
   output.write_string(generated_name)
   output.write_string(" = []\n")
-  if !is_raw_ion_value || !allows_null {
+  if needs_element_path {
     output.write_string("  let mut index = 0\n")
   }
   output.write_string("  for element in input_elements {\n")
-  if !is_raw_ion_value || !allows_null {
+  if needs_element_path {
     output.write_string(
       "    let element_path = type_path + \"[\" + index.to_string() + \"]\"\n",
     )
@@ -656,29 +694,48 @@ fn write_list_conversions(
   output.write_string("    let item : ")
   output.write_string(element_moonbit_type)
   output.write_string(" = ")
-  match resolve_type_ref(types, element_type) {
-    ResolvedType::Scalar("any" | "$any") => output.write_string("element\n")
-    ResolvedType::Scalar(scalar_name) => {
-      output.write_string("match element.without_annotations() {\n      ")
-      output.write_string(ion_value_variant(scalar_name))
-      output.write_string(
-        "(item) => item\n      _ =>\n        raise ConversionError::TypeMismatch(\n          path=element_path,\n          expected=\"",
-      )
-      output.write_string(expected_type)
-      output.write_string(
-        "\",\n          actual=ion_schema_codegen_actual_type(element),\n        )\n    }\n",
-      )
+  if is_null_or_type_ref(element_type) {
+    output.write_string(
+      "if ion_schema_codegen_matches_type(element, \"$null\") {\n  element\n} else {\n",
+    )
+    write_type_validation_with_path_expression(
+      output,
+      nullable_inner_type_ref(element_type),
+      "element",
+      types,
+      "element_path",
+      "  ",
+    )
+    output.write_string("  element\n}\n")
+  } else {
+    match resolve_type_ref(types, element_type) {
+      ResolvedType::Scalar("any" | "$any") => output.write_string("element\n")
+      ResolvedType::Scalar(scalar_name) if scalar_name.has_prefix("$") =>
+        write_scalar_type_value(
+          output, "element", scalar_name, "element_path", "",
+        )
+      ResolvedType::Scalar(scalar_name) => {
+        output.write_string("match element.without_annotations() {\n      ")
+        output.write_string(ion_value_variant(scalar_name))
+        output.write_string(
+          "(item) => item\n      _ =>\n        raise ConversionError::TypeMismatch(\n          path=element_path,\n          expected=\"",
+        )
+        output.write_string(expected_type)
+        output.write_string(
+          "\",\n          actual=ion_schema_codegen_actual_type(element),\n        )\n    }\n",
+        )
+      }
+      ResolvedType::Struct(_) | ResolvedType::List(_) =>
+        output.write_string(
+          ion_from_expression(
+            element_type, "element", types, "element_path + \".\"",
+          ) +
+          "\n",
+        )
     }
-    ResolvedType::Struct(_) | ResolvedType::List(_) =>
-      output.write_string(
-        ion_from_expression(
-          element_type, "element", types, "element_path + \".\"",
-        ) +
-        "\n",
-      )
   }
   output.write_string("    converted.push(item)\n")
-  if !is_raw_ion_value || !allows_null {
+  if needs_element_path {
     output.write_string("    index += 1\n")
   }
   output.write_string("  }\n  converted\n}\n\n")
@@ -742,6 +799,275 @@ fn is_optional_field(occurrence : FieldOccurrence) -> Bool {
 }
 
 ///|
+fn is_null_or_type_ref(type_ref : TypeRef) -> Bool {
+  match type_ref {
+    TypeRef::NullOrBuiltin(_) | TypeRef::NullOrNamed(_) => true
+    _ => false
+  }
+}
+
+///|
+fn is_raw_ion_value_reference(
+  type_ref : TypeRef,
+  types : Array[NamedType],
+) -> Bool raise SchemaError {
+  if is_null_or_type_ref(type_ref) {
+    return true
+  }
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar("any" | "$any") => true
+    ResolvedType::Scalar(name) => name.has_prefix("$")
+    _ => false
+  }
+}
+
+///|
+fn reference_accepts_null(
+  type_ref : TypeRef,
+  types : Array[NamedType],
+) -> Bool raise SchemaError {
+  if is_null_or_type_ref(type_ref) {
+    return true
+  }
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar("$any") => true
+    ResolvedType::Scalar(name) => name.has_prefix("$")
+    _ => false
+  }
+}
+
+///|
+fn is_universal_any_reference(
+  type_ref : TypeRef,
+  types : Array[NamedType],
+) -> Bool raise SchemaError {
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar("$any") => true
+    _ => false
+  }
+}
+
+///|
+fn uses_nullable_type_checks(
+  types : Array[NamedType],
+) -> Bool raise SchemaError {
+  for named_type in types {
+    match named_type.body {
+      TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+        if needs_nullable_type_check(type_ref, types) {
+          return true
+        }
+      TypeBody::Struct(fields) =>
+        for field in fields {
+          if needs_nullable_type_check(field.type_ref, types) {
+            return true
+          }
+        }
+      TypeBody::List(type_ref) =>
+        if needs_nullable_type_check(type_ref, types) {
+          return true
+        }
+    }
+  }
+  false
+}
+
+///|
+fn needs_nullable_type_check(
+  type_ref : TypeRef,
+  types : Array[NamedType],
+) -> Bool raise SchemaError {
+  if is_null_or_type_ref(type_ref) {
+    return true
+  }
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar(name) => name.has_prefix("$") && name != "$any"
+    _ => false
+  }
+}
+
+///|
+fn nullable_inner_type_ref(type_ref : TypeRef) -> TypeRef {
+  match type_ref {
+    TypeRef::NullOrBuiltin(name) => TypeRef::Builtin(name)
+    TypeRef::NullOrNamed(name) => TypeRef::Named(name)
+    _ => type_ref
+  }
+}
+
+///|
+fn write_scalar_type_check(
+  output : StringBuilder,
+  value_expression : String,
+  expected : String,
+  path : String,
+  indent : String,
+) -> Unit {
+  output.write_string(
+    indent +
+    "if !ion_schema_codegen_matches_type(" +
+    value_expression +
+    ", \"" +
+    expected +
+    "\") {\n",
+  )
+  output.write_string(
+    indent +
+    "  raise ConversionError::TypeMismatch(\n" +
+    indent +
+    "    path=\"" +
+    path +
+    "\",\n" +
+    indent +
+    "    expected=\"" +
+    expected +
+    "\",\n" +
+    indent +
+    "    actual=ion_schema_codegen_actual_type(" +
+    value_expression +
+    "),\n" +
+    indent +
+    "  )\n" +
+    indent +
+    "}\n",
+  )
+}
+
+///|
+fn write_scalar_type_check_with_path_expression(
+  output : StringBuilder,
+  value_expression : String,
+  expected : String,
+  path_expression : String,
+  indent : String,
+) -> Unit {
+  output.write_string(
+    indent +
+    "if !ion_schema_codegen_matches_type(" +
+    value_expression +
+    ", \"" +
+    expected +
+    "\") {\n" +
+    indent +
+    "  raise ConversionError::TypeMismatch(\n" +
+    indent +
+    "    path=" +
+    path_expression +
+    ",\n" +
+    indent +
+    "    expected=\"" +
+    expected +
+    "\",\n" +
+    indent +
+    "    actual=ion_schema_codegen_actual_type(" +
+    value_expression +
+    "),\n" +
+    indent +
+    "  )\n" +
+    indent +
+    "}\n",
+  )
+}
+
+///|
+fn write_scalar_type_value(
+  output : StringBuilder,
+  value_expression : String,
+  expected : String,
+  path_expression : String,
+  indent : String,
+) -> Unit {
+  output.write_string(
+    indent +
+    "if ion_schema_codegen_matches_type(" +
+    value_expression +
+    ", \"" +
+    expected +
+    "\") {\n" +
+    indent +
+    "  " +
+    value_expression +
+    "\n" +
+    indent +
+    "} else {\n" +
+    indent +
+    "  raise ConversionError::TypeMismatch(\n" +
+    indent +
+    "    path=" +
+    path_expression +
+    ",\n" +
+    indent +
+    "    expected=\"" +
+    expected +
+    "\",\n" +
+    indent +
+    "    actual=ion_schema_codegen_actual_type(" +
+    value_expression +
+    "),\n" +
+    indent +
+    "  )\n" +
+    indent +
+    "}\n",
+  )
+}
+
+///|
+fn write_type_validation(
+  output : StringBuilder,
+  type_ref : TypeRef,
+  value_expression : String,
+  types : Array[NamedType],
+  path : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar(name) =>
+      write_scalar_type_check(output, value_expression, name, path, indent)
+    ResolvedType::Struct(_) | ResolvedType::List(_) => {
+      output.write_string(indent + "let _ = ")
+      output.write_string(
+        ion_from_expression(
+          type_ref,
+          value_expression,
+          types,
+          "\"" + path + ".\"",
+        ),
+      )
+      output.write_char('\n')
+    }
+  }
+}
+
+///|
+fn write_type_validation_with_path_expression(
+  output : StringBuilder,
+  type_ref : TypeRef,
+  value_expression : String,
+  types : Array[NamedType],
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar(name) =>
+      write_scalar_type_check_with_path_expression(
+        output, value_expression, name, path_expression, indent,
+      )
+    ResolvedType::Struct(_) | ResolvedType::List(_) => {
+      output.write_string(indent + "let _ = ")
+      output.write_string(
+        ion_from_expression(
+          type_ref,
+          value_expression,
+          types,
+          path_expression + " + \".\"",
+        ),
+      )
+      output.write_char('\n')
+    }
+  }
+}
+
+///|
 fn ion_value_variant(name : String) -> String raise SchemaError {
   match name {
     "bool" => "@ion_model.IonValue::Bool"
@@ -780,6 +1106,7 @@ fn moonbit_type_for_reference_in(
       ignore(find_named_type(types, name))
       moonbit_type_identifier(name)
     }
+    TypeRef::NullOrBuiltin(_) | TypeRef::NullOrNamed(_) => "@ion_model.IonValue"
   }
 }
 
@@ -811,6 +1138,8 @@ fn resolve_type_ref(
           }
         None => raise SchemaError::UnknownType("unknown type \{name}")
       }
+    TypeRef::NullOrBuiltin(name) => ResolvedType::Scalar(name)
+    TypeRef::NullOrNamed(name) => resolve_type_ref(types, TypeRef::Named(name))
   }
 }
 
@@ -858,6 +1187,8 @@ fn ion_value_expression(
 ) -> String raise SchemaError {
   match resolve_type_ref(types, type_ref) {
     ResolvedType::Scalar("any" | "$any") => value_expression
+    ResolvedType::Scalar(name) if name.has_prefix("$") => value_expression
+    _ if is_null_or_type_ref(type_ref) => value_expression
     ResolvedType::Scalar("document") =>
       raise SchemaError::UnsupportedFeature(
         "document streams cannot be embedded as a single Ion value",
@@ -942,18 +1273,21 @@ fn referenced_type_names(body : TypeBody) -> Array[String] {
     TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
       match type_ref {
         TypeRef::Named(name) => names.push(name)
-        TypeRef::Builtin(_) => ()
+        TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+        TypeRef::NullOrNamed(name) => names.push(name)
       }
     TypeBody::List(type_ref) =>
       match type_ref {
         TypeRef::Named(name) => names.push(name)
-        TypeRef::Builtin(_) => ()
+        TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+        TypeRef::NullOrNamed(name) => names.push(name)
       }
     TypeBody::Struct(fields) =>
       for field in fields {
         match field.type_ref {
           TypeRef::Named(name) => names.push(name)
-          TypeRef::Builtin(_) => ()
+          TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+          TypeRef::NullOrNamed(name) => names.push(name)
         }
       }
   }
@@ -976,6 +1310,22 @@ fn moonbit_type_for_builtin(
     "blob" | "clob" => "Bytes"
     "sexp" => "Array[@ion_model.IonValue]"
     "any" | "$any" => "@ion_model.IonValue"
+    "$null"
+    | "$bool"
+    | "$int"
+    | "$float"
+    | "$decimal"
+    | "$string"
+    | "$symbol"
+    | "$timestamp"
+    | "$blob"
+    | "$clob"
+    | "$list"
+    | "$sexp"
+    | "$struct"
+    | "$number"
+    | "$text"
+    | "$lob" => "@ion_model.IonValue"
     "document" => "Array[@ion_model.IonValue]"
     _ =>
       raise SchemaError::UnsupportedFeature(
@@ -989,17 +1339,20 @@ fn uses_bigint(types : Array[NamedType]) -> Bool raise SchemaError {
   for named_type in types {
     match named_type.body {
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
-        if matches_int(resolve_type_ref(types, type_ref)) {
+        if matches_int(resolve_type_ref(types, type_ref)) &&
+          !is_raw_ion_value_reference(type_ref, types) {
           return true
         }
       TypeBody::Struct(fields) =>
         for field in fields {
-          if matches_int(resolve_type_ref(types, field.type_ref)) {
+          if matches_int(resolve_type_ref(types, field.type_ref)) &&
+            !is_raw_ion_value_reference(field.type_ref, types) {
             return true
           }
         }
       TypeBody::List(type_ref) =>
-        if matches_int(resolve_type_ref(types, type_ref)) {
+        if matches_int(resolve_type_ref(types, type_ref)) &&
+          !is_raw_ion_value_reference(type_ref, types) {
           return true
         }
     }
@@ -1012,7 +1365,8 @@ fn uses_model_types(types : Array[NamedType]) -> Bool raise SchemaError {
   for named_type in types {
     match named_type.body {
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
-        if matches_model_type(resolve_type_ref(types, type_ref)) {
+        if is_raw_ion_value_reference(type_ref, types) ||
+          matches_model_type(resolve_type_ref(types, type_ref)) {
           return true
         }
       TypeBody::Struct(_) => return true
@@ -1076,6 +1430,22 @@ fn matches_model_type(resolved : ResolvedType) -> Bool {
       | "any"
       | "$any"
       | "document"
+      | "$null"
+      | "$bool"
+      | "$int"
+      | "$float"
+      | "$decimal"
+      | "$string"
+      | "$symbol"
+      | "$timestamp"
+      | "$blob"
+      | "$clob"
+      | "$list"
+      | "$sexp"
+      | "$struct"
+      | "$number"
+      | "$text"
+      | "$lob"
     ) => true
     _ => false
   }

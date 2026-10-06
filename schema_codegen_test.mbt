@@ -56,6 +56,34 @@ test "map nullable any to raw Ion values" {
 }
 
 ///|
+test "map nullable Ion types and null-or type arguments to raw Ion values" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: TypedInt, type: $int} type::{name: MaybeStrings, type: list, element: $null_or::string} type::{name: NullableRecord, type: struct, fields: closed::{typed_int: {type: TypedInt, occurs: required}, optional_text: {type: $null_or::string, occurs: required}}}",
+  )
+  assert_true(
+    generated.source.contains("pub type TypedInt = @ion_model.IonValue"),
+  )
+  assert_true(
+    generated.source.contains(
+      "pub type MaybeStrings = Array[@ion_model.IonValue]",
+    ),
+  )
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_matches_type(field_value, \"$int\")",
+    ),
+  )
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_matches_type(field_value, \"null\")",
+    ),
+  )
+  assert_eq(generated.package_imports, [
+    "\"LL124-Arch/amazon-ion-moonbit-core/format_model\" @ion_model",
+  ])
+}
+
+///|
 test "generate document stream APIs and reject nested document types" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: EventStream, type: document} type::{name: EventStreamAlias, type: EventStream}",

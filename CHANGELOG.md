@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.6.0 — 2026-10-07
+
+- 支持 nullable Ion built-in 类型和 `$null_or::T` 类型参数，在别名、结构体字段和列表元素中保留 plain/typed null。
+- 为 nullable 类型添加基于实际 Ion kind 的转换检查，保留原始 IonValue 与注解。
+
 ## 0.5.0 — 2026-10-06
 
 - 支持 ISL `document` 顶层流类型，映射为有序的 `Array[@ion_model.IonValue]`。

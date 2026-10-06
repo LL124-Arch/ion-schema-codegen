@@ -10,11 +10,12 @@
 - Ion `sexp` 作为 `Array[@ion_model.IonValue]`，支持结构体字段及列表元素；表达式内部值与顺序保持为 Ion 值模型。
 - Ion Schema `any` 作为 `@ion_model.IonValue`，可用于字段、列表元素和命名别名；任意非 null `IonValue`（含注解及嵌套值）原样往返。
 - Ion Schema `$any` 也作为 `@ion_model.IonValue`，可在字段、列表元素和命名别名中保留 plain null、typed null 及注解。
+- nullable built-in（如 `$int`、`$string`、`$null`）以及 type argument 的 `$null_or::T` 映射为原始 `@ion_model.IonValue`，保留 null kind、注解和值；转换时仍按对应 Schema 类型检查。
 - Ion Schema `document` 作为有序的 `Array[@ion_model.IonValue]` 顶层流；生成 `from_ion_document_Type` / `to_ion_document_Type` 函数，并支持同 Schema 别名。
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
-项目不实现完整的 Ion Schema 校验器。跨 Schema 导入、递归类型、开放结构体、除 `$any` 外的 nullable 类型（例如 `$int` 和 `$null_or`），以及 `valid_values`、范围、正则、注解和类型代数等约束会显式报错。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
+项目不实现完整的 Ion Schema 校验器。跨 Schema 导入、递归类型、开放结构体、字段多重出现以及 `valid_values`、范围、长度、正则、注解和类型代数等约束会显式报错。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
 
 ## 安装与检查
 
@@ -65,7 +66,7 @@ let generated = @ion-schema-codegen.generate_code(schema_text)
 
 `check_schema(schema_text)` 只检查当前受支持的 Schema 子集；`generate_code(schema_text)` 返回源码和所需导入。程序化调用示例见 `fixtures/generated` 与 `fixtures/references`。
 
-结构体转换拒绝缺失的必选字段、重复字段、未知字段、错误 Ion 类型和不符合字段类型的 null。普通具名类型的字段仍拒绝注解；`any` 字段保留所有非 null 值与注解，`$any` 还保留 plain null 和 typed null。列表转换要求 Ion `list`，逐项验证元素类型，并在错误路径中包含元素下标；`any` 元素拒绝 null，`$any` 元素接受 null。
+结构体转换拒绝缺失的必选字段、重复字段、未知字段、错误 Ion 类型和不符合字段类型的 null。普通具名类型的字段仍拒绝注解；`any` 字段保留所有非 null 值与注解，`$any` 接受任意 Ion 值。nullable built-in 保留其对应 typed null，`$null_or::T` 接受 plain null 或符合 `T` 的值；这些字段和列表元素都以 `IonValue` 表示。列表转换要求 Ion `list`，逐项验证元素类型，并在错误路径中包含元素下标；`any` 元素拒绝 null，`$any` 元素接受 null。
 
 `sexp` 转换检查外层容器必须是 Ion `sexp`，并保留内部的任意 Ion 值；内部子值不会按其他 Schema 类型递归校验。
 

@@ -20,3 +20,7 @@ type::{name: NullableValues, type: list, element: NullableValue}
 type::{name: NullableRecord, type: struct, fields: closed::{value: {type: $any, occurs: required}, optional: {type: NullableValue, occurs: optional}}}
 type::{name: EventStream, type: document}
 type::{name: EventStreamAlias, type: EventStream}
+type::{name: NullableInt, type: $int}
+type::{name: NullableInts, type: list, element: NullableInt}
+type::{name: NullableNominals, type: struct, fields: closed::{typed_int: {type: NullableInt, occurs: required}, plain_null: {type: $null, occurs: required}, maybe_text: {type: $null_or::string, occurs: required}, maybe_typed_int: {type: $null_or::$int, occurs: required}, optional_boolean: {type: $bool, occurs: optional}}}
+type::{name: MaybeNumbers, type: list, element: $null_or::int}

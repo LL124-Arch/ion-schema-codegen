@@ -22,14 +22,8 @@ test "accept non-null any and nullable universal any" {
     "$ion_schema_2_0 type::{name: NullableValue, type: $any}",
   )
 
-  let other_nullable_type = expect_schema_error(
-    "$ion_schema_2_0 type::{name: NullableInteger, type: $int}",
-  )
-  assert_true(
-    match other_nullable_type {
-      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
-      _ => false
-    },
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: NullableInteger, type: $int} type::{name: MaybeInteger, type: list, element: $null_or::int}",
   )
 }
 
@@ -168,14 +162,8 @@ test "reject unsupported open constraints and imports" {
     },
   )
 
-  let nullable = expect_schema_error(
-    "$ion_schema_2_0 type::{name: Person, type: list, element: $null_or::string}",
-  )
-  assert_true(
-    match nullable {
-      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
-      _ => false
-    },
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: NullableInt, type: $int} type::{name: MaybeString, type: list, element: $null_or::string}",
   )
 }
 

@@ -39,6 +39,58 @@ fn ion_schema_codegen_actual_type(value : @ion_model.IonValue) -> String {
 }
 
 ///|
+fn ion_schema_codegen_matches_type(
+  value : @ion_model.IonValue,
+  expected : String,
+) -> Bool {
+  let kind = value.kind()
+  let is_null = value.is_null()
+  match expected {
+    "any" => !is_null
+    "$any" => true
+    "$null" => is_null && kind == @ion_model.IonNull::Null
+    "bool" => !is_null && kind == @ion_model.IonNull::Bool
+    "$bool" => kind == @ion_model.IonNull::Bool
+    "int" => !is_null && kind == @ion_model.IonNull::Int
+    "$int" => kind == @ion_model.IonNull::Int
+    "float" => !is_null && kind == @ion_model.IonNull::Float
+    "$float" => kind == @ion_model.IonNull::Float
+    "decimal" => !is_null && kind == @ion_model.IonNull::Decimal
+    "$decimal" => kind == @ion_model.IonNull::Decimal
+    "string" => !is_null && kind == @ion_model.IonNull::String
+    "$string" => kind == @ion_model.IonNull::String
+    "symbol" => !is_null && kind == @ion_model.IonNull::Symbol
+    "$symbol" => kind == @ion_model.IonNull::Symbol
+    "timestamp" => !is_null && kind == @ion_model.IonNull::Timestamp
+    "$timestamp" => kind == @ion_model.IonNull::Timestamp
+    "blob" => !is_null && kind == @ion_model.IonNull::Blob
+    "$blob" => kind == @ion_model.IonNull::Blob
+    "clob" => !is_null && kind == @ion_model.IonNull::Clob
+    "$clob" => kind == @ion_model.IonNull::Clob
+    "list" => !is_null && kind == @ion_model.IonNull::List
+    "$list" => kind == @ion_model.IonNull::List
+    "sexp" => !is_null && kind == @ion_model.IonNull::Sexp
+    "$sexp" => kind == @ion_model.IonNull::Sexp
+    "struct" => !is_null && kind == @ion_model.IonNull::Struct
+    "$struct" => kind == @ion_model.IonNull::Struct
+    "number" | "$number" =>
+      (
+        kind == @ion_model.IonNull::Int ||
+        kind == @ion_model.IonNull::Float ||
+        kind == @ion_model.IonNull::Decimal
+      ) &&
+      (expected == "$number" || !is_null)
+    "text" | "$text" =>
+      (kind == @ion_model.IonNull::String || kind == @ion_model.IonNull::Symbol) &&
+      (expected == "$text" || !is_null)
+    "lob" | "$lob" =>
+      (kind == @ion_model.IonNull::Blob || kind == @ion_model.IonNull::Clob) &&
+      (expected == "$lob" || !is_null)
+    _ => false
+  }
+}
+
+///|
 fn ion_schema_codegen_prefix_error(
   error : ConversionError,
   prefix : String,
@@ -930,4 +982,325 @@ pub fn to_ion_document_EventStreamAlias(
   values : EventStreamAlias,
 ) -> Array[@ion_model.IonValue] {
   values
+}
+
+///|
+pub type NullableInt = @ion_model.IonValue
+
+///|
+pub type NullableInts = Array[NullableInt]
+
+///|
+/// Convert an Ion list to NullableInts with element-level diagnostics.
+pub fn from_ion_NullableInts(
+  value : @ion_model.IonValue,
+) -> NullableInts raise ConversionError {
+  let type_path = "NullableInts"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : NullableInts = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    let item : NullableInt = if ion_schema_codegen_matches_type(element, "$int") {
+      element
+    } else {
+      raise ConversionError::TypeMismatch(
+        path=element_path,
+        expected="$int",
+        actual=ion_schema_codegen_actual_type(element),
+      )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert NullableInts into an Ion list.
+pub fn to_ion_NullableInts(items : NullableInts) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(element)
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct NullableNominals {
+  typed_int : NullableInt
+  plain_null : @ion_model.IonValue
+  maybe_text : @ion_model.IonValue
+  maybe_typed_int : @ion_model.IonValue
+  optional_boolean : @ion_model.IonValue?
+}
+
+///|
+/// Convert an Ion struct to NullableNominals with field-level diagnostics.
+pub fn NullableNominals::from_ion(
+  value : @ion_model.IonValue,
+) -> NullableNominals raise ConversionError {
+  let type_path = "NullableNominals"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  let mut input_field_1 : @ion_model.IonValue? = None
+  let mut input_field_2 : @ion_model.IonValue? = None
+  let mut input_field_3 : @ion_model.IonValue? = None
+  let mut input_field_4 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "typed_int" => {
+            if input_field_0 is Some(_) {
+              raise ConversionError::DuplicateField(
+                path="NullableNominals.typed_int",
+              )
+            }
+            input_field_0 = Some(field_value)
+          }
+          "plain_null" => {
+            if input_field_1 is Some(_) {
+              raise ConversionError::DuplicateField(
+                path="NullableNominals.plain_null",
+              )
+            }
+            input_field_1 = Some(field_value)
+          }
+          "maybe_text" => {
+            if input_field_2 is Some(_) {
+              raise ConversionError::DuplicateField(
+                path="NullableNominals.maybe_text",
+              )
+            }
+            input_field_2 = Some(field_value)
+          }
+          "maybe_typed_int" => {
+            if input_field_3 is Some(_) {
+              raise ConversionError::DuplicateField(
+                path="NullableNominals.maybe_typed_int",
+              )
+            }
+            input_field_3 = Some(field_value)
+          }
+          "optional_boolean" => {
+            if input_field_4 is Some(_) {
+              raise ConversionError::DuplicateField(
+                path="NullableNominals.optional_boolean",
+              )
+            }
+            input_field_4 = Some(field_value)
+          }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="NullableNominals." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="NullableNominals.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : NullableInt = match input_field_0 {
+    Some(field_value) => {
+      if !ion_schema_codegen_matches_type(field_value, "$int") {
+        raise ConversionError::TypeMismatch(
+          path="NullableNominals.typed_int",
+          expected="$int",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      field_value
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="NullableNominals.typed_int",
+      )
+  }
+  let ion_schema_codegen_value_1 : @ion_model.IonValue = match input_field_1 {
+    Some(field_value) => {
+      if !ion_schema_codegen_matches_type(field_value, "$null") {
+        raise ConversionError::TypeMismatch(
+          path="NullableNominals.plain_null",
+          expected="$null",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      field_value
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="NullableNominals.plain_null",
+      )
+  }
+  let ion_schema_codegen_value_2 : @ion_model.IonValue = match input_field_2 {
+    Some(field_value) => {
+      if !ion_schema_codegen_matches_type(field_value, "$null") {
+        if !ion_schema_codegen_matches_type(field_value, "string") {
+          raise ConversionError::TypeMismatch(
+            path="NullableNominals.maybe_text",
+            expected="string",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+        }
+      }
+      field_value
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="NullableNominals.maybe_text",
+      )
+  }
+  let ion_schema_codegen_value_3 : @ion_model.IonValue = match input_field_3 {
+    Some(field_value) => {
+      if !ion_schema_codegen_matches_type(field_value, "$null") {
+        if !ion_schema_codegen_matches_type(field_value, "$int") {
+          raise ConversionError::TypeMismatch(
+            path="NullableNominals.maybe_typed_int",
+            expected="$int",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+        }
+      }
+      field_value
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="NullableNominals.maybe_typed_int",
+      )
+  }
+  let ion_schema_codegen_value_4 : @ion_model.IonValue? = match input_field_4 {
+    Some(field_value) => {
+      if !ion_schema_codegen_matches_type(field_value, "$bool") {
+        raise ConversionError::TypeMismatch(
+          path="NullableNominals.optional_boolean",
+          expected="$bool",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      Some(field_value)
+    }
+    None => None
+  }
+  {
+    typed_int: ion_schema_codegen_value_0,
+    plain_null: ion_schema_codegen_value_1,
+    maybe_text: ion_schema_codegen_value_2,
+    maybe_typed_int: ion_schema_codegen_value_3,
+    optional_boolean: ion_schema_codegen_value_4,
+  }
+}
+
+///|
+/// Convert NullableNominals into an Ion struct in schema field order.
+pub fn NullableNominals::to_ion(self : NullableNominals) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (@ion_model.IonSymbol::from_text("typed_int"), self.typed_int),
+  )
+  output_fields.push(
+    (@ion_model.IonSymbol::from_text("plain_null"), self.plain_null),
+  )
+  output_fields.push(
+    (@ion_model.IonSymbol::from_text("maybe_text"), self.maybe_text),
+  )
+  output_fields.push(
+    (@ion_model.IonSymbol::from_text("maybe_typed_int"), self.maybe_typed_int),
+  )
+  match self.optional_boolean {
+    Some(field_value) =>
+      output_fields.push(
+        (@ion_model.IonSymbol::from_text("optional_boolean"), field_value),
+      )
+    None => ()
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type MaybeNumbers = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion list to MaybeNumbers with element-level diagnostics.
+pub fn from_ion_MaybeNumbers(
+  value : @ion_model.IonValue,
+) -> MaybeNumbers raise ConversionError {
+  let type_path = "MaybeNumbers"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : MaybeNumbers = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    let item : @ion_model.IonValue = if ion_schema_codegen_matches_type(
+        element, "$null",
+      ) {
+      element
+    } else {
+      if !ion_schema_codegen_matches_type(element, "int") {
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="int",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+      }
+      element
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert MaybeNumbers into an Ion list.
+pub fn to_ion_MaybeNumbers(items : MaybeNumbers) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(element)
+  }
+  @ion_model.IonValue::List(output_elements)
 }

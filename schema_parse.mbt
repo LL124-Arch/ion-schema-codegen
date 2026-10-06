@@ -157,6 +157,10 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       match reference {
         TypeRef::Builtin(_) => TypeBody::Scalar(reference)
         TypeRef::Named(_) => TypeBody::Alias(reference)
+        TypeRef::NullOrBuiltin(_) | TypeRef::NullOrNamed(_) =>
+          raise SchemaError::UnsupportedFeature(
+            "$null_or cannot annotate a top-level named type",
+          )
       }
     }
   }
@@ -219,16 +223,16 @@ fn parse_type_argument(
   value : @model.IonValue,
   context : String,
 ) -> (TypeRef, FieldOccurrence) raise SchemaError {
-  if value.annotations().length() != 0 {
-    raise SchemaError::UnsupportedFeature(
-      "annotated or nullable type arguments are not supported at \{context}",
-    )
-  }
   match value {
     @model.IonValue::Struct(_) => {
+      if value.annotations().length() != 0 {
+        raise SchemaError::UnsupportedFeature(
+          "annotated inline type arguments are not supported at \{context}",
+        )
+      }
       validate_allowed_fields(value, ["type", "occurs"], context)
       let type_value = required_single_field(value, "type", context)
-      let type_ref = parse_type_reference(type_value, context)
+      let type_ref = parse_type_argument_reference(type_value, context)
       let occurrence_values = value.get_fields("occurs")
       let occurrence = match occurrence_values {
         [] => FieldOccurrence::Optional
@@ -240,7 +244,33 @@ fn parse_type_argument(
       }
       (type_ref, occurrence)
     }
-    _ => (parse_type_reference(value, context), FieldOccurrence::Optional)
+    _ =>
+      (parse_type_argument_reference(value, context), FieldOccurrence::Optional)
+  }
+}
+
+///|
+fn parse_type_argument_reference(
+  value : @model.IonValue,
+  context : String,
+) -> TypeRef raise SchemaError {
+  match value.annotations() {
+    [] => parse_type_reference(value, context)
+    [annotation] if annotation.text_value() == Some("$null_or") => {
+      let inner = parse_type_reference(value.without_annotations(), context)
+      match inner {
+        TypeRef::Builtin(name) => TypeRef::NullOrBuiltin(name)
+        TypeRef::Named(name) => TypeRef::NullOrNamed(name)
+        TypeRef::NullOrBuiltin(_) | TypeRef::NullOrNamed(_) =>
+          raise SchemaError::UnsupportedFeature(
+            "nested $null_or annotations are not supported at \{context}",
+          )
+      }
+    }
+    _ =>
+      raise SchemaError::UnsupportedFeature(
+        "only $null_or annotated type arguments are supported at \{context}",
+      )
   }
 }
 
@@ -249,12 +279,7 @@ fn parse_element_type(
   value : @model.IonValue,
   context : String,
 ) -> TypeRef raise SchemaError {
-  if value.annotations().length() != 0 {
-    raise SchemaError::UnsupportedFeature(
-      "annotated or inline element types are not supported at \{context}",
-    )
-  }
-  parse_type_reference(value, context)
+  parse_type_argument_reference(value, context)
 }
 
 ///|
@@ -540,6 +565,15 @@ fn validate_type_reference(
     TypeRef::Named(name) if contains_type(types, name) => ()
     TypeRef::Named(name) =>
       raise SchemaError::UnknownType("unknown type \{name} at \{context}")
+    TypeRef::NullOrBuiltin(name) =>
+      if !is_supported_scalar(name) {
+        raise SchemaError::UnsupportedFeature(
+          "unsupported nullable built-in type \{name} at \{context}",
+        )
+      }
+    TypeRef::NullOrNamed(name) if contains_type(types, name) => ()
+    TypeRef::NullOrNamed(name) =>
+      raise SchemaError::UnknownType("unknown type \{name} at \{context}")
   }
 }
 
@@ -548,7 +582,9 @@ fn is_supported_scalar(name : String) -> Bool {
   contains_string(
     [
       "bool", "int", "float", "decimal", "string", "symbol", "timestamp", "blob",
-      "clob", "sexp", "any", "$any", "document",
+      "clob", "sexp", "any", "$any", "document", "$null", "$bool", "$int", "$float",
+      "$decimal", "$string", "$symbol", "$timestamp", "$blob", "$clob", "$list",
+      "$sexp", "$struct", "$number", "$text", "$lob",
     ],
     name,
   )

@@ -20,6 +20,38 @@ fn expect_person_error(
 }
 
 ///|
+fn expect_nullable_nominals_error(
+  value : @ion_model.IonValue,
+) -> @references.ConversionError {
+  try @references.NullableNominals::from_ion(value) catch {
+    error => error
+  } noraise {
+    _ =>
+      @references.ConversionError::TypeMismatch(
+        path="test",
+        expected="error",
+        actual="conversion succeeded",
+      )
+  }
+}
+
+///|
+fn expect_maybe_numbers_error(
+  value : @ion_model.IonValue,
+) -> @references.ConversionError {
+  try @references.from_ion_MaybeNumbers(value) catch {
+    error => error
+  } noraise {
+    _ =>
+      @references.ConversionError::TypeMismatch(
+        path="test",
+        expected="error",
+        actual="conversion succeeded",
+      )
+  }
+}
+
+///|
 test "nested named structs and scalar lists round trip" {
   let person : @references.Person = {
     primary: make_address("New York"),
@@ -346,4 +378,93 @@ test "document stream aliases preserve multiple top-level Ion values" {
 
   let empty : @references.EventStream = []
   assert_eq(@references.to_ion_document_EventStream(empty), [])
+}
+
+///|
+test "nullable nominal types and null-or values preserve each null kind" {
+  let input = @ion_model.IonValue::Struct([
+    (
+      @ion_model.IonSymbol::from_text("typed_int"),
+      @ion_model.IonValue::null(kind=@ion_model.IonNull::Int),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("plain_null"),
+      @ion_model.IonValue::Null(@ion_model.IonNull::Null),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("maybe_text"),
+      @ion_model.IonValue::Null(@ion_model.IonNull::Null),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("maybe_typed_int"),
+      @ion_model.IonValue::null(kind=@ion_model.IonNull::Int),
+    ),
+    (
+      @ion_model.IonSymbol::from_text("optional_boolean"),
+      @ion_model.IonValue::null(kind=@ion_model.IonNull::Bool),
+    ),
+  ])
+  let decoded = @references.NullableNominals::from_ion(input)
+  assert_eq(@references.NullableNominals::to_ion(decoded), input)
+
+  let nullable_ints = @references.from_ion_NullableInts(
+    @ion_model.IonValue::List([
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(4)),
+      @ion_model.IonValue::null(kind=@ion_model.IonNull::Int),
+    ]),
+  )
+  assert_eq(nullable_ints.length(), 2)
+  assert_eq(
+    @references.to_ion_NullableInts(nullable_ints),
+    @ion_model.IonValue::List([
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(4)),
+      @ion_model.IonValue::null(kind=@ion_model.IonNull::Int),
+    ]),
+  )
+
+  let wrong_nullable_kind = expect_nullable_nominals_error(
+    @ion_model.IonValue::Struct([
+      (
+        @ion_model.IonSymbol::from_text("typed_int"),
+        @ion_model.IonValue::null(kind=@ion_model.IonNull::String),
+      ),
+    ]),
+  )
+  assert_true(
+    match wrong_nullable_kind {
+      @references.ConversionError::TypeMismatch(path~, expected~, actual~) =>
+        path == "NullableNominals.typed_int" &&
+        expected == "$int" &&
+        actual == "null.string"
+      _ => false
+    },
+  )
+
+  let maybe_numbers = @references.from_ion_MaybeNumbers(
+    @ion_model.IonValue::List([
+      @ion_model.IonValue::Null(@ion_model.IonNull::Null),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(7)),
+    ]),
+  )
+  assert_eq(maybe_numbers.length(), 2)
+  assert_eq(
+    @references.to_ion_MaybeNumbers(maybe_numbers),
+    @ion_model.IonValue::List([
+      @ion_model.IonValue::Null(@ion_model.IonNull::Null),
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(7)),
+    ]),
+  )
+
+  let wrong_list_null = expect_maybe_numbers_error(
+    @ion_model.IonValue::List([
+      @ion_model.IonValue::null(kind=@ion_model.IonNull::Int),
+    ]),
+  )
+  assert_true(
+    match wrong_list_null {
+      @references.ConversionError::TypeMismatch(path~, expected~, actual~) =>
+        path == "MaybeNumbers[0]" && expected == "int" && actual == "null.int"
+      _ => false
+    },
+  )
 }

@@ -26,6 +26,8 @@ pub(all) struct GeneratedCode {
 priv enum TypeRef {
   Builtin(String)
   Named(String)
+  NullOrBuiltin(String)
+  NullOrNamed(String)
 }
 
 ///|
