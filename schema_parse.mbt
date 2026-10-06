@@ -13,6 +13,13 @@ fn parse_schema(source : String) -> Schema raise SchemaError {
   let values = @ion.parse_text(source) catch {
     error => raise SchemaError::IonParse(error.summary())
   }
+  parse_schema_values(values)
+}
+
+///|
+fn parse_schema_values(
+  values : Array[@model.IonValue],
+) -> Schema raise SchemaError {
   let rest = match values {
     [first, .. rest] =>
       match first.without_annotations() {
@@ -799,7 +806,7 @@ fn validate_schema_header(value : @model.IonValue) -> Unit raise SchemaError {
     match symbol.text_value() {
       Some("imports") =>
         raise SchemaError::UnsupportedFeature(
-          "Schema imports are not supported",
+          "schema imports require the file-based CLI; generate_code accepts a single schema",
         )
       Some(name) =>
         raise SchemaError::UnsupportedFeature(

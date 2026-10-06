@@ -199,6 +199,22 @@ test "accept open fields and valid_values and reject unsupported constraints and
     },
   )
 
+  let generate_imports = try
+    @ion-schema-codegen.generate_code(
+      "$ion_schema_2_0 schema_header::{imports: []}",
+    )
+  catch {
+    error => Some(error)
+  } noraise {
+    _ => None
+  }
+  assert_true(
+    match generate_imports {
+      Some(@ion-schema-codegen.SchemaError::UnsupportedFeature(_)) => true
+      _ => false
+    },
+  )
+
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: NullableInt, type: $int} type::{name: MaybeString, type: list, element: $null_or::string}",
   )

@@ -8,6 +8,24 @@
 /// collisions are errors.
 pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
   let schema = parse_schema(source)
+  generate_code_for_schema(schema)
+}
+
+///|
+/// Generate MoonBit code from already parsed Ion values for one schema.
+///
+/// This entry point avoids serializing parsed Ion values back to text, which
+/// lets file-based callers preserve numeric precision while resolving imports.
+/// Schema imports still need to be resolved before calling this function.
+pub fn generate_code_from_ion_values(
+  values : Array[@model.IonValue],
+) -> GeneratedCode raise SchemaError {
+  let schema = parse_schema_values(values)
+  generate_code_for_schema(schema)
+}
+
+///|
+fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError {
   validate_type_references(schema.types)
   validate_codegen_subset(schema.types)
   let ordered_types = order_named_types(schema.types)

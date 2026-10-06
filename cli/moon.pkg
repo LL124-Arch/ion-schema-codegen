@@ -1,5 +1,7 @@
 import {
   "LL124-Arch/ion-schema-codegen" @codegen,
+  "LL124-Arch/amazon-ion-moonbit-core" @ion,
+  "LL124-Arch/amazon-ion-moonbit-core/format_model" @model,
   "moonbitlang/async",
   "moonbitlang/async/fs",
   "moonbitlang/async/io",
@@ -13,6 +15,7 @@ warnings = "-unused_package"
 
 options(
   targets: {
+    "imports.mbt": [ "native" ],
     "main.mbt": [ "native" ],
     "unsupported_main.mbt": [ "wasm", "wasm-gc", "js" ],
   },

@@ -44,15 +44,7 @@ async fn main {
   }
   let input_path = args[1]
   let output_path = args[2]
-  let input_data : &@io.Data = @fs.read_file(input_path) catch {
-    _ => raise CliError("cannot read schema file: " + input_path)
-  }
-  let schema_text = input_data.text() catch {
-    _ => raise CliError("schema file is not valid UTF-8: " + input_path)
-  }
-  let generated = @codegen.generate_code(schema_text) catch {
-    error => raise CliError(schema_error_message(error))
-  }
+  let generated = cli_generate_from_file(input_path)
   @fs.write_file(
     output_path,
     generated.source,

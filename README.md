@@ -12,6 +12,7 @@
 - `element` 支持 list、sexp、document 和 struct 中每个值的类型约束；struct 可与 `fields` 组合，也可仅用 `element` 校验并保留开放字段。
 - 列表元素支持受支持标量或同一 Schema 命名类型；sexp、document 和 struct 元素按输入顺序逐项校验并在错误路径中标明位置。
 - `ordered_elements` 支持 list、sexp 和 document 的异质顺序约束，包含 required、optional、固定次数和整数范围 `occurs`；回溯匹配完整消费序列，并以 `Array[@ion_model.IonValue]` 保存原始值。
+- native 文件 CLI 支持相对于当前 `.isl` 文件的 Schema imports，包括整份 Schema 导入、选定类型及 `as` 别名；每个 Schema 只解析本地定义和直接导入，导入循环、缺失类型及名称冲突会报告文件上下文。
 - Ion `sexp` 作为 `Array[@ion_model.IonValue]`，支持结构体字段及列表元素；表达式内部值与顺序保持为 Ion 值模型。
 - Ion Schema `any` 作为 `@ion_model.IonValue`，可用于字段、列表元素和命名别名；任意非 null `IonValue`（含注解及嵌套值）原样往返。
 - Ion Schema `$any` 也作为 `@ion_model.IonValue`，可在字段、列表元素和命名别名中保留 plain null、typed null 及注解。
@@ -22,7 +23,7 @@
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
-项目不实现完整的 Ion Schema 校验器。跨 Schema 导入、递归类型、正则、注解和类型代数等约束会显式报错。`element` 上的 `distinct::` 和内联 type/import 定义仍不支持。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
+项目不实现完整的 Ion Schema 校验器。程序化库 API 仍只接收单个 Schema；包含 imports 的文件请使用 native CLI。递归类型、正则、注解和类型代数等约束会显式报错。`element` 上的 `distinct::` 和内联 type 定义仍不支持。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
 
 ## 安装与检查
 
@@ -45,6 +46,8 @@ moon run --target native ./cli examples/person/person.isl examples/person/genera
 ```
 
 命令会打印生成结果所需的包导入。把这些导入加入目标包的 `moon.pkg`，然后编译或运行该包。已有输出文件会被覆盖；读取、Schema 生成和写入失败会返回非零状态并显示原因。
+
+`schema_header::{imports: [...]}` 中的 `id` 按声明它的 `.isl` 文件目录解析。导入项可只给 `id` 以导入该文件声明的全部类型，也可加 `type` 选定类型，并用 `as` 改名。导入 Schema 自己的导入仅在该文件内部可见，不会传递给调用方。纯库 API `generate_code(schema_text)` 对 imports 返回明确的 unsupported feature 错误。
 
 ## 端到端示例
 
@@ -71,7 +74,7 @@ let generated = @ion-schema-codegen.generate_code(schema_text)
 // generated.package_imports 是目标包需要加入 moon.pkg 的导入项
 ```
 
-`check_schema(schema_text)` 只检查当前受支持的 Schema 子集；`generate_code(schema_text)` 返回源码和所需导入。程序化调用示例见 `fixtures/generated` 与 `fixtures/references`。
+`check_schema(schema_text)` 只检查当前受支持的 Schema 子集；`generate_code(schema_text)` 返回源码和所需导入。已解析的单 Schema Ion 值也可传给 `generate_code_from_ion_values(values)`；它不会把值重新序列化为文本，也不负责解析 imports。程序化调用示例见 `fixtures/generated` 与 `fixtures/references`。
 
 结构体转换校验每个字段的 `occurs` 上下界；必选字段映射为 `T`，可选字段映射为 `T?`，多次出现字段映射为 `Array[T]`。重复字段按输入顺序存储。已声明字段按 Schema 顺序输出，开放结构体的未知字段和值在其后按输入顺序输出，重复项和未解析 SID 均会保留。转换还会报告未知字段、错误 Ion 类型和不符合字段类型的 null。普通具名类型的字段仍拒绝注解；`any` 字段保留所有非 null 值与注解，`$any` 接受任意 Ion 值。nullable built-in 保留其对应 typed null，`$null_or::T` 接受 plain null 或符合 T 的值；这些字段和列表元素都以 `IonValue` 表示。列表转换要求 Ion `list`，逐项验证元素类型，并在错误路径中包含元素下标；`any` 元素拒绝 null，`$any` 元素接受 null。
 

@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.15.0 — 2026-10-07
+
+- native 文件 CLI 递归解析相对 Schema imports，支持整份 Schema、选定类型和 `as` 别名，并按各文件的直接导入维护类型作用域；从解析后的 Ion 值直接生成，避免精度敏感值的文本往返。
+- 对导入循环、无法读取的文件、未声明的导入类型及可见名称冲突提供文件路径诊断；纯库 API 对 imports 明确返回 unsupported feature。
+- 提供 `generate_code_from_ion_values` 入口，供已解析的单 Schema Ion 值直接调用。
+
 ## 0.14.0 — 2026-10-07
 
 - 支持 list、sexp 和 document 的 `ordered_elements`，包含 required、optional、固定次数及范围 `occurs`，并校验整个序列被完整消费。
