@@ -323,3 +323,27 @@ test "$any preserves plain typed and annotated null values" {
   assert_eq(decoded_values, values)
   assert_eq(@references.to_ion_NullableValues(decoded_values), encoded_values)
 }
+
+///|
+test "document stream aliases preserve multiple top-level Ion values" {
+  let values = [
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(1)),
+    @ion_model.IonValue::null(kind=@ion_model.IonNull::Int),
+    @ion_model.IonValue::Struct([
+      (
+        @ion_model.IonSymbol::from_text("nested"),
+        @ion_model.IonValue::List([
+          @ion_model.IonValue::Int(@bigint.BigInt::from_int(2)),
+          @ion_model.IonValue::Int(@bigint.BigInt::from_int(3)),
+        ]),
+      ),
+    ]),
+  ]
+  let document = @references.from_ion_document_EventStream(values)
+  let aliased = @references.from_ion_document_EventStreamAlias(document)
+  let decoded = @references.to_ion_document_EventStreamAlias(aliased)
+  assert_eq(decoded, values)
+
+  let empty : @references.EventStream = []
+  assert_eq(@references.to_ion_document_EventStream(empty), [])
+}

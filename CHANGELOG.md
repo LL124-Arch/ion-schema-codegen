@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.5.0 — 2026-10-06
+
+- 支持 ISL `document` 顶层流类型，映射为有序的 `Array[@ion_model.IonValue]`。
+- 为 document 命名类型及同 Schema 别名生成独立流转换函数；明确拒绝 document 嵌套进字段或列表。
+- 增加多个顶层值及 Ion core 文本解析/编码往返用例。
+
 ## 0.4.0 — 2026-10-06
 
 - 支持 nullable universal type `$any`，作为字段、列表元素及命名别名时映射为原始 `IonValue`。

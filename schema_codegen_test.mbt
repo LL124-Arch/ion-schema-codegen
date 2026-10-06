@@ -56,6 +56,45 @@ test "map nullable any to raw Ion values" {
 }
 
 ///|
+test "generate document stream APIs and reject nested document types" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: EventStream, type: document} type::{name: EventStreamAlias, type: EventStream}",
+  )
+  assert_true(
+    generated.source.contains(
+      "pub type EventStream = Array[@ion_model.IonValue]",
+    ),
+  )
+  assert_true(
+    generated.source.contains("pub fn from_ion_document_EventStream("),
+  )
+  assert_true(generated.source.contains("values : Array[@ion_model.IonValue]"))
+  assert_true(
+    generated.source.contains("pub fn to_ion_document_EventStreamAlias("),
+  )
+
+  let nested_document = expect_codegen_error(
+    "$ion_schema_2_0 type::{name: EventStream, type: document} type::{name: Envelope, type: struct, fields: closed::{document: EventStream}}",
+  )
+  assert_true(
+    match nested_document {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let list_document = expect_codegen_error(
+    "$ion_schema_2_0 type::{name: EventStream, type: document} type::{name: EventStreams, type: list, element: EventStream}",
+  )
+  assert_true(
+    match list_document {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "generate closed structs with required and optional fields" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: Person, type: struct, fields: closed::{id: {type: int, occurs: required}, name: {type: string, occurs: required}, nickname: {type: string, occurs: optional}}}",

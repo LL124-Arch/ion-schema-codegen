@@ -34,6 +34,13 @@ test "accept non-null any and nullable universal any" {
 }
 
 ///|
+test "accept named Ion document stream types" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: EventStream, type: document}",
+  )
+}
+
+///|
 test "ISL 2.0 marker-only schema is valid" {
   @ion-schema-codegen.check_schema("$ion_schema_2_0")
 }

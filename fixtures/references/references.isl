@@ -18,3 +18,5 @@ type::{name: AnyRecord, type: struct, fields: closed::{named_value: {type: AnyVa
 type::{name: NullableValue, type: $any}
 type::{name: NullableValues, type: list, element: NullableValue}
 type::{name: NullableRecord, type: struct, fields: closed::{value: {type: $any, occurs: required}, optional: {type: NullableValue, occurs: optional}}}
+type::{name: EventStream, type: document}
+type::{name: EventStreamAlias, type: EventStream}

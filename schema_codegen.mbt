@@ -49,7 +49,11 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
         output.write_string("\n")
         write_list_conversions(output, named_type, element_type, schema.types)
       }
-      _ => ()
+      TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+        if is_document_type(resolve_type_ref(schema.types, type_ref)) {
+          output.write_string("\n")
+          write_document_conversions(output, named_type)
+        }
     }
   }
   { source: output.to_string(), package_imports, }
@@ -102,10 +106,21 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
             field.type_ref,
             "field \{named_type.name}.\{field.name}",
           )
+          reject_document_reference(
+            field.type_ref,
+            types,
+            "field \{named_type.name}.\{field.name}",
+          )
         }
       }
-      TypeBody::List(type_ref) =>
+      TypeBody::List(type_ref) => {
         validate_codegen_reference(type_ref, "element of \{named_type.name}")
+        reject_document_reference(
+          type_ref,
+          types,
+          "element of \{named_type.name}",
+        )
+      }
     }
   }
   if has_conversions &&
@@ -114,6 +129,27 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
     raise SchemaError::IdentifierCollision(
       "type name \{original} maps to ConversionError, which is reserved for generated conversion errors",
     )
+  }
+}
+
+///|
+fn reject_document_reference(
+  type_ref : TypeRef,
+  types : Array[NamedType],
+  context : String,
+) -> Unit raise SchemaError {
+  if is_document_type(resolve_type_ref(types, type_ref)) {
+    raise SchemaError::UnsupportedFeature(
+      "document streams cannot be nested as an Ion value at \{context}",
+    )
+  }
+}
+
+///|
+fn is_document_type(resolved : ResolvedType) -> Bool {
+  match resolved {
+    ResolvedType::Scalar("document") => true
+    _ => false
   }
 }
 
@@ -196,6 +232,28 @@ fn write_named_type(
       output.write_string("]\n")
     }
   }
+}
+
+///|
+fn write_document_conversions(
+  output : StringBuilder,
+  named_type : NamedType,
+) -> Unit raise SchemaError {
+  let generated_name = moonbit_type_identifier(named_type.name)
+  output.write_string("///|\n/// Convert an Ion document stream to ")
+  output.write_string(generated_name)
+  output.write_string(".\npub fn from_ion_document_")
+  output.write_string(generated_name)
+  output.write_string("(\n  values : Array[@ion_model.IonValue],\n) -> ")
+  output.write_string(generated_name)
+  output.write_string(" {\n  values\n}\n\n")
+  output.write_string("///|\n/// Convert ")
+  output.write_string(generated_name)
+  output.write_string(" to an Ion document stream.\npub fn to_ion_document_")
+  output.write_string(generated_name)
+  output.write_string("(\n  values : ")
+  output.write_string(generated_name)
+  output.write_string("\n) -> Array[@ion_model.IonValue] {\n  values\n}\n")
 }
 
 ///|
@@ -800,6 +858,10 @@ fn ion_value_expression(
 ) -> String raise SchemaError {
   match resolve_type_ref(types, type_ref) {
     ResolvedType::Scalar("any" | "$any") => value_expression
+    ResolvedType::Scalar("document") =>
+      raise SchemaError::UnsupportedFeature(
+        "document streams cannot be embedded as a single Ion value",
+      )
     ResolvedType::Scalar(name) =>
       ion_value_variant(name) + "(" + value_expression + ")"
     ResolvedType::Struct(name) =>
@@ -914,6 +976,7 @@ fn moonbit_type_for_builtin(
     "blob" | "clob" => "Bytes"
     "sexp" => "Array[@ion_model.IonValue]"
     "any" | "$any" => "@ion_model.IonValue"
+    "document" => "Array[@ion_model.IonValue]"
     _ =>
       raise SchemaError::UnsupportedFeature(
         "no MoonBit type mapping for \{name} at \{context}",
@@ -1012,6 +1075,7 @@ fn matches_model_type(resolved : ResolvedType) -> Bool {
       | "sexp"
       | "any"
       | "$any"
+      | "document"
     ) => true
     _ => false
   }

@@ -893,3 +893,41 @@ pub fn NullableRecord::to_ion(self : NullableRecord) -> @ion_model.IonValue {
   }
   @ion_model.IonValue::Struct(output_fields)
 }
+
+///|
+pub type EventStream = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion document stream to EventStream.
+pub fn from_ion_document_EventStream(
+  values : Array[@ion_model.IonValue],
+) -> EventStream {
+  values
+}
+
+///|
+/// Convert EventStream to an Ion document stream.
+pub fn to_ion_document_EventStream(
+  values : EventStream,
+) -> Array[@ion_model.IonValue] {
+  values
+}
+
+///|
+pub type EventStreamAlias = EventStream
+
+///|
+/// Convert an Ion document stream to EventStreamAlias.
+pub fn from_ion_document_EventStreamAlias(
+  values : Array[@ion_model.IonValue],
+) -> EventStreamAlias {
+  values
+}
+
+///|
+/// Convert EventStreamAlias to an Ion document stream.
+pub fn to_ion_document_EventStreamAlias(
+  values : EventStreamAlias,
+) -> Array[@ion_model.IonValue] {
+  values
+}
