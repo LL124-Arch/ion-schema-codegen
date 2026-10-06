@@ -113,15 +113,31 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let base_name = type_symbol_name(type_value, "type \{name}")
   let fields = value.get_fields("fields")
   let elements = value.get_fields("element")
+  let valid_values_fields = value.get_fields("valid_values")
   validate_type_definition_fields(
     value,
     name,
     fields.length(),
     elements.length(),
+    valid_values_fields.length(),
   )
+  let valid_values = match valid_values_fields {
+    [] => None
+    [valid_values_value] =>
+      Some(parse_valid_values(valid_values_value, "type \{name}"))
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "valid_values may appear at most once at type \{name}",
+      )
+  }
 
   let body = match base_name {
     "struct" => {
+      if valid_values is Some(_) {
+        raise SchemaError::UnsupportedFeature(
+          "valid_values is only supported on scalar types at type \{name}",
+        )
+      }
       if fields.length() != 1 {
         raise SchemaError::InvalidSchema(
           "type \{name} must declare exactly one closed fields constraint",
@@ -136,6 +152,11 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       TypeBody::Struct(parsed_fields, is_open)
     }
     "list" => {
+      if valid_values is Some(_) {
+        raise SchemaError::UnsupportedFeature(
+          "valid_values is only supported on scalar types at type \{name}",
+        )
+      }
       if elements.length() != 1 {
         raise SchemaError::InvalidSchema(
           "type \{name} must declare exactly one element constraint",
@@ -165,7 +186,32 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       }
     }
   }
-  { name, body, }
+  { name, body, valid_values, }
+}
+
+///|
+fn parse_valid_values(
+  value : @model.IonValue,
+  context : String,
+) -> Array[@model.IonValue] raise SchemaError {
+  match value.annotations() {
+    [] => ()
+    [annotation] if annotation.text_value() == Some("range") =>
+      raise SchemaError::UnsupportedFeature(
+        "valid_values range constraints are not supported at \{context}",
+      )
+    _ =>
+      raise SchemaError::UnsupportedFeature(
+        "annotated valid_values sets are not supported at \{context}",
+      )
+  }
+  match value.without_annotations() {
+    @model.IonValue::List(values) => values
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "valid_values must be an Ion list at \{context}",
+      )
+  }
 }
 
 ///|
@@ -514,15 +560,16 @@ fn validate_type_definition_fields(
   type_name : String,
   fields_count : Int,
   elements_count : Int,
+  valid_values_count : Int,
 ) -> Unit raise SchemaError {
   validate_allowed_fields(
     value,
-    ["name", "type", "fields", "element"],
+    ["name", "type", "fields", "element", "valid_values"],
     "type \{type_name}",
   )
-  if fields_count > 1 || elements_count > 1 {
+  if fields_count > 1 || elements_count > 1 || valid_values_count > 1 {
     raise SchemaError::InvalidSchema(
-      "duplicate fields or element constraint at type \{type_name}",
+      "duplicate fields or constraints at type \{type_name}",
     )
   }
 }
@@ -643,6 +690,20 @@ fn has_late_schema_version(values : ArrayView[@model.IonValue]) -> Bool {
 ///|
 fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError {
   for named_type in types {
+    if named_type.valid_values is Some(_) {
+      match named_type.body {
+        TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+          if !is_valid_values_target(types, type_ref) {
+            raise SchemaError::UnsupportedFeature(
+              "valid_values is supported only for scalar Ion types at type \{named_type.name}",
+            )
+          }
+        TypeBody::Struct(_, _) | TypeBody::List(_) =>
+          raise SchemaError::UnsupportedFeature(
+            "valid_values is supported only for scalar Ion types at type \{named_type.name}",
+          )
+      }
+    }
     match named_type.body {
       TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
         validate_type_reference(types, type_ref, named_type.name)
@@ -671,6 +732,58 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
         }
     }
   }
+}
+
+///|
+fn is_valid_values_target(types : Array[NamedType], type_ref : TypeRef) -> Bool {
+  is_valid_values_target_with_depth(types, type_ref, types.length())
+}
+
+///|
+fn is_valid_values_target_with_depth(
+  types : Array[NamedType],
+  type_ref : TypeRef,
+  remaining : Int,
+) -> Bool {
+  if remaining < 0 {
+    return false
+  }
+  match type_ref {
+    TypeRef::Builtin(name) => is_valid_values_scalar_name(name)
+    TypeRef::Named(name) =>
+      match find_named_type(types, name) {
+        Some(named_type) =>
+          match named_type.body {
+            TypeBody::Scalar(inner) | TypeBody::Alias(inner) =>
+              is_valid_values_target_with_depth(types, inner, remaining - 1)
+            TypeBody::Struct(_, _) | TypeBody::List(_) => false
+          }
+        None => false
+      }
+    TypeRef::NullOrBuiltin(name) => is_valid_values_scalar_name(name)
+    TypeRef::NullOrNamed(name) =>
+      match find_named_type(types, name) {
+        Some(named_type) =>
+          match named_type.body {
+            TypeBody::Scalar(inner) | TypeBody::Alias(inner) =>
+              is_valid_values_target_with_depth(types, inner, remaining - 1)
+            TypeBody::Struct(_, _) | TypeBody::List(_) => false
+          }
+        None => false
+      }
+  }
+}
+
+///|
+fn is_valid_values_scalar_name(name : String) -> Bool {
+  contains_string(
+    [
+      "bool", "int", "float", "decimal", "string", "symbol", "timestamp", "blob",
+      "clob", "$null", "$bool", "$int", "$float", "$decimal", "$string", "$symbol",
+      "$timestamp", "$blob", "$clob", "$number", "$text", "$lob",
+    ],
+    name,
+  )
 }
 
 ///|

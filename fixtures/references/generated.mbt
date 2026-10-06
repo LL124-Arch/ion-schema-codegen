@@ -1,6 +1,7 @@
 ///|
 pub(all) suberror ConversionError {
   TypeMismatch(path~ : String, expected~ : String, actual~ : String)
+  InvalidValue(path~ : String, constraint~ : String, actual~ : String)
   MissingRequiredField(path~ : String)
   DuplicateField(path~ : String)
   FieldOccurrenceMismatch(path~ : String, expected~ : String, actual~ : Int)
@@ -92,6 +93,20 @@ fn ion_schema_codegen_matches_type(
 }
 
 ///|
+fn ion_schema_codegen_valid_values_equal(
+  left : @ion_model.IonValue,
+  right : @ion_model.IonValue,
+) -> Bool {
+  let left = left.without_annotations()
+  let right = right.without_annotations()
+  match (left, right) {
+    (@ion_model.IonValue::Float(left), @ion_model.IonValue::Float(right)) =>
+      left == right || (left.is_nan() && right.is_nan())
+    _ => left.equal(right)
+  }
+}
+
+///|
 fn ion_schema_codegen_prefix_error(
   error : ConversionError,
   prefix : String,
@@ -99,6 +114,8 @@ fn ion_schema_codegen_prefix_error(
   match error {
     ConversionError::TypeMismatch(path~, expected~, actual~) =>
       ConversionError::TypeMismatch(path=prefix + path, expected~, actual~)
+    ConversionError::InvalidValue(path~, constraint~, actual~) =>
+      ConversionError::InvalidValue(path=prefix + path, constraint~, actual~)
     ConversionError::MissingRequiredField(path~) =>
       ConversionError::MissingRequiredField(path=prefix + path)
     ConversionError::DuplicateField(path~) =>
@@ -1690,5 +1707,200 @@ pub fn OpenRecord::to_ion(self : OpenRecord) -> @ion_model.IonValue {
   for (field_symbol, field_value) in self.ion_schema_codegen_open_content {
     output_fields.push((field_symbol, field_value))
   }
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type AllowedScore = @bigint.BigInt
+
+///|
+/// Test whether an Ion value is in the valid_values set for AllowedScore.
+pub fn is_valid_values_AllowedScore(value : @ion_model.IonValue) -> Bool {
+  let allowed_values = @ion.parse_text("10\n20") catch { _ => [] }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_equal(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// Validate the Ion type and valid_values set for AllowedScore.
+pub fn validate_AllowedScore(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "int") {
+    raise ConversionError::TypeMismatch(
+      path="AllowedScore",
+      expected="int",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !is_valid_values_AllowedScore(value) {
+    raise ConversionError::InvalidValue(
+      path="AllowedScore",
+      constraint="valid_values",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub type AllowedScoreAlias = AllowedScore
+
+///|
+pub type AllowedScores = Array[AllowedScoreAlias]
+
+///|
+/// Convert an Ion list to AllowedScores with element-level diagnostics.
+pub fn from_ion_AllowedScores(
+  value : @ion_model.IonValue,
+) -> AllowedScores raise ConversionError {
+  let type_path = "AllowedScores"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : AllowedScores = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : AllowedScoreAlias = match element.without_annotations() {
+      @ion_model.IonValue::Int(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="int",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    if !is_valid_values_AllowedScore(element) {
+      raise ConversionError::InvalidValue(
+        path=element_path,
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(element),
+      )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert AllowedScores into an Ion list.
+pub fn to_ion_AllowedScores(items : AllowedScores) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(@ion_model.IonValue::Int(element))
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct ScoredRecord {
+  score : AllowedScoreAlias
+}
+
+///|
+/// Convert an Ion struct to ScoredRecord with field-level diagnostics.
+pub fn ScoredRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> ScoredRecord raise ConversionError {
+  let type_path = "ScoredRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "score" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="ScoredRecord.score")
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="ScoredRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="ScoredRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : AllowedScoreAlias = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "ScoredRecord.score"
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : AllowedScoreAlias = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Int(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="int",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      if !is_valid_values_AllowedScore(field_value) {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="valid_values",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(path="ScoredRecord.score")
+  }
+  { score: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert ScoredRecord into an Ion struct in schema field order.
+pub fn ScoredRecord::to_ion(self : ScoredRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("score"),
+      @ion_model.IonValue::Int(self.score),
+    ),
+  )
   @ion_model.IonValue::Struct(output_fields)
 }

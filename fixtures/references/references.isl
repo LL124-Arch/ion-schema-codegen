@@ -33,3 +33,9 @@ type::{name: OccurrenceRecord, type: struct, fields: closed::{
 type::{name: OpenRecord, type: struct, fields:{
   known: {type: string, occurs: required}
 }}
+type::{name: AllowedScore, type: int, valid_values: [10, 20]}
+type::{name: AllowedScoreAlias, type: AllowedScore}
+type::{name: AllowedScores, type: list, element: AllowedScoreAlias}
+type::{name: ScoredRecord, type: struct, fields: closed::{
+  score: {type: AllowedScoreAlias, occurs: required}
+}}

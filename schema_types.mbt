@@ -55,6 +55,7 @@ priv struct FieldSpec {
 priv struct NamedType {
   name : String
   body : TypeBody
+  valid_values : Array[@model.IonValue]?
 }
 
 ///|

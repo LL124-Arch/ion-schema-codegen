@@ -12,10 +12,11 @@
 - Ion Schema `$any` 也作为 `@ion_model.IonValue`，可在字段、列表元素和命名别名中保留 plain null、typed null 及注解。
 - nullable built-in（如 `$int`、`$string`、`$null`）以及 type argument 的 `$null_or::T` 映射为原始 `@ion_model.IonValue`，保留 null kind、注解和值；转换时仍按对应 Schema 类型检查。
 - Ion Schema `document` 作为有序的 `Array[@ion_model.IonValue]` 顶层流；生成 `from_ion_document_Type` / `to_ion_document_Type` 函数，并支持同 Schema 别名。
+- 标量命名类型支持有限 `valid_values` 集合；集合成员比较遵循 Ion 值等价规则并忽略注解，字段与列表元素转换会报告约束失败路径。
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
-项目不实现完整的 Ion Schema 校验器。跨 Schema 导入、递归类型以及 `valid_values`、数值范围、长度、正则、注解和类型代数等约束会显式报错。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
+项目不实现完整的 Ion Schema 校验器。跨 Schema 导入、递归类型、`valid_values` 范围、长度、正则、注解和类型代数等约束会显式报错。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
 
 ## 安装与检查
 

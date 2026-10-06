@@ -18,6 +18,9 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
       "\"LL124-Arch/amazon-ion-moonbit-core/format_model\" @ion_model",
     )
   }
+  if has_valid_values(schema.types) {
+    package_imports.push("\"LL124-Arch/amazon-ion-moonbit-core\" @ion")
+  }
   if uses_bigint(schema.types) {
     package_imports.push("\"moonbitlang/core/bigint\"")
   }
@@ -26,7 +29,14 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
   if has_conversion_types(schema.types) {
     write_conversion_error(output)
     output.write_string("\n")
-    write_ion_type_helpers(output, uses_nullable_type_checks(schema.types))
+    write_ion_type_helpers(
+      output,
+      uses_nullable_type_checks(schema.types) || has_valid_values(schema.types),
+    )
+    if has_valid_values(schema.types) {
+      output.write_string("\n")
+      write_valid_values_helpers(output)
+    }
     if has_nested_conversion_types(schema.types) {
       output.write_string("\n")
       write_prefix_error_helper(output)
@@ -40,6 +50,10 @@ pub fn generate_code(source : String) -> GeneratedCode raise SchemaError {
     }
     first_type = false
     write_named_type(output, named_type, schema.types)
+    if named_type.valid_values is Some(_) {
+      output.write_string("\n")
+      write_named_valid_values(output, named_type, schema.types)
+    }
     match named_type.body {
       TypeBody::Struct(fields, is_open) => {
         output.write_string("\n")
@@ -280,7 +294,7 @@ fn write_document_conversions(
 ///|
 fn write_conversion_error(output : StringBuilder) -> Unit {
   output.write_string(
-    "///|\npub(all) suberror ConversionError {\n  TypeMismatch(path~ : String, expected~ : String, actual~ : String)\n  MissingRequiredField(path~ : String)\n  DuplicateField(path~ : String)\n  FieldOccurrenceMismatch(path~ : String, expected~ : String, actual~ : Int)\n  UnknownField(path~ : String)\n  UnknownSymbol(path~ : String, sid~ : Int)\n  NullNotAllowed(path~ : String)\n  AnnotatedValueNotSupported(path~ : String)\n}\n",
+    "///|\npub(all) suberror ConversionError {\n  TypeMismatch(path~ : String, expected~ : String, actual~ : String)\n  InvalidValue(path~ : String, constraint~ : String, actual~ : String)\n  MissingRequiredField(path~ : String)\n  DuplicateField(path~ : String)\n  FieldOccurrenceMismatch(path~ : String, expected~ : String, actual~ : Int)\n  UnknownField(path~ : String)\n  UnknownSymbol(path~ : String, sid~ : Int)\n  NullNotAllowed(path~ : String)\n  AnnotatedValueNotSupported(path~ : String)\n}\n",
   )
 }
 
@@ -302,7 +316,7 @@ fn write_ion_type_helpers(
 ///|
 fn write_prefix_error_helper(output : StringBuilder) -> Unit {
   output.write_string(
-    "///|\nfn ion_schema_codegen_prefix_error(\n  error : ConversionError,\n  prefix : String,\n) -> ConversionError {\n  match error {\n    ConversionError::TypeMismatch(path~, expected~, actual~) =>\n      ConversionError::TypeMismatch(\n        path=prefix + path,\n        expected~,\n        actual~,\n      )\n    ConversionError::MissingRequiredField(path~) =>\n      ConversionError::MissingRequiredField(path=prefix + path)\n    ConversionError::DuplicateField(path~) =>\n      ConversionError::DuplicateField(path=prefix + path)\n    ConversionError::FieldOccurrenceMismatch(path~, expected~, actual~) =>\n      ConversionError::FieldOccurrenceMismatch(path=prefix + path, expected~, actual~)\n    ConversionError::UnknownField(path~) =>\n      ConversionError::UnknownField(path=prefix + path)\n    ConversionError::UnknownSymbol(path~, sid~) =>\n      ConversionError::UnknownSymbol(path=prefix + path, sid~)\n    ConversionError::NullNotAllowed(path~) =>\n      ConversionError::NullNotAllowed(path=prefix + path)\n    ConversionError::AnnotatedValueNotSupported(path~) =>\n      ConversionError::AnnotatedValueNotSupported(path=prefix + path)\n  }\n}\n",
+    "///|\nfn ion_schema_codegen_prefix_error(\n  error : ConversionError,\n  prefix : String,\n) -> ConversionError {\n  match error {\n    ConversionError::TypeMismatch(path~, expected~, actual~) =>\n      ConversionError::TypeMismatch(\n        path=prefix + path,\n        expected~,\n        actual~,\n      )\n    ConversionError::InvalidValue(path~, constraint~, actual~) =>\n      ConversionError::InvalidValue(\n        path=prefix + path,\n        constraint~,\n        actual~,\n      )\n    ConversionError::MissingRequiredField(path~) =>\n      ConversionError::MissingRequiredField(path=prefix + path)\n    ConversionError::DuplicateField(path~) =>\n      ConversionError::DuplicateField(path=prefix + path)\n    ConversionError::FieldOccurrenceMismatch(path~, expected~, actual~) =>\n      ConversionError::FieldOccurrenceMismatch(path=prefix + path, expected~, actual~)\n    ConversionError::UnknownField(path~) =>\n      ConversionError::UnknownField(path=prefix + path)\n    ConversionError::UnknownSymbol(path~, sid~) =>\n      ConversionError::UnknownSymbol(path=prefix + path, sid~)\n    ConversionError::NullNotAllowed(path~) =>\n      ConversionError::NullNotAllowed(path=prefix + path)\n    ConversionError::AnnotatedValueNotSupported(path~) =>\n      ConversionError::AnnotatedValueNotSupported(path=prefix + path)\n  }\n}\n",
   )
 }
 
@@ -652,7 +666,7 @@ fn write_list_conversions(
       "    let element_path = type_path + \"[\" + index.to_string() + \"]\"\n",
     )
   }
-  if !is_raw_ion_value {
+  if !is_raw_ion_value && !reference_has_valid_values(element_type, types) {
     output.write_string(
       "    if element.annotations().length() > 0 {\n      raise ConversionError::AnnotatedValueNotSupported(path=element_path)\n    }\n",
     )
@@ -705,6 +719,9 @@ fn write_list_conversions(
         )
     }
   }
+  write_reference_valid_values_checks(
+    output, element_type, types, "element", "element_path", "    ",
+  )
   output.write_string("    converted.push(item)\n")
   if needs_element_path {
     output.write_string("    index += 1\n")
@@ -846,7 +863,7 @@ fn write_field_item_conversion(
   if !field_item_needs_path(field, types) {
     output.write_string(indent + "let _ = field_path\n")
   }
-  if !raw {
+  if !raw && !reference_has_valid_values(field.type_ref, types) {
     output.write_string(
       indent +
       "if field_value.annotations().length() > 0 {\n" +
@@ -912,6 +929,14 @@ fn write_field_item_conversion(
         )
     }
   }
+  write_reference_valid_values_checks(
+    output,
+    field.type_ref,
+    types,
+    "field_value",
+    "field_path",
+    indent,
+  )
   ignore(named_type)
 }
 
@@ -1455,6 +1480,9 @@ fn uses_model_types(types : Array[NamedType]) -> Bool raise SchemaError {
 ///|
 fn has_conversion_types(types : Array[NamedType]) -> Bool {
   for named_type in types {
+    if named_type.valid_values is Some(_) {
+      return true
+    }
     match named_type.body {
       TypeBody::Struct(_, _) | TypeBody::List(_) => return true
       _ => ()
