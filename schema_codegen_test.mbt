@@ -450,6 +450,26 @@ test "generate distinct element checks using Ion value equivalence" {
 }
 
 ///|
+test "generate field_names checks for direct and aliased structs" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: AllowedNames, type: symbol, valid_values: [alpha]} type::{name: NamedFields, type: struct, field_names: AllowedNames} type::{name: UniqueFields, type: struct, field_names: distinct::AllowedNames} type::{name: BaseFields, type: struct} type::{name: UniqueFieldAlias, type: BaseFields, field_names: distinct::AllowedNames} type::{name: FieldAliasHolder, type: struct, fields: {record: UniqueFieldAlias}}",
+  )
+  assert_true(generated.source.contains("field_names"))
+  assert_true(generated.source.contains("distinct::field_names"))
+  assert_true(
+    generated.source.contains("ion_schema_codegen_check_distinct_symbols("),
+  )
+  assert_true(
+    generated.source.contains("ion_schema_codegen_field_names_UniqueFields"),
+  )
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_field_name_fields_UniqueFieldAlias",
+    ),
+  )
+}
+
+///|
 test "generate raw ordered sequence validators with occurrence ranges" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: OrderedList, type: list, ordered_elements:[int, {type: string, occurs: optional}, {type: bool, occurs: range::[1, 2]}]} type::{name: OrderedSexp, type: sexp, ordered_elements:[symbol, {type: int, occurs: 2}]} type::{name: OrderedDocument, type: document, ordered_elements:[string]}",

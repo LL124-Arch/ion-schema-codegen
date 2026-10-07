@@ -396,6 +396,36 @@ test "accept distinct element constraints with nullable arguments" {
 }
 
 ///|
+test "accept field_names constraints and aliases to structs" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: AllowedNames, type: symbol, valid_values: [alpha, beta]} type::{name: NamedFields, type: struct, field_names: AllowedNames} type::{name: UniqueFields, type: struct, field_names: distinct::AllowedNames} type::{name: BaseFields, type: struct} type::{name: UniqueFieldAlias, type: BaseFields, field_names: distinct::AllowedNames}",
+  )
+}
+
+///|
+test "reject field_names on non-struct types and duplicate constraints" {
+  let scalar = expect_schema_error(
+    "$ion_schema_2_0 type::{name: InvalidNames, type: string, field_names: symbol}",
+  )
+  assert_true(
+    match scalar {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let duplicate = expect_schema_error(
+    "$ion_schema_2_0 type::{name: DuplicateNames, type: struct, field_names: symbol, field_names: distinct::symbol}",
+  )
+  assert_true(
+    match duplicate {
+      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "accept ordered_elements with required optional fixed and ranged positions" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: Item, type: int} type::{name: Values, type: list, ordered_elements:[Item, {type: string, occurs: optional}, {type: bool, occurs: 2}, {type: symbol, occurs: range::[1, 3]}]} type::{name: Expression, type: sexp, ordered_elements:[symbol, {type: Item, occurs: range::[1, 2]}]} type::{name: Stream, type: document, ordered_elements:[string, {type: int, occurs: optional}]}",

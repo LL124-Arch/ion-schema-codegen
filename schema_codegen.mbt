@@ -62,9 +62,20 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
       output.write_string("\n")
       write_content_length_helpers(output, schema.types)
     }
-    if has_distinct_element_constraints(schema.types) {
+    let has_distinct_elements = has_distinct_element_constraints(schema.types)
+    let has_distinct_field_names = has_distinct_field_names_constraints(
+      schema.types,
+    )
+    if has_distinct_elements || has_distinct_field_names {
       output.write_string("\n")
-      write_distinct_element_helpers(output)
+      if has_distinct_elements {
+        write_distinct_element_helpers(output)
+      } else {
+        write_symbol_equality_helper(output)
+      }
+      if has_distinct_field_names {
+        write_distinct_field_names_helper(output)
+      }
     }
     if has_valid_values(schema.types) {
       output.write_string("\n")
@@ -156,6 +167,17 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
           element_type,
           types,
           "element of \{named_type.name}",
+        )
+      }
+      None => ()
+    }
+    match named_type.field_names_type {
+      Some(field_names_type) => {
+        validate_codegen_reference(
+          field_names_type, "field_names of {named_type.name}",
+        )
+        reject_document_reference(
+          field_names_type, types, "field_names of {named_type.name}",
         )
       }
       None => ()
@@ -601,6 +623,117 @@ fn write_named_element_checks(
         indent,
       )
     ResolvedType::Scalar(_) => ()
+  }
+}
+
+///|
+fn write_named_field_names_checks(
+  output : StringBuilder,
+  named_type : NamedType,
+  types : Array[NamedType],
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  let field_names_type = match named_type.field_names_type {
+    Some(type_ref) => type_ref
+    None => return
+  }
+  match named_type.body {
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return
+    _ => ()
+  }
+  let base_type = match named_type.body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) => type_ref
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return
+  }
+  match resolve_type_ref(types, base_type) {
+    ResolvedType::Struct(_) | ResolvedType::Scalar("struct" | "$struct") => {
+      let fields_name = "ion_schema_codegen_field_name_fields_" +
+        moonbit_type_identifier(named_type.name)
+      output.write_string(
+        indent +
+        "let " +
+        fields_name +
+        " = match " +
+        value_expression +
+        ".without_annotations() {\n" +
+        indent +
+        "  @ion_model.IonValue::Struct(fields) => fields\n" +
+        indent +
+        "  _ => raise ConversionError::InvalidValue(path=" +
+        path_expression +
+        ", constraint=\"field_names\", actual=ion_schema_codegen_actual_type(" +
+        value_expression +
+        "))\n" +
+        indent +
+        "}\n",
+      )
+      write_field_names_checks(
+        output,
+        named_type,
+        field_names_type,
+        named_type.field_names_distinct,
+        types,
+        fields_name,
+        path_expression,
+        indent,
+      )
+    }
+    ResolvedType::Scalar(_) | ResolvedType::List(_) => ()
+  }
+}
+
+///|
+fn write_field_names_checks(
+  output : StringBuilder,
+  named_type : NamedType,
+  field_names_type : TypeRef,
+  distinct : Bool,
+  types : Array[NamedType],
+  fields_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  let owner = moonbit_type_identifier(named_type.name)
+  let index_name = "ion_schema_codegen_field_name_index_" + owner
+  let symbol_name = "ion_schema_codegen_field_name_symbol_" + owner
+  let field_path = "ion_schema_codegen_field_name_path_" + owner
+  output.write_string(
+    indent +
+    "let mut " +
+    index_name +
+    " = 0\n" +
+    indent +
+    "for (" +
+    symbol_name +
+    ", _) in " +
+    fields_expression +
+    " {\n" +
+    indent +
+    "  let " +
+    field_path +
+    " = " +
+    path_expression +
+    " + \".\" + " +
+    symbol_name +
+    ".text_value().unwrap_or(\"<field>\") + \"[\" + " +
+    index_name +
+    ".to_string() + \"]\"\n",
+  )
+  write_element_item_validation(
+    output,
+    field_names_type,
+    "@ion_model.IonValue::Symbol(" + symbol_name + ")",
+    types,
+    field_path,
+    indent + "  ",
+  )
+  output.write_string(indent + "  " + index_name + " += 1\n" + indent + "}\n")
+  if distinct {
+    write_field_names_distinct_check(
+      output, named_type, fields_expression, path_expression, indent,
+    )
   }
 }
 
@@ -1236,6 +1369,20 @@ fn write_struct_conversions(
     Some(element_type) =>
       write_struct_element_checks(
         output, element_type, types, "input_fields", "type_path", "  ",
+      )
+    None => ()
+  }
+  match named_type.field_names_type {
+    Some(field_names_type) =>
+      write_field_names_checks(
+        output,
+        named_type,
+        field_names_type,
+        named_type.field_names_distinct,
+        types,
+        "input_fields",
+        "type_path",
+        "  ",
       )
     None => ()
   }
@@ -2519,6 +2666,10 @@ fn referenced_type_names(named_type : NamedType) -> Array[String] {
     Some(TypeRef::Named(name) | TypeRef::NullOrNamed(name)) => names.push(name)
     Some(TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_)) | None => ()
   }
+  match named_type.field_names_type {
+    Some(TypeRef::Named(name) | TypeRef::NullOrNamed(name)) => names.push(name)
+    Some(TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_)) | None => ()
+  }
   match named_type.ordered_elements {
     Some(ordered_elements) =>
       for ordered_element in ordered_elements {
@@ -2636,6 +2787,7 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
     if named_type.valid_values is Some(_) ||
       named_type.container_lengths.length() > 0 ||
       named_type.element_type is Some(_) ||
+      named_type.field_names_type is Some(_) ||
       named_type.ordered_elements is Some(_) ||
       named_type.codepoint_lengths.length() > 0 ||
       named_type.utf8_byte_lengths.length() > 0 ||
@@ -2668,6 +2820,14 @@ fn has_nested_conversion_types(
     match named_type.element_type {
       Some(element_type) =>
         match resolve_type_ref(types, element_type) {
+          ResolvedType::Struct(_) | ResolvedType::List(_) => return true
+          ResolvedType::Scalar(_) => ()
+        }
+      None => ()
+    }
+    match named_type.field_names_type {
+      Some(field_names_type) =>
+        match resolve_type_ref(types, field_names_type) {
           ResolvedType::Struct(_) | ResolvedType::List(_) => return true
           ResolvedType::Scalar(_) => ()
         }

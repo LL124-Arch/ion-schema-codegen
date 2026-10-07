@@ -120,6 +120,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let base_name = type_symbol_name(type_value, "type \{name}")
   let fields = value.get_fields("fields")
   let elements = value.get_fields("element")
+  let field_names_fields = value.get_fields("field_names")
   let ordered_elements_fields = value.get_fields("ordered_elements")
   let valid_values_fields = value.get_fields("valid_values")
   let container_length_fields = value.get_fields("container_length")
@@ -134,9 +135,20 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let (element_type, element_distinct) = match elements {
     [] => (None, false)
     [element] => {
-      let (type_ref, distinct) = parse_element_type(
+      let (type_ref, distinct) = parse_type_argument_with_distinct(
         element,
         "element of " + name,
+      )
+      (Some(type_ref), distinct)
+    }
+    _ => (None, false)
+  }
+  let (field_names_type, field_names_distinct) = match field_names_fields {
+    [] => (None, false)
+    [field_names] => {
+      let (type_ref, distinct) = parse_type_argument_with_distinct(
+        field_names,
+        "field_names of " + name,
       )
       (Some(type_ref), distinct)
     }
@@ -153,6 +165,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     name,
     fields.length(),
     elements.length(),
+    field_names_fields.length(),
     valid_values_fields.length(),
   )
   let valid_values = match valid_values_fields {
@@ -247,6 +260,8 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     body,
     element_type,
     element_distinct,
+    field_names_type,
+    field_names_distinct,
     ordered_elements,
     valid_values,
     container_lengths,
@@ -456,7 +471,7 @@ fn parse_type_argument_reference(
 }
 
 ///|
-fn parse_element_type(
+fn parse_type_argument_with_distinct(
   value : @model.IonValue,
   context : String,
 ) -> (TypeRef, Bool) raise SchemaError {
@@ -482,7 +497,7 @@ fn parse_element_type(
       )
     _ =>
       raise SchemaError::UnsupportedFeature(
-        "element type arguments support only distinct and $null_or modifiers at " +
+        "type arguments support only distinct and $null_or modifiers at " +
         context,
       )
   }
@@ -797,18 +812,20 @@ fn validate_type_definition_fields(
   type_name : String,
   fields_count : Int,
   elements_count : Int,
+  field_names_count : Int,
   valid_values_count : Int,
 ) -> Unit raise SchemaError {
   validate_allowed_fields(
     value,
     [
-      "name", "type", "fields", "element", "ordered_elements", "valid_values", "container_length",
-      "codepoint_length", "utf8_byte_length", "byte_length",
+      "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
+      "container_length", "codepoint_length", "utf8_byte_length", "byte_length",
     ],
     "type \{type_name}",
   )
   if fields_count > 1 ||
     elements_count > 1 ||
+    field_names_count > 1 ||
     valid_values_count > 1 ||
     value.get_fields("ordered_elements").length() > 1 {
     raise SchemaError::InvalidSchema(
@@ -982,6 +999,23 @@ fn supports_element_constraint(
 }
 
 ///|
+fn supports_field_names_constraint(
+  types : Array[NamedType],
+  named_type : NamedType,
+) -> Bool raise SchemaError {
+  match named_type.body {
+    TypeBody::Struct(_, _) => true
+    TypeBody::List(_) => false
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Struct(_) => true
+        ResolvedType::Scalar("struct" | "$struct") => true
+        ResolvedType::Scalar(_) | ResolvedType::List(_) => false
+      }
+  }
+}
+
+///|
 fn supports_ordered_elements(
   types : Array[NamedType],
   named_type : NamedType,
@@ -1032,6 +1066,22 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
           types,
           element_type,
           "element of " + named_type.name,
+        )
+      }
+      None => ()
+    }
+    match named_type.field_names_type {
+      Some(field_names_type) => {
+        if !supports_field_names_constraint(types, named_type) {
+          raise SchemaError::UnsupportedFeature(
+            "field_names applies only to struct values at type " +
+            named_type.name,
+          )
+        }
+        validate_type_reference(
+          types,
+          field_names_type,
+          "field_names of " + named_type.name,
         )
       }
       None => ()

@@ -4,6 +4,14 @@ fn int_value(value : Int) -> @ion_model.IonValue {
 }
 
 ///|
+fn ion_field(
+  name : String,
+  value : @ion_model.IonValue,
+) -> (@ion_model.IonSymbol, @ion_model.IonValue) {
+  (@ion_model.IonSymbol::from_text(name), value)
+}
+
+///|
 fn unique_values_error(value : @ion_model.IonValue) -> (String, String) {
   try {
     ignore(@constraints.from_ion_UniqueValues(value))
@@ -81,6 +89,48 @@ fn unique_document_error(
 ) -> (String, String) {
   try {
     ignore(@constraints.from_ion_document_UniqueStream(values))
+    ("", "")
+  } catch {
+    @constraints.ConversionError::InvalidValue(path~, constraint~, ..) =>
+      (path, constraint)
+    _ => ("unexpected", "unexpected")
+  } noraise {
+    _ => ("unexpected", "unexpected")
+  }
+}
+
+///|
+fn unique_fields_error(value : @ion_model.IonValue) -> (String, String) {
+  try {
+    ignore(@constraints.UniqueFields::from_ion(value))
+    ("", "")
+  } catch {
+    @constraints.ConversionError::InvalidValue(path~, constraint~, ..) =>
+      (path, constraint)
+    _ => ("unexpected", "unexpected")
+  } noraise {
+    _ => ("unexpected", "unexpected")
+  }
+}
+
+///|
+fn named_fields_error(value : @ion_model.IonValue) -> (String, String) {
+  try {
+    ignore(@constraints.NamedFields::from_ion(value))
+    ("", "")
+  } catch {
+    @constraints.ConversionError::InvalidValue(path~, constraint~, ..) =>
+      (path, constraint)
+    _ => ("unexpected", "unexpected")
+  } noraise {
+    _ => ("unexpected", "unexpected")
+  }
+}
+
+///|
+fn field_alias_holder_error(value : @ion_model.IonValue) -> (String, String) {
+  try {
+    ignore(@constraints.FieldAliasHolder::from_ion(value))
     ("", "")
   } catch {
     @constraints.ConversionError::InvalidValue(path~, constraint~, ..) =>
@@ -174,5 +224,61 @@ test "distinct checks document stream values" {
   assert_eq(
     unique_document_error([int_value(4), int_value(4)]),
     ("UniqueStream[1]", "distinct::element"),
+  )
+}
+
+///|
+test "field_names validates open struct fields through a named type" {
+  let accepted = @constraints.NamedFields::from_ion(
+    @ion_model.IonValue::Struct([
+      ion_field("alpha", int_value(1)),
+      ion_field("alpha", int_value(2)),
+    ]),
+  )
+  assert_eq(accepted.ion_schema_codegen_open_content.length(), 2)
+
+  assert_eq(
+    named_fields_error(
+      @ion_model.IonValue::Struct([ion_field("gamma", int_value(1))]),
+    ),
+    ("NamedFields.gamma[0]", "valid_values"),
+  )
+}
+
+///|
+test "distinct field_names rejects duplicates but accepts different names" {
+  let accepted = @constraints.UniqueFields::from_ion(
+    @ion_model.IonValue::Struct([
+      ion_field("alpha", int_value(1)),
+      ion_field("beta", int_value(2)),
+    ]),
+  )
+  assert_eq(accepted.ion_schema_codegen_open_content.length(), 2)
+
+  assert_eq(
+    unique_fields_error(
+      @ion_model.IonValue::Struct([
+        ion_field("alpha", int_value(1)),
+        ion_field("alpha", int_value(2)),
+      ]),
+    ),
+    ("UniqueFields.alpha[1]", "distinct::field_names"),
+  )
+}
+
+///|
+test "field_names constraints on struct aliases reach nested conversions" {
+  let duplicate = @ion_model.IonValue::Struct([
+    ion_field(
+      "record",
+      @ion_model.IonValue::Struct([
+        ion_field("beta", int_value(1)),
+        ion_field("beta", int_value(2)),
+      ]),
+    ),
+  ])
+  assert_eq(
+    field_alias_holder_error(duplicate),
+    ("FieldAliasHolder.record.beta[1]", "distinct::field_names"),
   )
 }

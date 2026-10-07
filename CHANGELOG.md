@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.17.0 — 2026-10-07
+
+- 支持 struct 的 `field_names` type argument，可用 symbol 或同 Schema 命名类型校验所有字段名，包括开放字段。
+- 支持 `field_names: distinct::T` 检查字段名唯一性；类型校验错误包含字段名和出现位置，并沿 struct 别名传播。
+- 扩展独立 constraints fixture，验证允许集合、重复字段、开放内容和嵌套别名路径。
+
 ## 0.16.0 — 2026-10-07
 
 - 支持 list、sexp、struct 和 document 的 `element: distinct::T`，重复值按 Ion 数据模型等价规则比较并包含注解。
