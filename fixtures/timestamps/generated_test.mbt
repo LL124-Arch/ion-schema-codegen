@@ -119,4 +119,83 @@ test "timestamp precision constraints follow aliases and nested values" {
   } noraise {
     _ => assert_true(false)
   }
+
+  try {
+    ignore(
+      @timestamps.from_ion_TimestampRangeArray(
+        @ion_model.IonValue::List([
+          timestamp_value(Some(1), Some(1), true, true, 3),
+        ]),
+      ),
+    )
+    assert_true(false)
+  } catch {
+    @timestamps.ConversionError::InvalidValue(path~, constraint~, ..) => {
+      assert_eq(path, "TimestampRangeArray[0]")
+      assert_eq(constraint, "timestamp_precision")
+    }
+    _ => assert_true(false)
+  } noraise {
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "timestamp precision ranges compare fractional seconds between named levels" {
+  @timestamps.validate_timestamp_precision_TimestampFractionSubMillisecond(
+    timestamp_value(Some(1), Some(1), true, true, 1),
+  )
+  @timestamps.validate_timestamp_precision_TimestampFractionSubMillisecond(
+    timestamp_value(Some(1), Some(1), true, true, 2),
+  )
+  @timestamps.validate_timestamp_precision_TimestampMillisecondOrFiner(
+    timestamp_value(Some(1), Some(1), true, true, 9),
+  )
+  @timestamps.validate_timestamp_precision_TimestampPrefixThroughDay(
+    timestamp_value(Some(1), Some(1), false, false, 0),
+  )
+  @timestamps.validate_timestamp_precision_TimestampFractionAlias(
+    timestamp_value(Some(1), Some(1), true, true, 1),
+  )
+
+  assert_eq(
+    timestamp_precision_error(
+      @timestamps.validate_timestamp_precision_TimestampFractionSubMillisecond,
+      timestamp_value(Some(1), Some(1), true, true, 0),
+    ),
+    ("TimestampFractionSubMillisecond", "timestamp_precision", "12"),
+  )
+  assert_eq(
+    timestamp_precision_error(
+      @timestamps.validate_timestamp_precision_TimestampFractionSubMillisecond,
+      timestamp_value(Some(1), Some(1), true, true, 3),
+    ),
+    ("TimestampFractionSubMillisecond", "timestamp_precision", "15"),
+  )
+  assert_eq(
+    timestamp_precision_error(
+      @timestamps.validate_timestamp_precision_TimestampMillisecondOrFiner,
+      timestamp_value(Some(1), Some(1), true, true, 2),
+    ),
+    ("TimestampMillisecondOrFiner", "timestamp_precision", "14"),
+  )
+
+  let out_of_range_field = @ion_model.IonValue::Struct([
+    (
+      @ion_model.IonSymbol::from_text("value"),
+      timestamp_value(Some(1), Some(1), true, true, 0),
+    ),
+  ])
+  try {
+    ignore(@timestamps.TimestampRangeRecord::from_ion(out_of_range_field))
+    assert_true(false)
+  } catch {
+    @timestamps.ConversionError::InvalidValue(path~, constraint~, ..) => {
+      assert_eq(path, "TimestampRangeRecord.value")
+      assert_eq(constraint, "timestamp_precision")
+    }
+    _ => assert_true(false)
+  } noraise {
+    _ => assert_true(false)
+  }
 }

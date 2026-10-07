@@ -382,48 +382,167 @@ fn parse_timestamp_precision_fields(
 ) -> Array[IntegerRange] raise SchemaError {
   let ranges : Array[IntegerRange] = []
   for value in values {
-    if value.annotations().length() > 0 {
-      raise SchemaError::UnsupportedFeature(
-        "timestamp_precision range syntax is not supported yet at type " +
-        type_name,
-      )
-    }
-    let precision_name = match value.without_annotations() {
-      @model.IonValue::Symbol(symbol) =>
-        match symbol.text_value() {
-          Some(text) => text
-          None =>
-            raise SchemaError::InvalidSchema(
-              "timestamp_precision must use a resolved symbol at type " +
-              type_name,
-            )
-        }
+    let context = "timestamp_precision at type " + type_name
+    match value.annotations() {
+      [] => {
+        let rank = parse_timestamp_precision_value(value, context)
+        ranges.push({ minimum: rank, maximum: Some(rank), })
+      }
+      [annotation] if annotation.text_value() == Some("range") =>
+        ranges.push(parse_timestamp_precision_range(value, context))
       _ =>
         raise SchemaError::InvalidSchema(
-          "timestamp_precision must be one of the precision symbols at type " +
-          type_name,
+          "timestamp_precision must be a precision symbol or range:: value at " +
+          context,
         )
     }
-    let rank = match precision_name {
-      "year" => 0
-      "month" => 3
-      "day" => 6
-      "minute" => 9
-      "second" => 12
-      "millisecond" => 15
-      "microsecond" => 18
-      "nanosecond" => 21
-      _ =>
-        raise SchemaError::InvalidSchema(
-          "unknown timestamp_precision value " +
-          precision_name +
-          " at type " +
-          type_name,
-        )
-    }
-    ranges.push({ minimum: rank, maximum: Some(rank), })
   }
   ranges
+}
+
+///|
+fn parse_timestamp_precision_range(
+  value : @model.IonValue,
+  context : String,
+) -> IntegerRange raise SchemaError {
+  let bounds = match value.without_annotations() {
+    @model.IonValue::List(bounds) => bounds
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "timestamp_precision range must be a list at " + context,
+      )
+  }
+  let (minimum_value, minimum_exclusive, maximum_value, maximum_exclusive) = match
+    bounds {
+    [minimum, maximum] => {
+      let (minimum_value, minimum_exclusive) = parse_timestamp_precision_endpoint(
+        minimum, true, context,
+      )
+      let (maximum_value, maximum_exclusive) = parse_timestamp_precision_endpoint(
+        maximum, false, context,
+      )
+      (minimum_value, minimum_exclusive, maximum_value, maximum_exclusive)
+    }
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "timestamp_precision range must have two bounds at " + context,
+      )
+  }
+  let minimum = match minimum_value {
+    Some(value) => {
+      let increment = if minimum_exclusive { 1 } else { 0 }
+      value + increment
+    }
+    None => 0
+  }
+  let maximum = match maximum_value {
+    Some(value) => {
+      let decrement = if maximum_exclusive { 1 } else { 0 }
+      Some(value - decrement)
+    }
+    None => None
+  }
+  match maximum {
+    Some(maximum) if minimum > maximum =>
+      raise SchemaError::InvalidSchema(
+        "timestamp_precision range has no values at " + context,
+      )
+    _ => ()
+  }
+  { minimum, maximum, }
+}
+
+///|
+fn parse_timestamp_precision_endpoint(
+  value : @model.IonValue,
+  is_minimum : Bool,
+  context : String,
+) -> (Int?, Bool) raise SchemaError {
+  let (endpoint, exclusive) = match value.annotations() {
+    [] => (value, false)
+    [annotation] if annotation.text_value() == Some("exclusive") =>
+      (value.without_annotations(), true)
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "timestamp_precision bounds may only use exclusive at " + context,
+      )
+  }
+  let name = match endpoint {
+    @model.IonValue::Symbol(symbol) =>
+      match symbol.text_value() {
+        Some(text) => text
+        None =>
+          raise SchemaError::InvalidSchema(
+            "timestamp_precision bound must use a resolved symbol at " + context,
+          )
+      }
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "timestamp_precision bounds must be precision symbols or min/max at " +
+        context,
+      )
+  }
+  if name == "min" {
+    if !is_minimum || exclusive {
+      raise SchemaError::InvalidSchema(
+        "min is only valid as an inclusive first timestamp_precision bound at " +
+        context,
+      )
+    }
+    return (Some(0), false)
+  }
+  if name == "max" {
+    if is_minimum || exclusive {
+      raise SchemaError::InvalidSchema(
+        "max is only valid as an inclusive second timestamp_precision bound at " +
+        context,
+      )
+    }
+    return (None, false)
+  }
+  (Some(timestamp_precision_rank(name, context)), exclusive)
+}
+
+///|
+fn parse_timestamp_precision_value(
+  value : @model.IonValue,
+  context : String,
+) -> Int raise SchemaError {
+  match value.without_annotations() {
+    @model.IonValue::Symbol(symbol) =>
+      match symbol.text_value() {
+        Some(name) => timestamp_precision_rank(name, context)
+        None =>
+          raise SchemaError::InvalidSchema(
+            "timestamp_precision must use a resolved symbol at " + context,
+          )
+      }
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "timestamp_precision must be one of the precision symbols at " + context,
+      )
+  }
+}
+
+///|
+fn timestamp_precision_rank(
+  name : String,
+  context : String,
+) -> Int raise SchemaError {
+  match name {
+    "year" => 0
+    "month" => 3
+    "day" => 6
+    "minute" => 9
+    "second" => 12
+    "millisecond" => 15
+    "microsecond" => 18
+    "nanosecond" => 21
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "unknown timestamp_precision value " + name + " at " + context,
+      )
+  }
 }
 
 ///|

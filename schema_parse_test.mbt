@@ -75,18 +75,9 @@ test "parse signed Decimal exponent constraints" {
 }
 
 ///|
-test "parse exact timestamp precision and reject non-timestamp use" {
+test "parse exact and ranged timestamp precision" {
   @ion-schema-codegen.check_schema(
-    "$ion_schema_2_0 type::{name: YearValue, type: timestamp, timestamp_precision: year} type::{name: FractionValue, type: timestamp, timestamp_precision: microsecond} type::{name: TimestampAlias, type: YearValue, timestamp_precision: day}",
-  )
-  let unsupported_range = expect_schema_error(
-    "$ion_schema_2_0 type::{name: TimestampValue, type: timestamp, timestamp_precision: range::[second, nanosecond]}",
-  )
-  assert_true(
-    match unsupported_range {
-      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
-      _ => false
-    },
+    "$ion_schema_2_0 type::{name: YearValue, type: timestamp, timestamp_precision: year} type::{name: FractionValue, type: timestamp, timestamp_precision: microsecond} type::{name: TimestampAlias, type: YearValue, timestamp_precision: day} type::{name: FractionRange, type: timestamp, timestamp_precision: range::[exclusive::second, exclusive::millisecond]} type::{name: PrefixRange, type: timestamp, timestamp_precision: range::[min, day]} type::{name: SuffixRange, type: timestamp, timestamp_precision: range::[second, max]}",
   )
   let invalid_precision = expect_schema_error(
     "$ion_schema_2_0 type::{name: TimestampValue, type: timestamp, timestamp_precision: fortnight}",
@@ -97,6 +88,21 @@ test "parse exact timestamp precision and reject non-timestamp use" {
       _ => false
     },
   )
+  for
+    invalid in [
+      "range::[nanosecond, millisecond]", "range::[exclusive::millisecond, millisecond]",
+      "range::[max, day]", "range::[year, max, day]",
+    ] {
+    let error = expect_schema_error(
+      "$ion_schema_2_0 type::{name: TimestampValue, type: timestamp, timestamp_precision: \{invalid}}",
+    )
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+        _ => false
+      },
+    )
+  }
   let non_timestamp = expect_schema_error(
     "$ion_schema_2_0 type::{name: IntegerValue, type: int, timestamp_precision: year}",
   )

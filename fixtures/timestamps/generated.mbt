@@ -338,6 +338,154 @@ pub fn validate_timestamp_precision_TimestampAliasYear(
 }
 
 ///|
+pub type TimestampFractionSubMillisecond = @ion_model.IonTimestamp
+
+///|
+/// Validate timestamp_precision constraints for TimestampFractionSubMillisecond.
+pub fn validate_timestamp_precision_TimestampFractionSubMillisecond(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampFractionSubMillisecond",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  match ion_schema_codegen_timestamp_precision(value) {
+    Some(actual_length) =>
+      if actual_length < 13 || actual_length > 14 {
+        raise ConversionError::InvalidValue(
+          path="TimestampFractionSubMillisecond",
+          constraint="timestamp_precision",
+          actual=actual_length.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="TimestampFractionSubMillisecond",
+        constraint="timestamp_precision",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+}
+
+///|
+pub type TimestampMillisecondOrFiner = @ion_model.IonTimestamp
+
+///|
+/// Validate timestamp_precision constraints for TimestampMillisecondOrFiner.
+pub fn validate_timestamp_precision_TimestampMillisecondOrFiner(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampMillisecondOrFiner",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  match ion_schema_codegen_timestamp_precision(value) {
+    Some(actual_length) =>
+      if actual_length < 15 {
+        raise ConversionError::InvalidValue(
+          path="TimestampMillisecondOrFiner",
+          constraint="timestamp_precision",
+          actual=actual_length.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="TimestampMillisecondOrFiner",
+        constraint="timestamp_precision",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+}
+
+///|
+pub type TimestampPrefixThroughDay = @ion_model.IonTimestamp
+
+///|
+/// Validate timestamp_precision constraints for TimestampPrefixThroughDay.
+pub fn validate_timestamp_precision_TimestampPrefixThroughDay(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampPrefixThroughDay",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  match ion_schema_codegen_timestamp_precision(value) {
+    Some(actual_length) =>
+      if actual_length < 0 || actual_length > 6 {
+        raise ConversionError::InvalidValue(
+          path="TimestampPrefixThroughDay",
+          constraint="timestamp_precision",
+          actual=actual_length.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="TimestampPrefixThroughDay",
+        constraint="timestamp_precision",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+}
+
+///|
+pub type TimestampFractionAlias = TimestampFractionSubMillisecond
+
+///|
+/// Validate timestamp_precision constraints for TimestampFractionAlias.
+pub fn validate_timestamp_precision_TimestampFractionAlias(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampFractionAlias",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  match ion_schema_codegen_timestamp_precision(value) {
+    Some(actual_length) =>
+      if actual_length < 13 || actual_length > 14 {
+        raise ConversionError::InvalidValue(
+          path="TimestampFractionAlias",
+          constraint="timestamp_precision",
+          actual=actual_length.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="TimestampFractionAlias",
+        constraint="timestamp_precision",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  match ion_schema_codegen_timestamp_precision(value) {
+    Some(actual_length) =>
+      if actual_length < 13 || actual_length > 14 {
+        raise ConversionError::InvalidValue(
+          path="TimestampFractionAlias",
+          constraint="timestamp_precision",
+          actual=actual_length.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="TimestampFractionAlias",
+        constraint="timestamp_precision",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+}
+
+///|
 pub type TimestampArray = Array[TimestampMillisecond]
 
 ///|
@@ -509,6 +657,227 @@ pub fn TimestampRecord::from_ion(
 ///|
 /// Convert TimestampRecord into an Ion struct in schema field order.
 pub fn TimestampRecord::to_ion(self : TimestampRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("value"),
+      @ion_model.IonValue::Timestamp(self.value),
+    ),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type TimestampRangeArray = Array[TimestampFractionAlias]
+
+///|
+/// Convert an Ion list to TimestampRangeArray with element-level diagnostics.
+pub fn from_ion_TimestampRangeArray(
+  value : @ion_model.IonValue,
+) -> TimestampRangeArray raise ConversionError {
+  let type_path = "TimestampRangeArray"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : TimestampRangeArray = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=element_path)
+    }
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : TimestampFractionAlias = match element.without_annotations() {
+      @ion_model.IonValue::Timestamp(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="timestamp",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    match ion_schema_codegen_timestamp_precision(element) {
+      Some(actual_length) =>
+        if actual_length < 13 || actual_length > 14 {
+          raise ConversionError::InvalidValue(
+            path=element_path,
+            constraint="timestamp_precision",
+            actual=actual_length.to_string(),
+          )
+        }
+      None =>
+        raise ConversionError::InvalidValue(
+          path=element_path,
+          constraint="timestamp_precision",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    match ion_schema_codegen_timestamp_precision(element) {
+      Some(actual_length) =>
+        if actual_length < 13 || actual_length > 14 {
+          raise ConversionError::InvalidValue(
+            path=element_path,
+            constraint="timestamp_precision",
+            actual=actual_length.to_string(),
+          )
+        }
+      None =>
+        raise ConversionError::InvalidValue(
+          path=element_path,
+          constraint="timestamp_precision",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert TimestampRangeArray into an Ion list.
+pub fn to_ion_TimestampRangeArray(
+  items : TimestampRangeArray,
+) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(@ion_model.IonValue::Timestamp(element))
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct TimestampRangeRecord {
+  value : TimestampFractionAlias
+}
+
+///|
+/// Convert an Ion struct to TimestampRangeRecord with field-level diagnostics.
+pub fn TimestampRangeRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> TimestampRangeRecord raise ConversionError {
+  let type_path = "TimestampRangeRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "value" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="TimestampRangeRecord.value",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="TimestampRangeRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="TimestampRangeRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : TimestampFractionAlias = match
+    input_field_0 {
+    Some(field_value) => {
+      let field_path = "TimestampRangeRecord.value"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : TimestampFractionAlias = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Timestamp(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="timestamp",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      match ion_schema_codegen_timestamp_precision(field_value) {
+        Some(actual_length) =>
+          if actual_length < 13 || actual_length > 14 {
+            raise ConversionError::InvalidValue(
+              path=field_path,
+              constraint="timestamp_precision",
+              actual=actual_length.to_string(),
+            )
+          }
+        None =>
+          raise ConversionError::InvalidValue(
+            path=field_path,
+            constraint="timestamp_precision",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      match ion_schema_codegen_timestamp_precision(field_value) {
+        Some(actual_length) =>
+          if actual_length < 13 || actual_length > 14 {
+            raise ConversionError::InvalidValue(
+              path=field_path,
+              constraint="timestamp_precision",
+              actual=actual_length.to_string(),
+            )
+          }
+        None =>
+          raise ConversionError::InvalidValue(
+            path=field_path,
+            constraint="timestamp_precision",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="TimestampRangeRecord.value",
+      )
+  }
+  { value: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert TimestampRangeRecord into an Ion struct in schema field order.
+pub fn TimestampRangeRecord::to_ion(
+  self : TimestampRangeRecord,
+) -> @ion_model.IonValue {
   let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
   output_fields.push(
     (

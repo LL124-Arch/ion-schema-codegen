@@ -1,10 +1,15 @@
 # 变更记录
 
+## 0.22.0 — 2026-10-07
+
+- 扩展 `timestamp_precision` 支持 `range::[...]`、`min` / `max` 及 `exclusive::` 边界。
+- 使用细分精度等级比较小数秒；例如 `range::[exclusive::second, exclusive::millisecond]` 精确匹配十分位和百分位时间戳。
+- 覆盖别名、结构体字段和列表元素中的范围约束及路径化错误。
+
 ## 0.21.0 — 2026-10-07
 
 - 支持 `timestamp_precision` 的八种精确值；按时间组件与小数秒位数校验，保留十分位到纳秒之间的实际精度。
 - 约束可沿命名别名传播到字段与列表元素转换，并通过 `validate_timestamp_precision_Type` 检查直接值。
-- 本版本暂不支持 `timestamp_precision: range::[...]`。
 
 ## 0.20.0 — 2026-10-07
 
