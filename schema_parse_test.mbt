@@ -426,6 +426,46 @@ test "reject field_names on non-struct types and duplicate constraints" {
 }
 
 ///|
+test "accept contains on list sexp struct document and their aliases" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: Values, type: list, contains:[1, 2]} type::{name: EmptyValues, type: list, contains:[]} type::{name: Expression, type: sexp, contains:[ready]} type::{name: Record, type: struct, contains:[1]} type::{name: Stream, type: document, contains:[1]} type::{name: BaseValues, type: list, element:$any} type::{name: MoreValues, type: BaseValues, contains:[1], contains:[2]}",
+  )
+}
+
+///|
+test "reject contains on scalar types and malformed lists" {
+  let scalar = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Invalid, type: string, contains:[1]}",
+  )
+  assert_true(
+    match scalar {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+
+  let non_list = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Invalid, type: list, contains:1}",
+  )
+  assert_true(
+    match non_list {
+      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+      _ => false
+    },
+  )
+
+  let annotated_list = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Invalid, type: list, contains:foo::[1]}",
+  )
+  assert_true(
+    match annotated_list {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "accept ordered_elements with required optional fixed and ranged positions" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: Item, type: int} type::{name: Values, type: list, ordered_elements:[Item, {type: string, occurs: optional}, {type: bool, occurs: 2}, {type: symbol, occurs: range::[1, 3]}]} type::{name: Expression, type: sexp, ordered_elements:[symbol, {type: Item, occurs: range::[1, 2]}]} type::{name: Stream, type: document, ordered_elements:[string, {type: int, occurs: optional}]}",

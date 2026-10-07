@@ -120,6 +120,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let base_name = type_symbol_name(type_value, "type \{name}")
   let fields = value.get_fields("fields")
   let elements = value.get_fields("element")
+  let contains_constraints = value.get_fields("contains")
   let field_names_fields = value.get_fields("field_names")
   let ordered_elements_fields = value.get_fields("ordered_elements")
   let valid_values_fields = value.get_fields("valid_values")
@@ -142,6 +143,18 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       (Some(type_ref), distinct)
     }
     _ => (None, false)
+  }
+  let contains_values = match contains_constraints {
+    [] => None
+    constraints => {
+      let values : Array[@model.IonValue] = []
+      for constraint in constraints {
+        for value in parse_contains_values(constraint, "contains of " + name) {
+          values.push(value)
+        }
+      }
+      Some(values)
+    }
   }
   let (field_names_type, field_names_distinct) = match field_names_fields {
     [] => (None, false)
@@ -222,7 +235,8 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
         )
       }
       if elements.length() != 1 &&
-        !(elements.length() == 0 && ordered_elements is Some(_)) {
+        !(elements.length() == 0 &&
+        (ordered_elements is Some(_) || contains_values is Some(_))) {
         raise SchemaError::InvalidSchema(
           "type \{name} must declare element or ordered_elements",
         )
@@ -260,6 +274,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     body,
     element_type,
     element_distinct,
+    contains_values,
     field_names_type,
     field_names_distinct,
     ordered_elements,
@@ -351,6 +366,27 @@ fn parse_valid_values(
     _ =>
       raise SchemaError::UnsupportedFeature(
         "annotated valid_values sets are not supported at \{context}",
+      )
+  }
+}
+
+///|
+fn parse_contains_values(
+  value : @model.IonValue,
+  context : String,
+) -> Array[@model.IonValue] raise SchemaError {
+  match value.annotations() {
+    [] =>
+      match value.without_annotations() {
+        @model.IonValue::List(values) => values
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "contains must be an Ion list at \{context}",
+          )
+      }
+    _ =>
+      raise SchemaError::UnsupportedFeature(
+        "annotated contains lists are not supported at \{context}",
       )
   }
 }
@@ -819,7 +855,7 @@ fn validate_type_definition_fields(
     value,
     [
       "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
-      "container_length", "codepoint_length", "utf8_byte_length", "byte_length",
+      "contains", "container_length", "codepoint_length", "utf8_byte_length", "byte_length",
     ],
     "type \{type_name}",
   )
@@ -1016,6 +1052,25 @@ fn supports_field_names_constraint(
 }
 
 ///|
+fn supports_contains_constraint(
+  types : Array[NamedType],
+  named_type : NamedType,
+) -> Bool raise SchemaError {
+  match named_type.body {
+    TypeBody::Struct(_, _) | TypeBody::List(_) => true
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Struct(_) | ResolvedType::List(_) => true
+        ResolvedType::Scalar(name) =>
+          contains_string(
+            ["list", "$list", "sexp", "$sexp", "struct", "$struct", "document"],
+            name,
+          )
+      }
+  }
+}
+
+///|
 fn supports_ordered_elements(
   types : Array[NamedType],
   named_type : NamedType,
@@ -1084,6 +1139,16 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
           "field_names of " + named_type.name,
         )
       }
+      None => ()
+    }
+    match named_type.contains_values {
+      Some(_) =>
+        if !supports_contains_constraint(types, named_type) {
+          raise SchemaError::UnsupportedFeature(
+            "contains applies only to list, sexp, struct, or document values at type " +
+            named_type.name,
+          )
+        }
       None => ()
     }
     if named_type.container_lengths.length() > 0 &&

@@ -1,5 +1,12 @@
 # 变更记录
 
+## 0.18.0 — 2026-10-07
+
+- 支持 list、sexp、struct 和 document 的 `contains`，期望值按任意顺序匹配，重复声明不增加要求。
+- 成员匹配遵循 Ion 值等价规则并比较注解；struct 以字段值作为成员，内嵌 struct 的字段次序不影响匹配。
+- 缺少成员时返回容器路径、`contains` 约束和可读的缺失 Ion 值；约束沿同 Schema 容器别名传播。
+- 增加独立 contains fixture，覆盖四类容器、重复要求、等价匹配和嵌套别名转换。
+
 ## 0.17.0 — 2026-10-07
 
 - 支持 struct 的 `field_names` type argument，可用 symbol 或同 Schema 命名类型校验所有字段名，包括开放字段。

@@ -220,6 +220,9 @@ fn write_named_valid_values_checks(
       write_named_field_names_checks(
         output, named_type, types, value_expression, path_expression, indent,
       )
+      write_named_contains_checks(
+        output, named_type, types, value_expression, path_expression, indent,
+      )
       write_named_ordered_checks(
         output, named_type, types, value_expression, path_expression, indent,
       )

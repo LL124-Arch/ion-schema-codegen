@@ -470,6 +470,35 @@ test "generate field_names checks for direct and aliased structs" {
 }
 
 ///|
+test "generate contains checks with the Ion value matcher" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: RequiredValues, type: list, element: $any, contains: [tag::1]} type::{name: RequiredFields, type: struct, contains: [ready]} type::{name: RequiredStream, type: document, contains: [1]}",
+  )
+  assert_true(generated.source.contains("ion_schema_codegen_check_contains("))
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_values_equal(expected, value)",
+    ),
+  )
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_struct_field_values(input_fields)",
+    ),
+  )
+  assert_true(
+    generated.package_imports.contains(
+      "\"LL124-Arch/amazon-ion-moonbit-core\" @ion",
+    ),
+  )
+
+  let empty = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: EmptyStream, type: document, contains: []}",
+  )
+  assert_true(empty.source.contains("from_ion_document_EmptyStream"))
+  assert_true(!empty.source.contains("ConversionError"))
+}
+
+///|
 test "generate raw ordered sequence validators with occurrence ranges" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: OrderedList, type: list, ordered_elements:[int, {type: string, occurs: optional}, {type: bool, occurs: range::[1, 2]}]} type::{name: OrderedSexp, type: sexp, ordered_elements:[symbol, {type: int, occurs: 2}]} type::{name: OrderedDocument, type: document, ordered_elements:[string]}",

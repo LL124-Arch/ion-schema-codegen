@@ -36,7 +36,7 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
       "\"LL124-Arch/amazon-ion-moonbit-core/format_model\" @ion_model",
     )
   }
-  if has_valid_values(schema.types) {
+  if has_valid_values(schema.types) || has_contains_constraints(schema.types) {
     package_imports.push("\"LL124-Arch/amazon-ion-moonbit-core\" @ion")
   }
   if uses_bigint(schema.types) || has_valid_values(schema.types) {
@@ -66,15 +66,22 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
     let has_distinct_field_names = has_distinct_field_names_constraints(
       schema.types,
     )
-    if has_distinct_elements || has_distinct_field_names {
+    let has_contains = has_contains_constraints(schema.types)
+    if has_distinct_elements || has_distinct_field_names || has_contains {
       output.write_string("\n")
-      if has_distinct_elements {
-        write_distinct_element_helpers(output)
+      if has_distinct_elements || has_contains {
+        write_ion_value_equality_helpers(output)
+        if has_distinct_elements {
+          write_distinct_element_check_helper(output)
+        }
       } else {
         write_symbol_equality_helper(output)
       }
       if has_distinct_field_names {
         write_distinct_field_names_helper(output)
+      }
+      if has_contains {
+        write_contains_helper(output)
       }
     }
     if has_valid_values(schema.types) {
@@ -395,6 +402,7 @@ fn write_document_conversions(
   output.write_string(generated_name)
   if named_type.container_lengths.length() > 0 ||
     named_type.element_type is Some(_) ||
+    has_named_contains_values(named_type) ||
     named_type.ordered_elements is Some(_) ||
     has_document_alias_constraints(named_type, types, types.length()) {
     output.write_string(" raise ConversionError {\n  let type_path = \"")
@@ -437,6 +445,7 @@ fn has_document_alias_constraints(
         Some(target) =>
           target.container_lengths.length() > 0 ||
           target.element_type is Some(_) ||
+          has_named_contains_values(target) ||
           target.element_distinct ||
           target.ordered_elements is Some(_) ||
           has_document_alias_constraints(target, types, remaining - 1)
@@ -467,6 +476,13 @@ fn write_document_constraint_chain(
     "container_length",
     indent,
   )
+  match named_type.contains_values {
+    Some(required) =>
+      write_contains_check(
+        output, required, values_expression, path_expression, indent,
+      )
+    None => ()
+  }
   if named_type.element_distinct {
     write_distinct_values_check(
       output, values_expression, path_expression, indent,
@@ -682,6 +698,117 @@ fn write_named_field_names_checks(
     }
     ResolvedType::Scalar(_) | ResolvedType::List(_) => ()
   }
+}
+
+///|
+fn write_named_contains_checks(
+  output : StringBuilder,
+  named_type : NamedType,
+  types : Array[NamedType],
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit raise SchemaError {
+  let required = match named_type.contains_values {
+    Some(values) if values.length() > 0 => values
+    _ => return
+  }
+  match named_type.body {
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return
+    _ => ()
+  }
+  let base_type = match named_type.body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) => type_ref
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return
+  }
+  match resolve_type_ref(types, base_type) {
+    ResolvedType::Scalar("sexp" | "$sexp") =>
+      write_named_sequence_contains_check(
+        output, named_type, value_expression, path_expression, indent, "Sexp", required,
+      )
+    ResolvedType::Scalar("list" | "$list") | ResolvedType::List(_) =>
+      write_named_sequence_contains_check(
+        output, named_type, value_expression, path_expression, indent, "List", required,
+      )
+    ResolvedType::Struct(_) | ResolvedType::Scalar("struct" | "$struct") =>
+      write_named_struct_contains_check(
+        output, named_type, value_expression, path_expression, indent, required,
+      )
+    ResolvedType::Scalar("document") | ResolvedType::Scalar(_) => ()
+  }
+}
+
+///|
+fn write_named_sequence_contains_check(
+  output : StringBuilder,
+  named_type : NamedType,
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+  variant : String,
+  required : Array[@model.IonValue],
+) -> Unit raise SchemaError {
+  let generated_name = moonbit_type_identifier(named_type.name)
+  let values_name = "ion_schema_codegen_contains_values_" + generated_name
+  output.write_string(
+    indent +
+    "let " +
+    values_name +
+    " = match " +
+    value_expression +
+    ".without_annotations() {\n" +
+    indent +
+    "  @ion_model.IonValue::" +
+    variant +
+    "(values) => values\n" +
+    indent +
+    "  _ => raise ConversionError::InvalidValue(path=" +
+    path_expression +
+    ", constraint=\"contains\", actual=ion_schema_codegen_actual_type(" +
+    value_expression +
+    "))\n" +
+    indent +
+    "}\n",
+  )
+  write_contains_check(output, required, values_name, path_expression, indent)
+}
+
+///|
+fn write_named_struct_contains_check(
+  output : StringBuilder,
+  named_type : NamedType,
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+  required : Array[@model.IonValue],
+) -> Unit raise SchemaError {
+  let generated_name = moonbit_type_identifier(named_type.name)
+  let fields_name = "ion_schema_codegen_contains_fields_" + generated_name
+  output.write_string(
+    indent +
+    "let " +
+    fields_name +
+    " = match " +
+    value_expression +
+    ".without_annotations() {\n" +
+    indent +
+    "  @ion_model.IonValue::Struct(fields) => fields\n" +
+    indent +
+    "  _ => raise ConversionError::InvalidValue(path=" +
+    path_expression +
+    ", constraint=\"contains\", actual=ion_schema_codegen_actual_type(" +
+    value_expression +
+    "))\n" +
+    indent +
+    "}\n",
+  )
+  write_contains_check(
+    output,
+    required,
+    "ion_schema_codegen_struct_field_values(" + fields_name + ")",
+    path_expression,
+    indent,
+  )
 }
 
 ///|
@@ -1365,6 +1492,14 @@ fn write_struct_conversions(
   output.write_string(
     "  let input_fields = match value.without_annotations() {\n    @ion_model.IonValue::Struct(fields) => fields\n    _ => raise ConversionError::TypeMismatch(path=type_path, expected=\"struct\", actual=ion_schema_codegen_actual_type(value))\n  }\n",
   )
+  match named_type.contains_values {
+    Some(required) =>
+      write_contains_check(
+        output, required, "ion_schema_codegen_struct_field_values(input_fields)",
+        "type_path", "  ",
+      )
+    None => ()
+  }
   match named_type.element_type {
     Some(element_type) =>
       write_struct_element_checks(
@@ -1734,6 +1869,13 @@ fn write_ordered_list_constraint_chain(
     "container_length",
     indent,
   )
+  match named_type.contains_values {
+    Some(required) =>
+      write_contains_check(
+        output, required, values_expression, path_expression, indent,
+      )
+    None => ()
+  }
   if named_type.element_distinct {
     write_distinct_values_check(
       output, values_expression, path_expression, indent,
@@ -1865,6 +2007,13 @@ fn write_list_conversions(
     "container_length",
     "  ",
   )
+  match named_type.contains_values {
+    Some(required) =>
+      write_contains_check(
+        output, required, "input_elements", "type_path", "  ",
+      )
+    None => ()
+  }
   if named_type.element_distinct {
     write_distinct_values_check(output, "input_elements", "type_path", "  ")
   }
@@ -2787,6 +2936,7 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
     if named_type.valid_values is Some(_) ||
       named_type.container_lengths.length() > 0 ||
       named_type.element_type is Some(_) ||
+      has_named_contains_values(named_type) ||
       named_type.field_names_type is Some(_) ||
       named_type.ordered_elements is Some(_) ||
       named_type.codepoint_lengths.length() > 0 ||

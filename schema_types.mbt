@@ -69,6 +69,7 @@ priv struct NamedType {
   body : TypeBody
   element_type : TypeRef?
   element_distinct : Bool
+  contains_values : Array[@model.IonValue]?
   field_names_type : TypeRef?
   field_names_distinct : Bool
   ordered_elements : Array[OrderedElementSpec]?
