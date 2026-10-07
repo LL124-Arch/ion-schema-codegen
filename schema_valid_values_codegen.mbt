@@ -223,6 +223,12 @@ fn write_named_valid_values_checks(
       write_named_timestamp_offset_checks(
         output, named_type, value_expression, path_expression, indent,
       )
+      write_named_ieee754_float_checks(
+        output, named_type, value_expression, path_expression, indent,
+      )
+      write_named_regex_checks(
+        output, named_type, value_expression, path_expression, indent,
+      )
       write_named_element_checks(
         output, named_type, types, value_expression, path_expression, indent,
       )

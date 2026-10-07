@@ -44,6 +44,9 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
     has_decimal_constraints(schema.types) {
     package_imports.push("\"moonbitlang/core/bigint\"")
   }
+  if has_regex_constraints(schema.types) {
+    package_imports.push("\"moonbitlang/core/string\" @string")
+  }
 
   let output = StringBuilder()
   if has_conversion_types(schema.types) {
@@ -80,6 +83,14 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
     if has_timestamp_offset_constraints(schema.types) {
       output.write_string("\n")
       write_timestamp_offset_helpers(output)
+    }
+    if has_ieee754_float_constraints(schema.types) {
+      output.write_string("\n")
+      write_ieee754_float_helper(output)
+    }
+    if has_regex_constraints(schema.types) {
+      output.write_string("\n")
+      write_regex_helpers(output)
     }
     let has_distinct_elements = has_distinct_element_constraints(schema.types)
     let has_distinct_field_names = has_distinct_field_names_constraints(
@@ -146,6 +157,14 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
     if named_type.timestamp_offsets.length() > 0 {
       output.write_string("\n")
       write_named_timestamp_offset_validator(output, named_type, schema.types)
+    }
+    if named_type.ieee754_float_formats.length() > 0 {
+      output.write_string("\n")
+      write_named_ieee754_float_validator(output, named_type, schema.types)
+    }
+    if named_type.regex_constraints.length() > 0 {
+      output.write_string("\n")
+      write_named_regex_validator(output, named_type, schema.types)
     }
     match named_type.body {
       TypeBody::Struct(fields, is_open) => {
@@ -2974,6 +2993,8 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
       named_type.exponent_ranges.length() > 0 ||
       named_type.timestamp_precision_ranges.length() > 0 ||
       named_type.timestamp_offsets.length() > 0 ||
+      named_type.ieee754_float_formats.length() > 0 ||
+      named_type.regex_constraints.length() > 0 ||
       named_type.container_lengths.length() > 0 ||
       named_type.element_type is Some(_) ||
       has_named_contains_values(named_type) ||

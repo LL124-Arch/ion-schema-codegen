@@ -146,6 +146,72 @@ test "parse timestamp offsets and reject malformed or non-timestamp constraints"
 }
 
 ///|
+test "parse IEEE 754 float formats and reject unsupported targets" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: HalfValue, type: float, ieee754_float: binary16} type::{name: SingleValue, type: float, ieee754_float: binary32} type::{name: DoubleAlias, type: HalfValue, ieee754_float: binary64}",
+  )
+  for invalid in ["binary128", "[binary16]", "\"binary16\""] {
+    let error = expect_schema_error(
+      "$ion_schema_2_0 type::{name: FloatValue, type: float, ieee754_float: \{invalid}}",
+    )
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+        _ => false
+      },
+    )
+  }
+  let non_float = expect_schema_error(
+    "$ion_schema_2_0 type::{name: IntegerValue, type: int, ieee754_float: binary16}",
+  )
+  assert_true(
+    match non_float {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
+test "parse regex patterns, flags, and supported value types" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: Digits, type: string, regex: \"[0-9]+\"} type::{name: CaseInsensitive, type: string, regex: i::\"ion\"} type::{name: Multiline, type: string, regex: m::\"^value$\"} type::{name: CaseAndMultiline, type: symbol, regex: i::m::\"code\"}",
+  )
+  for invalid in ["(?=value)", "["] {
+    let error = expect_schema_error(
+      "$ion_schema_2_0 type::{name: InvalidRegex, type: string, regex: \"\{invalid}\"}",
+    )
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+        @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+        _ => false
+      },
+    )
+  }
+  for invalid in ["x::\"value\"", "i::i::\"value\"", "value"] {
+    let error = expect_schema_error(
+      "$ion_schema_2_0 type::{name: InvalidRegex, type: string, regex: \{invalid}}",
+    )
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+        _ => false
+      },
+    )
+  }
+  let non_string = expect_schema_error(
+    "$ion_schema_2_0 type::{name: IntegerValue, type: int, regex: \"[0-9]+\"}",
+  )
+  assert_true(
+    match non_string {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "accept non-null any and nullable universal any" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: AnyValue, type: any}",
@@ -312,7 +378,7 @@ test "accept open fields and valid_values and reject unsupported constraints and
   )
 
   let unsupported_constraint = expect_schema_error(
-    "$ion_schema_2_0 type::{name: PositiveText, type: string, regex: 1}",
+    "$ion_schema_2_0 type::{name: PositiveText, type: string, annotations: []}",
   )
   assert_true(
     match unsupported_constraint {

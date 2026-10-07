@@ -128,6 +128,8 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let exponent_fields = value.get_fields("exponent")
   let timestamp_precision_fields = value.get_fields("timestamp_precision")
   let timestamp_offset_fields = value.get_fields("timestamp_offset")
+  let ieee754_float_fields = value.get_fields("ieee754_float")
+  let regex_fields = value.get_fields("regex")
   let container_length_fields = value.get_fields("container_length")
   let codepoint_length_fields = value.get_fields("codepoint_length")
   let utf8_byte_length_fields = value.get_fields("utf8_byte_length")
@@ -224,6 +226,10 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let timestamp_offsets = parse_timestamp_offset_fields(
     timestamp_offset_fields, name,
   )
+  let ieee754_float_formats = parse_ieee754_float_fields(
+    ieee754_float_fields, name,
+  )
+  let regex_constraints = parse_regex_fields(regex_fields, name)
 
   let body = match base_name {
     "struct" => {
@@ -299,6 +305,8 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     exponent_ranges,
     timestamp_precision_ranges,
     timestamp_offsets,
+    ieee754_float_formats,
+    regex_constraints,
     container_lengths,
     codepoint_lengths,
     utf8_byte_lengths,
@@ -638,6 +646,195 @@ fn timestamp_offset_pair(
     )
   }
   tens_value * 10 + ones_value
+}
+
+///|
+fn parse_ieee754_float_fields(
+  values : Array[@model.IonValue],
+  type_name : String,
+) -> Array[String] raise SchemaError {
+  let formats : Array[String] = []
+  for value in values {
+    let context = "ieee754_float at type " + type_name
+    if value.annotations().length() > 0 {
+      raise SchemaError::InvalidSchema(
+        "ieee754_float must be an unannotated format symbol at " + context,
+      )
+    }
+    let format = match value.without_annotations() {
+      @model.IonValue::Symbol(symbol) =>
+        match symbol.text_value() {
+          Some(text) => text
+          None =>
+            raise SchemaError::InvalidSchema(
+              "ieee754_float must use a resolved symbol at " + context,
+            )
+        }
+      _ =>
+        raise SchemaError::InvalidSchema(
+          "ieee754_float must be binary16, binary32, or binary64 at " + context,
+        )
+    }
+    match format {
+      "binary16" | "binary32" | "binary64" => formats.push(format)
+      _ =>
+        raise SchemaError::InvalidSchema(
+          "unknown ieee754_float format " + format + " at " + context,
+        )
+    }
+  }
+  formats
+}
+
+///|
+fn parse_regex_fields(
+  values : Array[@model.IonValue],
+  type_name : String,
+) -> Array[RegexConstraint] raise SchemaError {
+  let constraints : Array[RegexConstraint] = []
+  for value in values {
+    let context = "regex at type " + type_name
+    let mut ignore_case = false
+    let mut multiline = false
+    for annotation in value.annotations() {
+      match annotation.text_value() {
+        Some("i") if !ignore_case => ignore_case = true
+        Some("m") if !multiline => multiline = true
+        Some("i" | "m") =>
+          raise SchemaError::InvalidSchema(
+            "regex flags must not be repeated at " + context,
+          )
+        Some(flag) =>
+          raise SchemaError::InvalidSchema(
+            "unsupported regex flag " + flag + " at " + context,
+          )
+        None =>
+          raise SchemaError::InvalidSchema(
+            "regex flags must be resolved symbols at " + context,
+          )
+      }
+    }
+    let pattern = match value.without_annotations() {
+      @model.IonValue::String(pattern) => pattern
+      _ =>
+        raise SchemaError::InvalidSchema(
+          "regex must be a string with optional i/m flags at " + context,
+        )
+    }
+    let normalized_pattern = normalize_isl_regex(
+      pattern, ignore_case, multiline, context,
+    )
+    constraints.push({ pattern: normalized_pattern, })
+  }
+  constraints
+}
+
+///|
+fn normalize_isl_regex(
+  pattern : String,
+  ignore_case : Bool,
+  multiline : Bool,
+  context : String,
+) -> String raise SchemaError {
+  let characters : Array[Char] = []
+  for character in pattern {
+    characters.push(character)
+  }
+  let output = StringBuilder()
+  if ignore_case {
+    output.write_string("(?i:")
+  }
+  let mut in_character_class = false
+  let mut index = 0
+  while index < characters.length() {
+    let character = characters[index]
+    if character == '\\' {
+      if index + 1 >= characters.length() {
+        raise SchemaError::InvalidSchema(
+          "regex ends with an unescaped backslash at " + context,
+        )
+      }
+      let escaped = characters[index + 1]
+      match escaped {
+        'd' if in_character_class => output.write_string("0-9")
+        's' if in_character_class => output.write_string(" \\f\\n\\r\\t")
+        'w' if in_character_class => output.write_string("A-Za-z0-9_")
+        'D' | 'S' | 'W' if in_character_class =>
+          raise SchemaError::UnsupportedFeature(
+            "complemented regex classes inside character classes are not supported at " +
+            context,
+          )
+        'd' => output.write_string("[0-9]")
+        'D' => output.write_string("[^0-9]")
+        's' => output.write_string("[ \\f\\n\\r\\t]")
+        'S' => output.write_string("[^ \\f\\n\\r\\t]")
+        'w' => output.write_string("[A-Za-z0-9_]")
+        'W' => output.write_string("[^A-Za-z0-9_]")
+        '.'
+        | '^'
+        | '$'
+        | '|'
+        | '?'
+        | '*'
+        | '+'
+        | '\\'
+        | '['
+        | ']'
+        | '('
+        | ')'
+        | '{'
+        | '}' => {
+          output.write_char('\\')
+          output.write_char(escaped)
+        }
+        _ =>
+          raise SchemaError::UnsupportedFeature(
+            "unsupported regex escape \\" +
+            escaped.to_string() +
+            " at " +
+            context,
+          )
+      }
+      index += 2
+      continue
+    }
+    if character == '[' && !in_character_class {
+      in_character_class = true
+      output.write_char(character)
+    } else if character == ']' && in_character_class {
+      in_character_class = false
+      output.write_char(character)
+    } else if character == '(' &&
+      index + 1 < characters.length() &&
+      characters[index + 1] == '?' {
+      raise SchemaError::UnsupportedFeature(
+        "regex lookaround and special groups are outside the supported subset at " +
+        context,
+      )
+    } else if character == '.' && !in_character_class {
+      output.write_string("[^\\n\\r\\u2028\\u2029]")
+    } else if character == '^' && !in_character_class && multiline {
+      output.write_string("(^|\\n|\\r|\\u2028|\\u2029)")
+    } else if character == '$' && !in_character_class && multiline {
+      output.write_string("($|\\n|\\r|\\u2028|\\u2029)")
+    } else {
+      output.write_char(character)
+    }
+    index += 1
+  }
+  if in_character_class {
+    raise SchemaError::InvalidSchema(
+      "unterminated regex character class at " + context,
+    )
+  }
+  if ignore_case {
+    output.write_char(')')
+  }
+  let normalized = output.to_string()
+  let _compiled = @string.Regex(normalized) catch {
+    _ => raise SchemaError::InvalidSchema("invalid regex pattern at " + context)
+  }
+  normalized
 }
 
 ///|
@@ -1289,7 +1486,8 @@ fn validate_type_definition_fields(
     [
       "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
       "contains", "precision", "exponent", "timestamp_precision", "timestamp_offset",
-      "container_length", "codepoint_length", "utf8_byte_length", "byte_length",
+      "ieee754_float", "regex", "container_length", "codepoint_length", "utf8_byte_length",
+      "byte_length",
     ],
     "type \{type_name}",
   )
@@ -1539,6 +1737,41 @@ fn supports_timestamp_constraints(
 }
 
 ///|
+fn supports_ieee754_float_constraint(
+  types : Array[NamedType],
+  body : TypeBody,
+) -> Bool raise SchemaError {
+  match body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Scalar("float" | "$float") => true
+        ResolvedType::Scalar(_)
+        | ResolvedType::Struct(_)
+        | ResolvedType::List(_) => false
+      }
+    TypeBody::Struct(_, _) | TypeBody::List(_) => false
+  }
+}
+
+///|
+fn supports_regex_constraint(
+  types : Array[NamedType],
+  body : TypeBody,
+) -> Bool raise SchemaError {
+  match body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Scalar("string" | "symbol" | "$string" | "$symbol") =>
+          true
+        ResolvedType::Scalar(_)
+        | ResolvedType::Struct(_)
+        | ResolvedType::List(_) => false
+      }
+    TypeBody::Struct(_, _) | TypeBody::List(_) => false
+  }
+}
+
+///|
 fn supports_ordered_elements(
   types : Array[NamedType],
   named_type : NamedType,
@@ -1636,6 +1869,19 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
       !supports_timestamp_constraints(types, named_type.body) {
       raise SchemaError::UnsupportedFeature(
         "timestamp_precision and timestamp_offset apply only to timestamp values at type " +
+        named_type.name,
+      )
+    }
+    if named_type.ieee754_float_formats.length() > 0 &&
+      !supports_ieee754_float_constraint(types, named_type.body) {
+      raise SchemaError::UnsupportedFeature(
+        "ieee754_float applies only to float values at type " + named_type.name,
+      )
+    }
+    if named_type.regex_constraints.length() > 0 &&
+      !supports_regex_constraint(types, named_type.body) {
+      raise SchemaError::UnsupportedFeature(
+        "regex applies only to string or symbol values at type " +
         named_type.name,
       )
     }

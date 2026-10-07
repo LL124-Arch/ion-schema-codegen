@@ -51,6 +51,11 @@ priv struct IntegerRange {
 }
 
 ///|
+priv struct RegexConstraint {
+  pattern : String
+}
+
+///|
 priv struct OrderedElementSpec {
   type_ref : TypeRef
   occurrence : FieldOccurrence
@@ -78,6 +83,8 @@ priv struct NamedType {
   exponent_ranges : Array[IntegerRange]
   timestamp_precision_ranges : Array[IntegerRange]
   timestamp_offsets : Array[Array[Int?]]
+  ieee754_float_formats : Array[String]
+  regex_constraints : Array[RegexConstraint]
   container_lengths : Array[IntegerRange]
   codepoint_lengths : Array[IntegerRange]
   utf8_byte_lengths : Array[IntegerRange]
