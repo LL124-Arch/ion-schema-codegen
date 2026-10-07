@@ -11,6 +11,7 @@
 - 开放与封闭结构体字段；可用 closed 注解限制额外字段。字段支持必选、可选及整数/区间 `occurs`；可重复字段映射为数组，未知字段和值模型按原顺序保留。
 - `field_names` 支持对 struct 的全部字段名应用 symbol 或同 Schema 命名类型约束；`distinct::T` 同时拒绝重复字段名，开放字段也会参与检查。
 - `contains` 支持 list、sexp、struct 和 document 按任意顺序包含给定 Ion 值；匹配比较注解，重复的期望值不增加要求，缺失值错误包含容器路径与 Ion 表示。
+- Decimal `precision` 支持未缩放 coefficient 的精确位数与整数范围；按 Decimal 数据模型计数，不含符号和 exponent，零按一位处理。别名、字段和列表元素转换均应用约束，typed null 会因没有 precision 被拒绝。
 - `element` 支持 list、sexp、document 和 struct 中每个值的类型约束；`distinct::T` 会按 Ion 值等价语义（含注解）拒绝容器中的重复值。struct 可与 `fields` 组合，也可仅用 `element` 校验并保留开放字段。
 - 列表元素支持受支持标量或同一 Schema 命名类型；sexp、document 和 struct 元素按输入顺序逐项校验并在错误路径中标明位置。
 - `ordered_elements` 支持 list、sexp 和 document 的异质顺序约束，包含 required、optional、固定次数和整数范围 `occurs`；回溯匹配完整消费序列，并以 `Array[@ion_model.IonValue]` 保存原始值。

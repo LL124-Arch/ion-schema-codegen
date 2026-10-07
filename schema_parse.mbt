@@ -124,6 +124,8 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let field_names_fields = value.get_fields("field_names")
   let ordered_elements_fields = value.get_fields("ordered_elements")
   let valid_values_fields = value.get_fields("valid_values")
+  let precision_fields = value.get_fields("precision")
+  let exponent_fields = value.get_fields("exponent")
   let container_length_fields = value.get_fields("container_length")
   let codepoint_length_fields = value.get_fields("codepoint_length")
   let utf8_byte_length_fields = value.get_fields("utf8_byte_length")
@@ -208,6 +210,12 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let byte_lengths = parse_integer_constraint_fields(
     byte_length_fields, "byte_length", name,
   )
+  let precision_ranges = parse_decimal_constraint_fields(
+    precision_fields, "precision", name,
+  )
+  let exponent_ranges = parse_decimal_constraint_fields(
+    exponent_fields, "exponent", name,
+  )
 
   let body = match base_name {
     "struct" => {
@@ -279,6 +287,8 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     field_names_distinct,
     ordered_elements,
     valid_values,
+    precision_ranges,
+    exponent_ranges,
     container_lengths,
     codepoint_lengths,
     utf8_byte_lengths,
@@ -339,6 +349,159 @@ fn parse_integer_constraint_range(
       )
   }
   { minimum: occurrence.min_count, maximum: occurrence.max_count, }
+}
+
+///|
+fn parse_decimal_constraint_fields(
+  values : Array[@model.IonValue],
+  constraint : String,
+  type_name : String,
+) -> Array[IntegerRange] raise SchemaError {
+  let ranges : Array[IntegerRange] = []
+  for value in values {
+    ranges.push(
+      parse_decimal_constraint_range(
+        value,
+        constraint + " at type " + type_name,
+        constraint == "precision",
+      ),
+    )
+  }
+  ranges
+}
+
+///|
+fn parse_decimal_constraint_range(
+  value : @model.IonValue,
+  context : String,
+  requires_positive_minimum : Bool,
+) -> IntegerRange raise SchemaError {
+  match value.annotations() {
+    [] =>
+      match value.without_annotations() {
+        @model.IonValue::Int(count) => {
+          let exact = decimal_constraint_int(count, context)
+          if requires_positive_minimum && exact < 1 {
+            raise SchemaError::InvalidSchema(
+              "precision must be at least 1 at " + context,
+            )
+          }
+          { minimum: exact, maximum: Some(exact), }
+        }
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "expected an integer or range:: value at " + context,
+          )
+      }
+    [annotation] if annotation.text_value() == Some("range") => {
+      let (minimum_value, maximum_value) = match value.without_annotations() {
+        @model.IonValue::List([minimum, maximum]) => (minimum, maximum)
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "integer range must contain exactly two bounds at " + context,
+          )
+      }
+      let (minimum, minimum_exclusive) = parse_decimal_constraint_endpoint(
+        minimum_value, true, context,
+      )
+      let (maximum, maximum_exclusive) = parse_decimal_constraint_endpoint(
+        maximum_value, false, context,
+      )
+      if minimum is None && maximum is None {
+        raise SchemaError::InvalidSchema(
+          "integer range cannot use both min and max at " + context,
+        )
+      }
+      if requires_positive_minimum {
+        match minimum {
+          Some(explicit_minimum) if explicit_minimum < 1 =>
+            raise SchemaError::InvalidSchema(
+              "precision range minimum must be at least 1 at " + context,
+            )
+          _ => ()
+        }
+      }
+      if minimum_exclusive && minimum == Some(2147483647) {
+        raise SchemaError::InvalidSchema(
+          "exclusive integer range minimum exceeds the supported range at " +
+          context,
+        )
+      }
+      if maximum_exclusive && maximum == Some(-2147483648) {
+        raise SchemaError::InvalidSchema(
+          "exclusive integer range maximum is below the supported range at " +
+          context,
+        )
+      }
+      let effective_minimum = match minimum {
+        Some(bound) => bound + (if minimum_exclusive { 1 } else { 0 })
+        None => if requires_positive_minimum { 1 } else { -2147483648 }
+      }
+      let effective_maximum = match maximum {
+        Some(bound) => Some(bound - (if maximum_exclusive { 1 } else { 0 }))
+        None => None
+      }
+      match effective_maximum {
+        Some(bound) if bound < effective_minimum =>
+          raise SchemaError::InvalidSchema(
+            "integer range has no values at " + context,
+          )
+        _ => ()
+      }
+      { minimum: effective_minimum, maximum: effective_maximum, }
+    }
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "expected an unannotated integer or range:: value at " + context,
+      )
+  }
+}
+
+///|
+fn parse_decimal_constraint_endpoint(
+  value : @model.IonValue,
+  is_minimum : Bool,
+  context : String,
+) -> (Int?, Bool) raise SchemaError {
+  let exclusive = match value.annotations() {
+    [] => false
+    [annotation] if annotation.text_value() == Some("exclusive") => true
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "integer range bounds may only use exclusive at " + context,
+      )
+  }
+  match value.without_annotations() {
+    @model.IonValue::Int(bound) =>
+      (Some(decimal_constraint_int(bound, context)), exclusive)
+    @model.IonValue::Symbol(symbol) => {
+      let expected = if is_minimum { "min" } else { "max" }
+      if exclusive || symbol.text_value() != Some(expected) {
+        raise SchemaError::InvalidSchema(
+          "integer range must use min as its lower bound and max as its upper bound at " +
+          context,
+        )
+      }
+      (None, false)
+    }
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "integer range bounds must be integers or min/max at " + context,
+      )
+  }
+}
+
+///|
+fn decimal_constraint_int(
+  value : @bigint.BigInt,
+  context : String,
+) -> Int raise SchemaError {
+  if value.compare_int(-2147483648) < 0 || value.compare_int(2147483647) > 0 {
+    raise SchemaError::InvalidSchema(
+      "integer constraint bound exceeds the supported range at " + context,
+    )
+  }
+  value.to_int()
 }
 
 ///|
@@ -855,7 +1018,8 @@ fn validate_type_definition_fields(
     value,
     [
       "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
-      "contains", "container_length", "codepoint_length", "utf8_byte_length", "byte_length",
+      "contains", "precision", "exponent", "container_length", "codepoint_length",
+      "utf8_byte_length", "byte_length",
     ],
     "type \{type_name}",
   )
@@ -1071,6 +1235,23 @@ fn supports_contains_constraint(
 }
 
 ///|
+fn supports_decimal_constraints(
+  types : Array[NamedType],
+  body : TypeBody,
+) -> Bool raise SchemaError {
+  match body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Scalar("decimal" | "$decimal") => true
+        ResolvedType::Scalar(_)
+        | ResolvedType::Struct(_)
+        | ResolvedType::List(_) => false
+      }
+    TypeBody::Struct(_, _) | TypeBody::List(_) => false
+  }
+}
+
+///|
 fn supports_ordered_elements(
   types : Array[NamedType],
   named_type : NamedType,
@@ -1150,6 +1331,16 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
           )
         }
       None => ()
+    }
+    if (
+        named_type.precision_ranges.length() > 0 ||
+        named_type.exponent_ranges.length() > 0
+      ) &&
+      !supports_decimal_constraints(types, named_type.body) {
+      raise SchemaError::UnsupportedFeature(
+        "precision and exponent apply only to decimal values at type " +
+        named_type.name,
+      )
     }
     if named_type.container_lengths.length() > 0 &&
       !supports_container_length(types, named_type.body) {

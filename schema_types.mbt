@@ -74,6 +74,8 @@ priv struct NamedType {
   field_names_distinct : Bool
   ordered_elements : Array[OrderedElementSpec]?
   valid_values : Array[@model.IonValue]?
+  precision_ranges : Array[IntegerRange]
+  exponent_ranges : Array[IntegerRange]
   container_lengths : Array[IntegerRange]
   codepoint_lengths : Array[IntegerRange]
   utf8_byte_lengths : Array[IntegerRange]

@@ -39,7 +39,9 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
   if has_valid_values(schema.types) || has_contains_constraints(schema.types) {
     package_imports.push("\"LL124-Arch/amazon-ion-moonbit-core\" @ion")
   }
-  if uses_bigint(schema.types) || has_valid_values(schema.types) {
+  if uses_bigint(schema.types) ||
+    has_valid_values(schema.types) ||
+    has_decimal_constraints(schema.types) {
     package_imports.push("\"moonbitlang/core/bigint\"")
   }
 
@@ -50,6 +52,7 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
     write_ion_type_helpers(
       output,
       uses_nullable_type_checks(schema.types) ||
+      has_decimal_constraints(schema.types) ||
       has_valid_values(schema.types) ||
       has_element_constraints(schema.types) ||
       has_ordered_elements(schema.types),
@@ -61,6 +64,14 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
     if has_content_length_constraints(schema.types) {
       output.write_string("\n")
       write_content_length_helpers(output, schema.types)
+    }
+    if has_decimal_constraints(schema.types) {
+      output.write_string("\n")
+      write_decimal_constraint_helpers(
+        output,
+        has_decimal_precision_constraints(schema.types),
+        has_decimal_exponent_constraints(schema.types),
+      )
     }
     let has_distinct_elements = has_distinct_element_constraints(schema.types)
     let has_distinct_field_names = has_distinct_field_names_constraints(
@@ -110,6 +121,11 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
     if named_type.valid_values is Some(_) {
       output.write_string("\n")
       write_named_valid_values(output, named_type, schema.types)
+    }
+    if named_type.precision_ranges.length() > 0 ||
+      named_type.exponent_ranges.length() > 0 {
+      output.write_string("\n")
+      write_named_decimal_constraint_validator(output, named_type, schema.types)
     }
     match named_type.body {
       TypeBody::Struct(fields, is_open) => {
@@ -2934,6 +2950,8 @@ fn uses_model_types(types : Array[NamedType]) -> Bool raise SchemaError {
 fn has_conversion_types(types : Array[NamedType]) -> Bool {
   for named_type in types {
     if named_type.valid_values is Some(_) ||
+      named_type.precision_ranges.length() > 0 ||
+      named_type.exponent_ranges.length() > 0 ||
       named_type.container_lengths.length() > 0 ||
       named_type.element_type is Some(_) ||
       has_named_contains_values(named_type) ||

@@ -14,6 +14,37 @@ test "parse supported scalar struct list and named references" {
 }
 
 ///|
+test "parse Decimal precision constraints and reject invalid lower bounds" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: DecimalValue, type: decimal, precision: 4, precision: range::[min, 8]} type::{name: DecimalAlias, type: DecimalValue, precision: range::[2, max]}",
+  )
+  for
+    invalid in [
+      "precision: 0", "precision: -1", "precision: range::[0, max]", "precision: range::[exclusive::0, 4]",
+      "precision: range::[min, exclusive::1]",
+    ] {
+    let error = expect_schema_error(
+      "$ion_schema_2_0 type::{name: DecimalValue, type: decimal, \{invalid}}",
+    )
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+        _ => false
+      },
+    )
+  }
+  let non_decimal = expect_schema_error(
+    "$ion_schema_2_0 type::{name: IntegerValue, type: int, precision: 2}",
+  )
+  assert_true(
+    match non_decimal {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "accept non-null any and nullable universal any" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: AnyValue, type: any}",

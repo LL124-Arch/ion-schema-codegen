@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.19.0 — 2026-10-07
+
+- 支持 decimal 的 `precision` 精确值与整数范围；按 Decimal coefficient 的位数计数，不含符号，零为一位。
+- 要求 precision 下界至少为 1，并拒绝 typed null；约束会通过同 Schema 别名传播到字段和列表元素转换。
+- 增加独立 precision fixture，覆盖精确值、范围、别名及嵌套转换错误路径。
+
 ## 0.18.0 — 2026-10-07
 
 - 支持 list、sexp、struct 和 document 的 `contains`，期望值按任意顺序匹配，重复声明不增加要求。
