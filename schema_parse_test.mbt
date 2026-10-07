@@ -45,6 +45,36 @@ test "parse Decimal precision constraints and reject invalid lower bounds" {
 }
 
 ///|
+test "parse signed Decimal exponent constraints" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: DecimalValue, type: decimal, exponent: -2, exponent: range::[min, -1]} type::{name: DecimalAlias, type: DecimalValue, exponent: range::[-4, max]}",
+  )
+  for
+    invalid in [
+      "exponent: range::[min, max]", "exponent: range::[1, -1]", "exponent: range::[min, exclusive::-2147483648]",
+    ] {
+    let error = expect_schema_error(
+      "$ion_schema_2_0 type::{name: DecimalValue, type: decimal, \{invalid}}",
+    )
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+        _ => false
+      },
+    )
+  }
+  let non_decimal = expect_schema_error(
+    "$ion_schema_2_0 type::{name: IntegerValue, type: int, exponent: -2}",
+  )
+  assert_true(
+    match non_decimal {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "accept non-null any and nullable universal any" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: AnyValue, type: any}",

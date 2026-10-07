@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.20.0 — 2026-10-07
+
+- 支持 decimal 的 `exponent` 精确值及含负数边界的整数范围，包括 `min` / `max` 和 `exclusive::`。
+- 通过 Ion Decimal 数据模型 accessor 读取 exponent；typed null 不具备 exponent，因此校验失败。
+- 约束沿同 Schema 别名传播到结构体字段和列表元素，fixture 覆盖直接校验与嵌套错误路径。
+
 ## 0.19.0 — 2026-10-07
 
 - 支持 decimal 的 `precision` 精确值与整数范围；按 Decimal coefficient 的位数计数，不含符号，零为一位。

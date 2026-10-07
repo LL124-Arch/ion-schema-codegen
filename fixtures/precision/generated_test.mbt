@@ -40,6 +40,20 @@ fn precision_record_error(value : @ion_model.IonValue) -> (String, String) {
 }
 
 ///|
+fn exponent_record_error(value : @ion_model.IonValue) -> (String, String) {
+  try {
+    ignore(@precision.ExponentRecord::from_ion(value))
+    ("", "")
+  } catch {
+    @precision.ConversionError::InvalidValue(path~, constraint~, ..) =>
+      (path, constraint)
+    _ => ("unexpected", "unexpected")
+  } noraise {
+    _ => ("unexpected", "unexpected")
+  }
+}
+
+///|
 fn ion_field(
   name : String,
   value : @ion_model.IonValue,
@@ -105,5 +119,73 @@ test "precision ranges and aliases apply at nested field and list paths" {
       ]),
     ),
     ("PrecisionRecord.values.PrecisionValues[0]", "precision"),
+  )
+}
+
+///|
+test "exponent uses Decimal data model values and signed exclusive ranges" {
+  @precision.validate_decimal_constraints_ExponentExact(decimal_value(123, -2))
+  @precision.validate_decimal_constraints_ExponentRange(decimal_value(123, -3))
+  @precision.validate_decimal_constraints_BaseExponent(decimal_value(1, -3))
+  @precision.validate_decimal_constraints_BaseExponent(decimal_value(1, -1))
+  @precision.validate_decimal_constraints_AliasExponent(decimal_value(123, -2))
+
+  assert_eq(
+    decimal_constraint_error(
+      @precision.validate_decimal_constraints_ExponentExact,
+      decimal_value(123, -1),
+    ),
+    ("ExponentExact", "exponent", "-1"),
+  )
+  assert_eq(
+    decimal_constraint_error(
+      @precision.validate_decimal_constraints_ExponentRange,
+      decimal_value(123, -1),
+    ),
+    ("ExponentRange", "exponent", "-1"),
+  )
+  assert_eq(
+    decimal_constraint_error(
+      @precision.validate_decimal_constraints_BaseExponent,
+      decimal_value(1, -4),
+    ),
+    ("BaseExponent", "exponent", "-4"),
+  )
+  assert_eq(
+    decimal_constraint_error(
+      @precision.validate_decimal_constraints_BaseExponent,
+      decimal_value(1, 0),
+    ),
+    ("BaseExponent", "exponent", "0"),
+  )
+
+  let typed_null = @ion_model.IonValue::Null(@ion_model.IonNull::Decimal)
+  assert_eq(
+    decimal_constraint_error(
+      @precision.validate_decimal_constraints_NullableExponent, typed_null,
+    ),
+    ("NullableExponent", "exponent", "null.decimal"),
+  )
+}
+
+///|
+test "exponent aliases validate nested struct fields and list elements" {
+  assert_eq(
+    exponent_record_error(
+      @ion_model.IonValue::Struct([
+        ion_field("exact", decimal_value(123, -1)),
+        ion_field("values", @ion_model.IonValue::List([decimal_value(1, -2)])),
+      ]),
+    ),
+    ("ExponentRecord.exact", "exponent"),
+  )
+  assert_eq(
+    exponent_record_error(
+      @ion_model.IonValue::Struct([
+        ion_field("exact", decimal_value(123, -2)),
+        ion_field("values", @ion_model.IonValue::List([decimal_value(1, 1)])),
+      ]),
+    ),
+    ("ExponentRecord.values.ExponentValues[0]", "exponent"),
   )
 }

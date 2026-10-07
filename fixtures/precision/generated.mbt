@@ -109,6 +109,17 @@ fn ion_schema_codegen_decimal_precision(value : @ion_model.IonValue) -> Int? {
 }
 
 ///|
+fn ion_schema_codegen_decimal_exponent(value : @ion_model.IonValue) -> Int? {
+  if value.is_null() {
+    return None
+  }
+  match value.without_annotations() {
+    @ion_model.IonValue::Decimal(decimal) => Some(decimal.exponent())
+    _ => None
+  }
+}
+
+///|
 fn ion_schema_codegen_prefix_error(
   error : ConversionError,
   prefix : String,
@@ -552,6 +563,426 @@ pub fn PrecisionRecord::to_ion(self : PrecisionRecord) -> @ion_model.IonValue {
     (
       @ion_model.IonSymbol::from_text("values"),
       to_ion_PrecisionValues(self.values),
+    ),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type ExponentExact = @ion_model.IonDecimal
+
+///|
+/// Validate Decimal precision and exponent constraints for ExponentExact.
+pub fn validate_decimal_constraints_ExponentExact(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "decimal") {
+    raise ConversionError::TypeMismatch(
+      path="ExponentExact",
+      expected="decimal",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  match ion_schema_codegen_decimal_exponent(value) {
+    Some(ion_schema_codegen_exponent_value) =>
+      if ion_schema_codegen_exponent_value < -2 ||
+        ion_schema_codegen_exponent_value > -2 {
+        raise ConversionError::InvalidValue(
+          path="ExponentExact",
+          constraint="exponent",
+          actual=ion_schema_codegen_exponent_value.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="ExponentExact",
+        constraint="exponent",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+}
+
+///|
+pub type NullableExponent = @ion_model.IonValue
+
+///|
+/// Validate Decimal precision and exponent constraints for NullableExponent.
+pub fn validate_decimal_constraints_NullableExponent(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$decimal") {
+    raise ConversionError::TypeMismatch(
+      path="NullableExponent",
+      expected="$decimal",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  match ion_schema_codegen_decimal_exponent(value) {
+    Some(ion_schema_codegen_exponent_value) =>
+      if ion_schema_codegen_exponent_value < -2 ||
+        ion_schema_codegen_exponent_value > -2 {
+        raise ConversionError::InvalidValue(
+          path="NullableExponent",
+          constraint="exponent",
+          actual=ion_schema_codegen_exponent_value.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="NullableExponent",
+        constraint="exponent",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+}
+
+///|
+pub type ExponentRange = @ion_model.IonDecimal
+
+///|
+/// Validate Decimal precision and exponent constraints for ExponentRange.
+pub fn validate_decimal_constraints_ExponentRange(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "decimal") {
+    raise ConversionError::TypeMismatch(
+      path="ExponentRange",
+      expected="decimal",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  match ion_schema_codegen_decimal_exponent(value) {
+    Some(ion_schema_codegen_exponent_value) =>
+      if ion_schema_codegen_exponent_value < -2147483648 ||
+        ion_schema_codegen_exponent_value > -2 {
+        raise ConversionError::InvalidValue(
+          path="ExponentRange",
+          constraint="exponent",
+          actual=ion_schema_codegen_exponent_value.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="ExponentRange",
+        constraint="exponent",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+}
+
+///|
+pub type BaseExponent = @ion_model.IonDecimal
+
+///|
+/// Validate Decimal precision and exponent constraints for BaseExponent.
+pub fn validate_decimal_constraints_BaseExponent(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "decimal") {
+    raise ConversionError::TypeMismatch(
+      path="BaseExponent",
+      expected="decimal",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  match ion_schema_codegen_decimal_exponent(value) {
+    Some(ion_schema_codegen_exponent_value) =>
+      if ion_schema_codegen_exponent_value < -3 ||
+        ion_schema_codegen_exponent_value > -1 {
+        raise ConversionError::InvalidValue(
+          path="BaseExponent",
+          constraint="exponent",
+          actual=ion_schema_codegen_exponent_value.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="BaseExponent",
+        constraint="exponent",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+}
+
+///|
+pub type AliasExponent = BaseExponent
+
+///|
+/// Validate Decimal precision and exponent constraints for AliasExponent.
+pub fn validate_decimal_constraints_AliasExponent(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "decimal") {
+    raise ConversionError::TypeMismatch(
+      path="AliasExponent",
+      expected="decimal",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  match ion_schema_codegen_decimal_exponent(value) {
+    Some(ion_schema_codegen_exponent_value) =>
+      if ion_schema_codegen_exponent_value < -2 ||
+        ion_schema_codegen_exponent_value > -2 {
+        raise ConversionError::InvalidValue(
+          path="AliasExponent",
+          constraint="exponent",
+          actual=ion_schema_codegen_exponent_value.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="AliasExponent",
+        constraint="exponent",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  match ion_schema_codegen_decimal_exponent(value) {
+    Some(ion_schema_codegen_exponent_value) =>
+      if ion_schema_codegen_exponent_value < -3 ||
+        ion_schema_codegen_exponent_value > -1 {
+        raise ConversionError::InvalidValue(
+          path="AliasExponent",
+          constraint="exponent",
+          actual=ion_schema_codegen_exponent_value.to_string(),
+        )
+      }
+    None =>
+      raise ConversionError::InvalidValue(
+        path="AliasExponent",
+        constraint="exponent",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+}
+
+///|
+pub type ExponentValues = Array[ExponentRange]
+
+///|
+/// Convert an Ion list to ExponentValues with element-level diagnostics.
+pub fn from_ion_ExponentValues(
+  value : @ion_model.IonValue,
+) -> ExponentValues raise ConversionError {
+  let type_path = "ExponentValues"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : ExponentValues = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=element_path)
+    }
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : ExponentRange = match element.without_annotations() {
+      @ion_model.IonValue::Decimal(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="decimal",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    match ion_schema_codegen_decimal_exponent(element) {
+      Some(ion_schema_codegen_exponent_value) =>
+        if ion_schema_codegen_exponent_value < -2147483648 ||
+          ion_schema_codegen_exponent_value > -2 {
+          raise ConversionError::InvalidValue(
+            path=element_path,
+            constraint="exponent",
+            actual=ion_schema_codegen_exponent_value.to_string(),
+          )
+        }
+      None =>
+        raise ConversionError::InvalidValue(
+          path=element_path,
+          constraint="exponent",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert ExponentValues into an Ion list.
+pub fn to_ion_ExponentValues(items : ExponentValues) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(@ion_model.IonValue::Decimal(element))
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct ExponentRecord {
+  exact : AliasExponent
+  values : ExponentValues
+}
+
+///|
+/// Convert an Ion struct to ExponentRecord with field-level diagnostics.
+pub fn ExponentRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> ExponentRecord raise ConversionError {
+  let type_path = "ExponentRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  let mut input_field_1 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "exact" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="ExponentRecord.exact",
+                )
+              None => Some(field_value)
+            }
+          "values" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="ExponentRecord.values",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="ExponentRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="ExponentRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : AliasExponent = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "ExponentRecord.exact"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : AliasExponent = match field_value.without_annotations() {
+        @ion_model.IonValue::Decimal(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="decimal",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      match ion_schema_codegen_decimal_exponent(field_value) {
+        Some(ion_schema_codegen_exponent_value) =>
+          if ion_schema_codegen_exponent_value < -2 ||
+            ion_schema_codegen_exponent_value > -2 {
+            raise ConversionError::InvalidValue(
+              path=field_path,
+              constraint="exponent",
+              actual=ion_schema_codegen_exponent_value.to_string(),
+            )
+          }
+        None =>
+          raise ConversionError::InvalidValue(
+            path=field_path,
+            constraint="exponent",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      match ion_schema_codegen_decimal_exponent(field_value) {
+        Some(ion_schema_codegen_exponent_value) =>
+          if ion_schema_codegen_exponent_value < -3 ||
+            ion_schema_codegen_exponent_value > -1 {
+            raise ConversionError::InvalidValue(
+              path=field_path,
+              constraint="exponent",
+              actual=ion_schema_codegen_exponent_value.to_string(),
+            )
+          }
+        None =>
+          raise ConversionError::InvalidValue(
+            path=field_path,
+            constraint="exponent",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(path="ExponentRecord.exact")
+  }
+  let ion_schema_codegen_value_1 : ExponentValues = match input_field_1 {
+    Some(field_value) => {
+      let field_path = "ExponentRecord.values"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : ExponentValues = from_ion_ExponentValues(field_value) catch {
+        error => raise ion_schema_codegen_prefix_error(error, field_path + ".")
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(path="ExponentRecord.values")
+  }
+  { exact: ion_schema_codegen_value_0, values: ion_schema_codegen_value_1, }
+}
+
+///|
+/// Convert ExponentRecord into an Ion struct in schema field order.
+pub fn ExponentRecord::to_ion(self : ExponentRecord) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("exact"),
+      @ion_model.IonValue::Decimal(self.exact),
+    ),
+  )
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("values"),
+      to_ion_ExponentValues(self.values),
     ),
   )
   @ion_model.IonValue::Struct(output_fields)
