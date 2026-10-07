@@ -376,16 +376,6 @@ test "reject unsupported element targets and forms" {
     },
   )
 
-  let distinct = expect_schema_error(
-    "$ion_schema_2_0 type::{name: InvalidDistinct, type: sexp, element: distinct::int}",
-  )
-  assert_true(
-    match distinct {
-      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
-      _ => false
-    },
-  )
-
   let inline_type = expect_schema_error(
     "$ion_schema_2_0 type::{name: InvalidInline, type: sexp, element: {type: int}}",
   )
@@ -395,6 +385,13 @@ test "reject unsupported element targets and forms" {
       @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
       _ => false
     },
+  )
+}
+
+///|
+test "accept distinct element constraints with nullable arguments" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: UniqueValues, type: list, element: distinct::int} type::{name: UniqueNullableValues, type: sexp, element: distinct::$null_or::int} type::{name: UniqueStruct, type: struct, element: distinct::string} type::{name: UniqueDocument, type: document, element: distinct::symbol}",
   )
 }
 

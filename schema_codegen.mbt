@@ -62,6 +62,10 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
       output.write_string("\n")
       write_content_length_helpers(output, schema.types)
     }
+    if has_distinct_element_constraints(schema.types) {
+      output.write_string("\n")
+      write_distinct_element_helpers(output)
+    }
     if has_valid_values(schema.types) {
       output.write_string("\n")
       write_valid_values_helpers(output)
@@ -411,6 +415,7 @@ fn has_document_alias_constraints(
         Some(target) =>
           target.container_lengths.length() > 0 ||
           target.element_type is Some(_) ||
+          target.element_distinct ||
           target.ordered_elements is Some(_) ||
           has_document_alias_constraints(target, types, remaining - 1)
         None => false
@@ -440,6 +445,11 @@ fn write_document_constraint_chain(
     "container_length",
     indent,
   )
+  if named_type.element_distinct {
+    write_distinct_values_check(
+      output, values_expression, path_expression, indent,
+    )
+  }
   match named_type.element_type {
     Some(element_type) =>
       write_document_element_checks(
@@ -572,22 +582,23 @@ fn write_named_element_checks(
   match resolve_type_ref(types, base_type) {
     ResolvedType::Scalar("sexp" | "$sexp") =>
       write_named_sequence_element_checks(
-        output, element_type, types, value_expression, path_expression, indent, "Sexp",
-        "ion_schema_codegen_sexp_element",
+        output, named_type, element_type, types, value_expression, path_expression,
+        indent, "Sexp", "ion_schema_codegen_sexp_element",
       )
     ResolvedType::Scalar("list" | "$list") =>
       write_named_sequence_element_checks(
-        output, element_type, types, value_expression, path_expression, indent, "List",
-        "ion_schema_codegen_nullable_list_element",
+        output, named_type, element_type, types, value_expression, path_expression,
+        indent, "List", "ion_schema_codegen_nullable_list_element",
       )
     ResolvedType::List(_) =>
       write_named_sequence_element_checks(
-        output, element_type, types, value_expression, path_expression, indent, "List",
-        "ion_schema_codegen_list_alias_element",
+        output, named_type, element_type, types, value_expression, path_expression,
+        indent, "List", "ion_schema_codegen_list_alias_element",
       )
     ResolvedType::Struct(_) | ResolvedType::Scalar("struct" | "$struct") =>
       write_named_struct_alias_element_checks(
-        output, element_type, types, value_expression, path_expression, indent,
+        output, named_type, element_type, types, value_expression, path_expression,
+        indent,
       )
     ResolvedType::Scalar(_) => ()
   }
@@ -647,6 +658,7 @@ fn write_named_ordered_checks(
 ///|
 fn write_named_sequence_element_checks(
   output : StringBuilder,
+  named_type : NamedType,
   element_type : TypeRef,
   types : Array[NamedType],
   value_expression : String,
@@ -706,11 +718,15 @@ fn write_named_sequence_element_checks(
     indent + "  ",
   )
   output.write_string(indent + "  " + index_name + " += 1\n" + indent + "}\n")
+  if named_type.element_distinct {
+    write_distinct_values_check(output, elements_name, path_expression, indent)
+  }
 }
 
 ///|
 fn write_named_struct_alias_element_checks(
   output : StringBuilder,
+  named_type : NamedType,
   element_type : TypeRef,
   types : Array[NamedType],
   value_expression : String,
@@ -752,6 +768,12 @@ fn write_named_struct_alias_element_checks(
   output.write_string(
     indent + "  ion_schema_codegen_struct_element_index += 1\n" + indent + "}\n",
   )
+  if named_type.element_distinct {
+    write_distinct_struct_check(
+      output, named_type, "ion_schema_codegen_struct_elements", path_expression,
+      indent,
+    )
+  }
 }
 
 ///|
@@ -1217,6 +1239,11 @@ fn write_struct_conversions(
       )
     None => ()
   }
+  if named_type.element_distinct {
+    write_distinct_struct_check(
+      output, named_type, "input_fields", "type_path", "  ",
+    )
+  }
   write_integer_range_checks(
     output,
     named_type.container_lengths,
@@ -1263,13 +1290,13 @@ fn write_struct_conversions(
       output.write_string(" = match input_field_")
       output.write_string(i.to_string())
       output.write_string(
-        " {\n            Some(_) => raise ConversionError::DuplicateField(path=\"",
+        " {\n            Some(_) =>\n              raise ConversionError::DuplicateField(\n                path=\"",
       )
       output.write_string(named_type.name)
       output.write_char('.')
       output.write_string(field.name)
       output.write_string(
-        "\"),\n            None => Some(field_value),\n          }\n",
+        "\",\n              )\n            None => Some(field_value)\n          }\n",
       )
     }
     i += 1
@@ -1560,6 +1587,11 @@ fn write_ordered_list_constraint_chain(
     "container_length",
     indent,
   )
+  if named_type.element_distinct {
+    write_distinct_values_check(
+      output, values_expression, path_expression, indent,
+    )
+  }
   match named_type.element_type {
     Some(element_type) =>
       write_sequence_element_checks(
@@ -1686,6 +1718,9 @@ fn write_list_conversions(
     "container_length",
     "  ",
   )
+  if named_type.element_distinct {
+    write_distinct_values_check(output, "input_elements", "type_path", "  ")
+  }
   output.write_string("  let converted : ")
   output.write_string(generated_name)
   output.write_string(" = []\n")

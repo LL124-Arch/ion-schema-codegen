@@ -68,6 +68,7 @@ priv struct NamedType {
   name : String
   body : TypeBody
   element_type : TypeRef?
+  element_distinct : Bool
   ordered_elements : Array[OrderedElementSpec]?
   valid_values : Array[@model.IonValue]?
   container_lengths : Array[IntegerRange]

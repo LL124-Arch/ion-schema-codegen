@@ -431,6 +431,25 @@ test "generate element validators for structs S-expressions and documents" {
 }
 
 ///|
+test "generate distinct element checks using Ion value equivalence" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: UniqueValues, type: list, element: distinct::$any} type::{name: UniqueFields, type: struct, element: distinct::$any}",
+  )
+  assert_true(generated.source.contains("fn ion_schema_codegen_values_equal("))
+  assert_true(generated.source.contains("constraint=\"distinct::element\""))
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_check_distinct(input_elements, type_path)",
+    ),
+  )
+  assert_true(
+    generated.source.contains(
+      "ion_schema_codegen_check_distinct(ion_schema_codegen_distinct_UniqueFields, type_path)",
+    ),
+  )
+}
+
+///|
 test "generate raw ordered sequence validators with occurrence ranges" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: OrderedList, type: list, ordered_elements:[int, {type: string, occurs: optional}, {type: bool, occurs: range::[1, 2]}]} type::{name: OrderedSexp, type: sexp, ordered_elements:[symbol, {type: int, occurs: 2}]} type::{name: OrderedDocument, type: document, ordered_elements:[string]}",

@@ -131,10 +131,16 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       "element may appear at most once at type " + name,
     )
   }
-  let element_type = match elements {
-    [] => None
-    [element] => Some(parse_element_type(element, "element of " + name))
-    _ => None
+  let (element_type, element_distinct) = match elements {
+    [] => (None, false)
+    [element] => {
+      let (type_ref, distinct) = parse_element_type(
+        element,
+        "element of " + name,
+      )
+      (Some(type_ref), distinct)
+    }
+    _ => (None, false)
   }
   let ordered_elements = match ordered_elements_fields {
     [] => None
@@ -213,10 +219,9 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
           "type \{name} cannot use fields with list",
         )
       }
-      let list_element_type = match elements {
-        [element] => parse_element_type(element, "element of \{name}")
-        [] => TypeRef::Builtin("$any")
-        _ => TypeRef::Builtin("$any")
+      let list_element_type = match element_type {
+        Some(type_ref) => type_ref
+        None => TypeRef::Builtin("$any")
       }
       TypeBody::List(list_element_type)
     }
@@ -241,6 +246,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     name,
     body,
     element_type,
+    element_distinct,
     ordered_elements,
     valid_values,
     container_lengths,
@@ -453,8 +459,42 @@ fn parse_type_argument_reference(
 fn parse_element_type(
   value : @model.IonValue,
   context : String,
-) -> TypeRef raise SchemaError {
-  parse_type_argument_reference(value, context)
+) -> (TypeRef, Bool) raise SchemaError {
+  let annotations = value.annotations()
+  match annotations {
+    [] => (parse_type_argument_reference(value, context), false)
+    [distinct] if distinct.text_value() == Some("distinct") =>
+      (parse_type_reference(value.without_annotations(), context), true)
+    [null_or] if null_or.text_value() == Some("$null_or") =>
+      (
+        nullable_type_reference(
+          parse_type_reference(value.without_annotations(), context),
+        ),
+        false,
+      )
+    [distinct, null_or] if distinct.text_value() == Some("distinct") &&
+      null_or.text_value() == Some("$null_or") =>
+      (
+        nullable_type_reference(
+          parse_type_reference(value.without_annotations(), context),
+        ),
+        true,
+      )
+    _ =>
+      raise SchemaError::UnsupportedFeature(
+        "element type arguments support only distinct and $null_or modifiers at " +
+        context,
+      )
+  }
+}
+
+///|
+fn nullable_type_reference(type_ref : TypeRef) -> TypeRef {
+  match type_ref {
+    TypeRef::Builtin(name) => TypeRef::NullOrBuiltin(name)
+    TypeRef::Named(name) => TypeRef::NullOrNamed(name)
+    TypeRef::NullOrBuiltin(_) | TypeRef::NullOrNamed(_) => type_ref
+  }
 }
 
 ///|

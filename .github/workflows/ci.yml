@@ -11,8 +11,10 @@ jobs:
       - run: moon check --deny-warn --target all
       - run: moon build
       - run: moon test --deny-warn --target all
+      - run: moon test --deny-warn --target all ./fixtures/constraints
+      - run: moon run --target native ./cli fixtures/constraints/constraints.isl fixtures/constraints/generated.mbt
       - run: moon run --target native ./cli fixtures/references/references.isl fixtures/references/generated.mbt
       - run: moon run --target native ./cli examples/person/person.isl examples/person/generated.mbt
       - run: moon fmt
-      - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt
+      - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt fixtures/constraints/generated.mbt
       - run: moon run --target native ./examples/person
