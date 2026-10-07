@@ -115,6 +115,37 @@ test "parse exact and ranged timestamp precision" {
 }
 
 ///|
+test "parse timestamp offsets and reject malformed or non-timestamp constraints" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: UtcValue, type: timestamp, timestamp_offset: [\"+00:00\"]} type::{name: OffsetValue, type: timestamp, timestamp_offset: [\"+07:30\", \"-23:59\", \"-00:00\"]} type::{name: OffsetAlias, type: UtcValue, timestamp_offset: [\"+00:00\"]}",
+  )
+  for
+    invalid in [
+      "[\"Z\"]", "[\"00:00\"]", "[\"+24:00\"]", "[\"+12:60\"]", "[\"+1:00\"]", "[1]",
+      "not_a_list",
+    ] {
+    let error = expect_schema_error(
+      "$ion_schema_2_0 type::{name: TimestampValue, type: timestamp, timestamp_offset: \{invalid}}",
+    )
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+        _ => false
+      },
+    )
+  }
+  let non_timestamp = expect_schema_error(
+    "$ion_schema_2_0 type::{name: IntegerValue, type: int, timestamp_offset: [\"+00:00\"]}",
+  )
+  assert_true(
+    match non_timestamp {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "accept non-null any and nullable universal any" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: AnyValue, type: any}",

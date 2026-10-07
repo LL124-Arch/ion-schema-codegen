@@ -124,6 +124,36 @@ fn ion_schema_codegen_timestamp_precision(value : @ion_model.IonValue) -> Int? {
 }
 
 ///|
+fn ion_schema_codegen_timestamp_offset_is_allowed(
+  value : @ion_model.IonValue,
+  allowed_offsets : Array[Int?],
+) -> Bool {
+  if value.is_null() {
+    return false
+  }
+  match value.without_annotations() {
+    @ion_model.IonValue::Timestamp(timestamp) =>
+      for offset in allowed_offsets {
+        if timestamp.offset_minutes() == offset {
+          return true
+        }
+      }
+    _ => ()
+  }
+  false
+}
+
+///|
+fn ion_schema_codegen_timestamp_offset_text(
+  value : @ion_model.IonValue,
+) -> String {
+  match value.without_annotations() {
+    @ion_model.IonValue::Timestamp(timestamp) => timestamp.offset_text()
+    _ => ion_schema_codegen_actual_type(value)
+  }
+}
+
+///|
 pub type TimestampYear = @ion_model.IonTimestamp
 
 ///|
@@ -877,6 +907,345 @@ pub fn TimestampRangeRecord::from_ion(
 /// Convert TimestampRangeRecord into an Ion struct in schema field order.
 pub fn TimestampRangeRecord::to_ion(
   self : TimestampRangeRecord,
+) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("value"),
+      @ion_model.IonValue::Timestamp(self.value),
+    ),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type TimestampUtc = @ion_model.IonTimestamp
+
+///|
+/// Validate timestamp_offset constraints for TimestampUtc.
+pub fn validate_timestamp_offset_TimestampUtc(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampUtc",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  let ion_schema_codegen_allowed_offsets_TimestampUtc_0 : Array[Int?] = [
+    Some(0),
+  ]
+  if !ion_schema_codegen_timestamp_offset_is_allowed(
+      value, ion_schema_codegen_allowed_offsets_TimestampUtc_0,
+    ) {
+    raise ConversionError::InvalidValue(
+      path="TimestampUtc",
+      constraint="timestamp_offset",
+      actual=ion_schema_codegen_timestamp_offset_text(value),
+    )
+  }
+}
+
+///|
+pub type TimestampUnknownOffset = @ion_model.IonTimestamp
+
+///|
+/// Validate timestamp_offset constraints for TimestampUnknownOffset.
+pub fn validate_timestamp_offset_TimestampUnknownOffset(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampUnknownOffset",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  let ion_schema_codegen_allowed_offsets_TimestampUnknownOffset_0 : Array[Int?] = [
+    None,
+  ]
+  if !ion_schema_codegen_timestamp_offset_is_allowed(
+      value, ion_schema_codegen_allowed_offsets_TimestampUnknownOffset_0,
+    ) {
+    raise ConversionError::InvalidValue(
+      path="TimestampUnknownOffset",
+      constraint="timestamp_offset",
+      actual=ion_schema_codegen_timestamp_offset_text(value),
+    )
+  }
+}
+
+///|
+pub type TimestampKnownOffsets = @ion_model.IonTimestamp
+
+///|
+/// Validate timestamp_offset constraints for TimestampKnownOffsets.
+pub fn validate_timestamp_offset_TimestampKnownOffsets(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampKnownOffsets",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  let ion_schema_codegen_allowed_offsets_TimestampKnownOffsets_0 : Array[Int?] = [
+    Some(330),
+    Some(-240),
+  ]
+  if !ion_schema_codegen_timestamp_offset_is_allowed(
+      value, ion_schema_codegen_allowed_offsets_TimestampKnownOffsets_0,
+    ) {
+    raise ConversionError::InvalidValue(
+      path="TimestampKnownOffsets",
+      constraint="timestamp_offset",
+      actual=ion_schema_codegen_timestamp_offset_text(value),
+    )
+  }
+}
+
+///|
+pub type TimestampOffsetAlias = TimestampUtc
+
+///|
+/// Validate timestamp_offset constraints for TimestampOffsetAlias.
+pub fn validate_timestamp_offset_TimestampOffsetAlias(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampOffsetAlias",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  let ion_schema_codegen_allowed_offsets_TimestampOffsetAlias_0 : Array[Int?] = [
+    Some(0),
+  ]
+  if !ion_schema_codegen_timestamp_offset_is_allowed(
+      value, ion_schema_codegen_allowed_offsets_TimestampOffsetAlias_0,
+    ) {
+    raise ConversionError::InvalidValue(
+      path="TimestampOffsetAlias",
+      constraint="timestamp_offset",
+      actual=ion_schema_codegen_timestamp_offset_text(value),
+    )
+  }
+  let ion_schema_codegen_allowed_offsets_TimestampUtc_0 : Array[Int?] = [
+    Some(0),
+  ]
+  if !ion_schema_codegen_timestamp_offset_is_allowed(
+      value, ion_schema_codegen_allowed_offsets_TimestampUtc_0,
+    ) {
+    raise ConversionError::InvalidValue(
+      path="TimestampOffsetAlias",
+      constraint="timestamp_offset",
+      actual=ion_schema_codegen_timestamp_offset_text(value),
+    )
+  }
+}
+
+///|
+pub type TimestampNoAllowedOffset = @ion_model.IonTimestamp
+
+///|
+/// Validate timestamp_offset constraints for TimestampNoAllowedOffset.
+pub fn validate_timestamp_offset_TimestampNoAllowedOffset(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "timestamp") {
+    raise ConversionError::TypeMismatch(
+      path="TimestampNoAllowedOffset",
+      expected="timestamp",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  let ion_schema_codegen_allowed_offsets_TimestampNoAllowedOffset_0 : Array[
+    Int?,
+  ] = []
+  if !ion_schema_codegen_timestamp_offset_is_allowed(
+      value, ion_schema_codegen_allowed_offsets_TimestampNoAllowedOffset_0,
+    ) {
+    raise ConversionError::InvalidValue(
+      path="TimestampNoAllowedOffset",
+      constraint="timestamp_offset",
+      actual=ion_schema_codegen_timestamp_offset_text(value),
+    )
+  }
+}
+
+///|
+pub type TimestampOffsetArray = Array[TimestampKnownOffsets]
+
+///|
+/// Convert an Ion list to TimestampOffsetArray with element-level diagnostics.
+pub fn from_ion_TimestampOffsetArray(
+  value : @ion_model.IonValue,
+) -> TimestampOffsetArray raise ConversionError {
+  let type_path = "TimestampOffsetArray"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : TimestampOffsetArray = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=element_path)
+    }
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : TimestampKnownOffsets = match element.without_annotations() {
+      @ion_model.IonValue::Timestamp(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="timestamp",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    let ion_schema_codegen_allowed_offsets_TimestampKnownOffsets_0 : Array[Int?] = [
+      Some(330),
+      Some(-240),
+    ]
+    if !ion_schema_codegen_timestamp_offset_is_allowed(
+        element, ion_schema_codegen_allowed_offsets_TimestampKnownOffsets_0,
+      ) {
+      raise ConversionError::InvalidValue(
+        path=element_path,
+        constraint="timestamp_offset",
+        actual=ion_schema_codegen_timestamp_offset_text(element),
+      )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert TimestampOffsetArray into an Ion list.
+pub fn to_ion_TimestampOffsetArray(
+  items : TimestampOffsetArray,
+) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(@ion_model.IonValue::Timestamp(element))
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct TimestampOffsetRecord {
+  value : TimestampKnownOffsets
+}
+
+///|
+/// Convert an Ion struct to TimestampOffsetRecord with field-level diagnostics.
+pub fn TimestampOffsetRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> TimestampOffsetRecord raise ConversionError {
+  let type_path = "TimestampOffsetRecord"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "value" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="TimestampOffsetRecord.value",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="TimestampOffsetRecord." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="TimestampOffsetRecord.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : TimestampKnownOffsets = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "TimestampOffsetRecord.value"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : TimestampKnownOffsets = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Timestamp(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="timestamp",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      let ion_schema_codegen_allowed_offsets_TimestampKnownOffsets_0 : Array[
+        Int?,
+      ] = [Some(330), Some(-240)]
+      if !ion_schema_codegen_timestamp_offset_is_allowed(
+          field_value, ion_schema_codegen_allowed_offsets_TimestampKnownOffsets_0,
+        ) {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="timestamp_offset",
+          actual=ion_schema_codegen_timestamp_offset_text(field_value),
+        )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="TimestampOffsetRecord.value",
+      )
+  }
+  { value: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert TimestampOffsetRecord into an Ion struct in schema field order.
+pub fn TimestampOffsetRecord::to_ion(
+  self : TimestampOffsetRecord,
 ) -> @ion_model.IonValue {
   let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
   output_fields.push(

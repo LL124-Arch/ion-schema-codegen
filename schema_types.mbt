@@ -77,6 +77,7 @@ priv struct NamedType {
   precision_ranges : Array[IntegerRange]
   exponent_ranges : Array[IntegerRange]
   timestamp_precision_ranges : Array[IntegerRange]
+  timestamp_offsets : Array[Array[Int?]]
   container_lengths : Array[IntegerRange]
   codepoint_lengths : Array[IntegerRange]
   utf8_byte_lengths : Array[IntegerRange]

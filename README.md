@@ -13,6 +13,7 @@
 - `contains` 支持 list、sexp、struct 和 document 按任意顺序包含给定 Ion 值；匹配比较注解，重复的期望值不增加要求，缺失值错误包含容器路径与 Ion 表示。
 - Decimal `precision` 支持未缩放 coefficient 的精确位数与整数范围；按 Decimal 数据模型计数，不含符号和 exponent，零按一位处理。`exponent` 支持含负数的精确值及范围，直接读取 Decimal 数据模型。两项约束都会沿别名传播到字段和列表元素转换，并拒绝 typed null。
 - `timestamp_precision` 支持 `year`、`month`、`day`、`minute`、`second`、`millisecond`、`microsecond` 和 `nanosecond` 精确值及范围，包含 `min` / `max`、`exclusive::` 与秒以下的小数精度；按时间戳数据模型中的小数位数校验。
+- `timestamp_offset` 支持 `±hh:mm` 集合，`+00:00` 与 `Z` 等价，`-00:00` 表示未知偏移；非法格式和越界小时/分钟会在 Schema 解析阶段报错。
 - `element` 支持 list、sexp、document 和 struct 中每个值的类型约束；`distinct::T` 会按 Ion 值等价语义（含注解）拒绝容器中的重复值。struct 可与 `fields` 组合，也可仅用 `element` 校验并保留开放字段。
 - 列表元素支持受支持标量或同一 Schema 命名类型；sexp、document 和 struct 元素按输入顺序逐项校验并在错误路径中标明位置。
 - `ordered_elements` 支持 list、sexp 和 document 的异质顺序约束，包含 required、optional、固定次数和整数范围 `occurs`；回溯匹配完整消费序列，并以 `Array[@ion_model.IonValue]` 保存原始值。
@@ -27,7 +28,7 @@
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
-项目不实现完整的 Ion Schema 校验器。程序化库 API 仍只接收单个 Schema；包含 imports 的文件请使用 native CLI。递归类型、正则、时间戳 offset、浮点格式、注解和类型代数等约束会显式报错。inline type definition 仍不支持。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
+项目不实现完整的 Ion Schema 校验器。程序化库 API 仍只接收单个 Schema；包含 imports 的文件请使用 native CLI。递归类型、正则、浮点格式、注解和类型代数等约束会显式报错。inline type definition 仍不支持。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
 
 ## 安装与检查
 

@@ -127,6 +127,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let precision_fields = value.get_fields("precision")
   let exponent_fields = value.get_fields("exponent")
   let timestamp_precision_fields = value.get_fields("timestamp_precision")
+  let timestamp_offset_fields = value.get_fields("timestamp_offset")
   let container_length_fields = value.get_fields("container_length")
   let codepoint_length_fields = value.get_fields("codepoint_length")
   let utf8_byte_length_fields = value.get_fields("utf8_byte_length")
@@ -220,6 +221,9 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let timestamp_precision_ranges = parse_timestamp_precision_fields(
     timestamp_precision_fields, name,
   )
+  let timestamp_offsets = parse_timestamp_offset_fields(
+    timestamp_offset_fields, name,
+  )
 
   let body = match base_name {
     "struct" => {
@@ -294,6 +298,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     precision_ranges,
     exponent_ranges,
     timestamp_precision_ranges,
+    timestamp_offsets,
     container_lengths,
     codepoint_lengths,
     utf8_byte_lengths,
@@ -543,6 +548,96 @@ fn timestamp_precision_rank(
         "unknown timestamp_precision value " + name + " at " + context,
       )
   }
+}
+
+///|
+fn parse_timestamp_offset_fields(
+  values : Array[@model.IonValue],
+  type_name : String,
+) -> Array[Array[Int?]] raise SchemaError {
+  let constraints : Array[Array[Int?]] = []
+  for value in values {
+    let context = "timestamp_offset at type " + type_name
+    if value.annotations().length() > 0 {
+      raise SchemaError::InvalidSchema(
+        "timestamp_offset must be an unannotated list at " + context,
+      )
+    }
+    let values = match value.without_annotations() {
+      @model.IonValue::List(values) => values
+      _ =>
+        raise SchemaError::InvalidSchema(
+          "timestamp_offset must be a list of offset strings at " + context,
+        )
+    }
+    let offsets : Array[Int?] = []
+    for value in values {
+      if value.annotations().length() > 0 {
+        raise SchemaError::InvalidSchema(
+          "timestamp_offset entries must be unannotated strings at " + context,
+        )
+      }
+      let text = match value.without_annotations() {
+        @model.IonValue::String(text) => text
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "timestamp_offset entries must be strings at " + context,
+          )
+      }
+      offsets.push(parse_timestamp_offset_text(text, context))
+    }
+    constraints.push(offsets)
+  }
+  constraints
+}
+
+///|
+fn parse_timestamp_offset_text(
+  text : String,
+  context : String,
+) -> Int? raise SchemaError {
+  let characters : Array[Char] = []
+  for character in text {
+    characters.push(character)
+  }
+  if characters.length() != 6 || characters[3] != ':' {
+    raise SchemaError::InvalidSchema(
+      "timestamp_offset must use [+|-]hh:mm form at " + context,
+    )
+  }
+  if characters[0] != '+' && characters[0] != '-' {
+    raise SchemaError::InvalidSchema(
+      "timestamp_offset must begin with + or - at " + context,
+    )
+  }
+  let hour = timestamp_offset_pair(characters[1], characters[2], context)
+  let minute = timestamp_offset_pair(characters[4], characters[5], context)
+  if hour > 23 || minute > 59 {
+    raise SchemaError::InvalidSchema(
+      "timestamp_offset hour must be 00–23 and minute 00–59 at " + context,
+    )
+  }
+  if characters[0] == '-' && hour == 0 && minute == 0 {
+    return None
+  }
+  let absolute_minutes = hour * 60 + minute
+  Some(if characters[0] == '-' { -absolute_minutes } else { absolute_minutes })
+}
+
+///|
+fn timestamp_offset_pair(
+  tens : Char,
+  ones : Char,
+  context : String,
+) -> Int raise SchemaError {
+  let tens_value = tens.to_int() - '0'.to_int()
+  let ones_value = ones.to_int() - '0'.to_int()
+  if tens_value < 0 || tens_value > 9 || ones_value < 0 || ones_value > 9 {
+    raise SchemaError::InvalidSchema(
+      "timestamp_offset must contain decimal digits at " + context,
+    )
+  }
+  tens_value * 10 + ones_value
 }
 
 ///|
@@ -1193,8 +1288,8 @@ fn validate_type_definition_fields(
     value,
     [
       "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
-      "contains", "precision", "exponent", "timestamp_precision", "container_length",
-      "codepoint_length", "utf8_byte_length", "byte_length",
+      "contains", "precision", "exponent", "timestamp_precision", "timestamp_offset",
+      "container_length", "codepoint_length", "utf8_byte_length", "byte_length",
     ],
     "type \{type_name}",
   )
@@ -1534,10 +1629,13 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
         named_type.name,
       )
     }
-    if named_type.timestamp_precision_ranges.length() > 0 &&
+    if (
+        named_type.timestamp_precision_ranges.length() > 0 ||
+        named_type.timestamp_offsets.length() > 0
+      ) &&
       !supports_timestamp_constraints(types, named_type.body) {
       raise SchemaError::UnsupportedFeature(
-        "timestamp_precision applies only to timestamp values at type " +
+        "timestamp_precision and timestamp_offset apply only to timestamp values at type " +
         named_type.name,
       )
     }

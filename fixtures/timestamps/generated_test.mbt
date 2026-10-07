@@ -30,6 +30,23 @@ fn timestamp_value(
 }
 
 ///|
+fn timestamp_with_offset(offset_minutes : Int?) -> @ion_model.IonValue {
+  @ion_model.IonValue::Timestamp(
+    @ion_model.IonTimestamp::new(
+      year=2000,
+      month=Some(1),
+      day=Some(1),
+      hour=Some(12),
+      minute=Some(34),
+      second=Some(56),
+      offset_minutes~,
+      fraction_exponent=None,
+      fraction_coefficient=None,
+    ),
+  )
+}
+
+///|
 fn timestamp_precision_error(
   validate : (@ion_model.IonValue) -> Unit raise @timestamps.ConversionError,
   value : @ion_model.IonValue,
@@ -193,6 +210,81 @@ test "timestamp precision ranges compare fractional seconds between named levels
     @timestamps.ConversionError::InvalidValue(path~, constraint~, ..) => {
       assert_eq(path, "TimestampRangeRecord.value")
       assert_eq(constraint, "timestamp_precision")
+    }
+    _ => assert_true(false)
+  } noraise {
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "timestamp offset constraints distinguish UTC from unknown local offset" {
+  @timestamps.validate_timestamp_offset_TimestampUtc(
+    timestamp_with_offset(Some(0)),
+  )
+  @timestamps.validate_timestamp_offset_TimestampUnknownOffset(
+    timestamp_with_offset(None),
+  )
+  @timestamps.validate_timestamp_offset_TimestampKnownOffsets(
+    timestamp_with_offset(Some(330)),
+  )
+  @timestamps.validate_timestamp_offset_TimestampKnownOffsets(
+    timestamp_with_offset(Some(-240)),
+  )
+  @timestamps.validate_timestamp_offset_TimestampOffsetAlias(
+    timestamp_with_offset(Some(0)),
+  )
+
+  assert_eq(
+    timestamp_precision_error(
+      @timestamps.validate_timestamp_offset_TimestampUtc,
+      timestamp_with_offset(Some(60)),
+    ),
+    ("TimestampUtc", "timestamp_offset", "+01:00"),
+  )
+  assert_eq(
+    timestamp_precision_error(
+      @timestamps.validate_timestamp_offset_TimestampUnknownOffset,
+      timestamp_with_offset(Some(0)),
+    ),
+    ("TimestampUnknownOffset", "timestamp_offset", "Z"),
+  )
+  assert_eq(
+    timestamp_precision_error(
+      @timestamps.validate_timestamp_offset_TimestampNoAllowedOffset,
+      timestamp_with_offset(None),
+    ),
+    ("TimestampNoAllowedOffset", "timestamp_offset", "-00:00"),
+  )
+
+  let invalid_field = @ion_model.IonValue::Struct([
+    (@ion_model.IonSymbol::from_text("value"), timestamp_with_offset(Some(60))),
+  ])
+  try {
+    ignore(@timestamps.TimestampOffsetRecord::from_ion(invalid_field))
+    assert_true(false)
+  } catch {
+    @timestamps.ConversionError::InvalidValue(path~, constraint~, actual~) => {
+      assert_eq(path, "TimestampOffsetRecord.value")
+      assert_eq(constraint, "timestamp_offset")
+      assert_eq(actual, "+01:00")
+    }
+    _ => assert_true(false)
+  } noraise {
+    _ => assert_true(false)
+  }
+
+  try {
+    ignore(
+      @timestamps.from_ion_TimestampOffsetArray(
+        @ion_model.IonValue::List([timestamp_with_offset(Some(60))]),
+      ),
+    )
+    assert_true(false)
+  } catch {
+    @timestamps.ConversionError::InvalidValue(path~, constraint~, ..) => {
+      assert_eq(path, "TimestampOffsetArray[0]")
+      assert_eq(constraint, "timestamp_offset")
     }
     _ => assert_true(false)
   } noraise {

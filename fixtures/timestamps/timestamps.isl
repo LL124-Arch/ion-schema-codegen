@@ -13,3 +13,10 @@ type::{name: TimestampArray, type: list, element: TimestampMillisecond}
 type::{name: TimestampRecord, type: struct, fields: closed::{value: {type: TimestampMicrosecond, occurs: required}}}
 type::{name: TimestampRangeArray, type: list, element: TimestampFractionAlias}
 type::{name: TimestampRangeRecord, type: struct, fields: closed::{value: {type: TimestampFractionAlias, occurs: required}}}
+type::{name: TimestampUtc, type: timestamp, timestamp_offset: ["+00:00"]}
+type::{name: TimestampUnknownOffset, type: timestamp, timestamp_offset: ["-00:00"]}
+type::{name: TimestampKnownOffsets, type: timestamp, timestamp_offset: ["+05:30", "-04:00"]}
+type::{name: TimestampOffsetAlias, type: TimestampUtc, timestamp_offset: ["+00:00"]}
+type::{name: TimestampNoAllowedOffset, type: timestamp, timestamp_offset: []}
+type::{name: TimestampOffsetArray, type: list, element: TimestampKnownOffsets}
+type::{name: TimestampOffsetRecord, type: struct, fields: closed::{value: {type: TimestampKnownOffsets, occurs: required}}}

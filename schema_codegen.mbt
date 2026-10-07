@@ -77,6 +77,10 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
       output.write_string("\n")
       write_timestamp_precision_helper(output)
     }
+    if has_timestamp_offset_constraints(schema.types) {
+      output.write_string("\n")
+      write_timestamp_offset_helpers(output)
+    }
     let has_distinct_elements = has_distinct_element_constraints(schema.types)
     let has_distinct_field_names = has_distinct_field_names_constraints(
       schema.types,
@@ -138,6 +142,10 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
         named_type,
         schema.types,
       )
+    }
+    if named_type.timestamp_offsets.length() > 0 {
+      output.write_string("\n")
+      write_named_timestamp_offset_validator(output, named_type, schema.types)
     }
     match named_type.body {
       TypeBody::Struct(fields, is_open) => {
@@ -2965,6 +2973,7 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
       named_type.precision_ranges.length() > 0 ||
       named_type.exponent_ranges.length() > 0 ||
       named_type.timestamp_precision_ranges.length() > 0 ||
+      named_type.timestamp_offsets.length() > 0 ||
       named_type.container_lengths.length() > 0 ||
       named_type.element_type is Some(_) ||
       has_named_contains_values(named_type) ||
