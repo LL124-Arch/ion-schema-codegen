@@ -14,11 +14,13 @@ jobs:
       - run: moon test --deny-warn --target all ./fixtures/constraints
       - run: moon test --deny-warn --target all ./fixtures/contains
       - run: moon test --deny-warn --target all ./fixtures/precision
+      - run: moon test --deny-warn --target all ./fixtures/timestamps
       - run: moon run --target native ./cli fixtures/precision/precision.isl fixtures/precision/generated.mbt
+      - run: moon run --target native ./cli fixtures/timestamps/timestamps.isl fixtures/timestamps/generated.mbt
       - run: moon run --target native ./cli fixtures/contains/contains.isl fixtures/contains/generated.mbt
       - run: moon run --target native ./cli fixtures/constraints/constraints.isl fixtures/constraints/generated.mbt
       - run: moon run --target native ./cli fixtures/references/references.isl fixtures/references/generated.mbt
       - run: moon run --target native ./cli examples/person/person.isl examples/person/generated.mbt
       - run: moon fmt
-      - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt fixtures/constraints/generated.mbt fixtures/contains/generated.mbt fixtures/precision/generated.mbt
+      - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt fixtures/constraints/generated.mbt fixtures/contains/generated.mbt fixtures/precision/generated.mbt fixtures/timestamps/generated.mbt
       - run: moon run --target native ./examples/person

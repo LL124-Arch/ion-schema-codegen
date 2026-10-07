@@ -76,6 +76,7 @@ priv struct NamedType {
   valid_values : Array[@model.IonValue]?
   precision_ranges : Array[IntegerRange]
   exponent_ranges : Array[IntegerRange]
+  timestamp_precision_ranges : Array[IntegerRange]
   container_lengths : Array[IntegerRange]
   codepoint_lengths : Array[IntegerRange]
   utf8_byte_lengths : Array[IntegerRange]

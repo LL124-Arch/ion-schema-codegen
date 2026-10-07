@@ -75,6 +75,40 @@ test "parse signed Decimal exponent constraints" {
 }
 
 ///|
+test "parse exact timestamp precision and reject non-timestamp use" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: YearValue, type: timestamp, timestamp_precision: year} type::{name: FractionValue, type: timestamp, timestamp_precision: microsecond} type::{name: TimestampAlias, type: YearValue, timestamp_precision: day}",
+  )
+  let unsupported_range = expect_schema_error(
+    "$ion_schema_2_0 type::{name: TimestampValue, type: timestamp, timestamp_precision: range::[second, nanosecond]}",
+  )
+  assert_true(
+    match unsupported_range {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+  let invalid_precision = expect_schema_error(
+    "$ion_schema_2_0 type::{name: TimestampValue, type: timestamp, timestamp_precision: fortnight}",
+  )
+  assert_true(
+    match invalid_precision {
+      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+      _ => false
+    },
+  )
+  let non_timestamp = expect_schema_error(
+    "$ion_schema_2_0 type::{name: IntegerValue, type: int, timestamp_precision: year}",
+  )
+  assert_true(
+    match non_timestamp {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "accept non-null any and nullable universal any" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: AnyValue, type: any}",

@@ -126,6 +126,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let valid_values_fields = value.get_fields("valid_values")
   let precision_fields = value.get_fields("precision")
   let exponent_fields = value.get_fields("exponent")
+  let timestamp_precision_fields = value.get_fields("timestamp_precision")
   let container_length_fields = value.get_fields("container_length")
   let codepoint_length_fields = value.get_fields("codepoint_length")
   let utf8_byte_length_fields = value.get_fields("utf8_byte_length")
@@ -216,6 +217,9 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let exponent_ranges = parse_decimal_constraint_fields(
     exponent_fields, "exponent", name,
   )
+  let timestamp_precision_ranges = parse_timestamp_precision_fields(
+    timestamp_precision_fields, name,
+  )
 
   let body = match base_name {
     "struct" => {
@@ -289,6 +293,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     valid_values,
     precision_ranges,
     exponent_ranges,
+    timestamp_precision_ranges,
     container_lengths,
     codepoint_lengths,
     utf8_byte_lengths,
@@ -366,6 +371,57 @@ fn parse_decimal_constraint_fields(
         constraint == "precision",
       ),
     )
+  }
+  ranges
+}
+
+///|
+fn parse_timestamp_precision_fields(
+  values : Array[@model.IonValue],
+  type_name : String,
+) -> Array[IntegerRange] raise SchemaError {
+  let ranges : Array[IntegerRange] = []
+  for value in values {
+    if value.annotations().length() > 0 {
+      raise SchemaError::UnsupportedFeature(
+        "timestamp_precision range syntax is not supported yet at type " +
+        type_name,
+      )
+    }
+    let precision_name = match value.without_annotations() {
+      @model.IonValue::Symbol(symbol) =>
+        match symbol.text_value() {
+          Some(text) => text
+          None =>
+            raise SchemaError::InvalidSchema(
+              "timestamp_precision must use a resolved symbol at type " +
+              type_name,
+            )
+        }
+      _ =>
+        raise SchemaError::InvalidSchema(
+          "timestamp_precision must be one of the precision symbols at type " +
+          type_name,
+        )
+    }
+    let rank = match precision_name {
+      "year" => 0
+      "month" => 3
+      "day" => 6
+      "minute" => 9
+      "second" => 12
+      "millisecond" => 15
+      "microsecond" => 18
+      "nanosecond" => 21
+      _ =>
+        raise SchemaError::InvalidSchema(
+          "unknown timestamp_precision value " +
+          precision_name +
+          " at type " +
+          type_name,
+        )
+    }
+    ranges.push({ minimum: rank, maximum: Some(rank), })
   }
   ranges
 }
@@ -1018,8 +1074,8 @@ fn validate_type_definition_fields(
     value,
     [
       "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
-      "contains", "precision", "exponent", "container_length", "codepoint_length",
-      "utf8_byte_length", "byte_length",
+      "contains", "precision", "exponent", "timestamp_precision", "container_length",
+      "codepoint_length", "utf8_byte_length", "byte_length",
     ],
     "type \{type_name}",
   )
@@ -1252,6 +1308,23 @@ fn supports_decimal_constraints(
 }
 
 ///|
+fn supports_timestamp_constraints(
+  types : Array[NamedType],
+  body : TypeBody,
+) -> Bool raise SchemaError {
+  match body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match resolve_type_ref(types, type_ref) {
+        ResolvedType::Scalar("timestamp" | "$timestamp") => true
+        ResolvedType::Scalar(_)
+        | ResolvedType::Struct(_)
+        | ResolvedType::List(_) => false
+      }
+    TypeBody::Struct(_, _) | TypeBody::List(_) => false
+  }
+}
+
+///|
 fn supports_ordered_elements(
   types : Array[NamedType],
   named_type : NamedType,
@@ -1339,6 +1412,13 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
       !supports_decimal_constraints(types, named_type.body) {
       raise SchemaError::UnsupportedFeature(
         "precision and exponent apply only to decimal values at type " +
+        named_type.name,
+      )
+    }
+    if named_type.timestamp_precision_ranges.length() > 0 &&
+      !supports_timestamp_constraints(types, named_type.body) {
+      raise SchemaError::UnsupportedFeature(
+        "timestamp_precision applies only to timestamp values at type " +
         named_type.name,
       )
     }
