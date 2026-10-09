@@ -11,7 +11,7 @@
 
 name = "LL124-Arch/ion-schema-codegen"
 
-version = "0.39.0"
+version = "0.40.0"
 
 readme = "README.md"
 

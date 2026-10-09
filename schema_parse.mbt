@@ -444,52 +444,44 @@ fn inline_type_definition_supported(
         | "codepoint_length"
         | "utf8_byte_length"
         | "byte_length"
+        | "element"
+        | "contains"
+        | "ordered_elements"
+        | "container_length"
       ) => ()
       _ => return false
     }
   }
-  match body {
-    TypeBody::Scalar(_) => ()
-    TypeBody::Alias(_) | TypeBody::Struct(_, _) | TypeBody::List(_) =>
-      return false
-  }
-  element_type is None &&
-  field_names_type is None &&
-  ordered_elements is None &&
-  contains_values is None &&
-  (precision_ranges.length() > 0 || value.get_fields("precision").length() == 0) &&
-  (exponent_ranges.length() > 0 || value.get_fields("exponent").length() == 0) &&
-  (
+  let has_scalar_constraints = precision_ranges.length() > 0 ||
+    exponent_ranges.length() > 0 ||
     timestamp_precision_ranges.length() > 0 ||
-    value.get_fields("timestamp_precision").length() == 0
-  ) &&
-  (
     timestamp_offsets.length() > 0 ||
-    value.get_fields("timestamp_offset").length() == 0
-  ) &&
-  (
     ieee754_float_formats.length() > 0 ||
-    value.get_fields("ieee754_float").length() == 0
-  ) &&
-  (regex_constraints.length() > 0 || value.get_fields("regex").length() == 0) &&
-  (
+    regex_constraints.length() > 0 ||
     annotation_constraints.length() > 0 ||
-    value.get_fields("annotations").length() == 0
-  ) &&
-  container_lengths.length() == 0 &&
-  (
     codepoint_lengths.length() > 0 ||
-    value.get_fields("codepoint_length").length() == 0
-  ) &&
-  (
     utf8_byte_lengths.length() > 0 ||
-    value.get_fields("utf8_byte_length").length() == 0
-  ) &&
-  (byte_lengths.length() > 0 || value.get_fields("byte_length").length() == 0) &&
-  all_of.length() == 0 &&
-  any_of.length() == 0 &&
-  one_of.length() == 0 &&
-  not_constraints.length() == 0
+    byte_lengths.length() > 0 ||
+    value.get_fields("valid_values").length() > 0
+  let has_type_algebra = all_of.length() > 0 ||
+    any_of.length() > 0 ||
+    one_of.length() > 0 ||
+    not_constraints.length() > 0
+  match body {
+    TypeBody::Scalar(_) =>
+      !has_type_algebra &&
+      element_type is None &&
+      field_names_type is None &&
+      ordered_elements is None &&
+      contains_values is None &&
+      container_lengths.length() == 0
+    TypeBody::List(_) =>
+      !has_type_algebra &&
+      !has_scalar_constraints &&
+      value.get_fields("fields").length() == 0 &&
+      field_names_type is None
+    TypeBody::Alias(_) | TypeBody::Struct(_, _) => false
+  }
 }
 
 ///|

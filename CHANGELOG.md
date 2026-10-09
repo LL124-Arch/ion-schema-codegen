@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.40.0 — 2026-10-10
+
+- 类型代数 inline type definition 支持 `type: list` 与元素类型、长度和包含约束；matcher 通过 package-private 转换代码验证列表内容。
+- Inline list 的生成模型和转换函数不会成为调用方可见的公开 API。
+
 ## 0.39.0 — 2026-10-09
 
 - Native CLI 会递归加载类型代数中的 inline imports，并将 `{id, type}` 参数改写为导入 Schema 中的实际类型；支持 `$null_or` 包裹和 all/any/one/not 四种组合。

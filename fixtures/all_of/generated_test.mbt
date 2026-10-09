@@ -56,6 +56,24 @@ test "all_of accepts anonymous scalar definitions without exposing a type" {
 }
 
 ///|
+test "all_of validates inline list definitions" {
+  @all_of.validate_type_InlineIntList(
+    @ion_model.IonValue::List([integer(2), integer(4)]),
+  )
+  for
+    invalid in [
+      @ion_model.IonValue::String("not a list"),
+      @ion_model.IonValue::List([]),
+      @ion_model.IonValue::List([integer(2), @ion_model.IonValue::String("x")]),
+    ] {
+    assert_eq(
+      all_of_error(@all_of.validate_type_InlineIntList, invalid),
+      ("InlineIntList", "all_of"),
+    )
+  }
+}
+
+///|
 test "nullable inline definitions accept only plain null or a matching value" {
   let plain_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Null)
   let typed_int_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Int)

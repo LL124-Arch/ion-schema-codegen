@@ -875,3 +875,95 @@ pub fn validate_type_MaybeInlineEven(
     )
   }
 }
+
+///|
+type IonSchemaCodegenInternalInline12 = Array[@bigint.BigInt]
+
+///|
+/// Convert an Ion list to IonSchemaCodegenInternalInline12 with element-level diagnostics.
+fn from_ion_IonSchemaCodegenInternalInline12(
+  value : @ion_model.IonValue,
+) -> IonSchemaCodegenInternalInline12 raise ConversionError {
+  let type_path = "ion_schema_codegen_internal_inline_12"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  if input_elements.length() < 1 || input_elements.length() > 3 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=input_elements.length().to_string(),
+    )
+  }
+  let converted : IonSchemaCodegenInternalInline12 = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=element_path)
+    }
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : @bigint.BigInt = match element.without_annotations() {
+      @ion_model.IonValue::Int(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="int",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline12(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    ignore(from_ion_IonSchemaCodegenInternalInline12(value))
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineIntList = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineIntList.
+pub fn validate_type_InlineIntList(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineIntList",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline12(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineIntList",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}

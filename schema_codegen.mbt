@@ -145,6 +145,23 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
   let mut first_type = true
   for named_type in ordered_types {
     if named_type.is_inline {
+      match named_type.body {
+        TypeBody::List(element_type) => {
+          write_named_type(output, named_type, schema.types)
+          if named_type.ordered_elements is Some(_) {
+            write_ordered_list_conversions(output, named_type, schema.types)
+          } else {
+            write_list_conversions(
+              output,
+              named_type,
+              element_type,
+              schema.types,
+            )
+          }
+          output.write_string("\n")
+        }
+        TypeBody::Scalar(_) | TypeBody::Alias(_) | TypeBody::Struct(_, _) => ()
+      }
       if named_type.valid_values is Some(_) {
         write_named_valid_values(output, named_type, schema.types)
         output.write_string("\n")
@@ -426,9 +443,10 @@ fn write_named_type(
 ) -> Unit raise SchemaError {
   output.write_string("///|\n")
   let generated_name = moonbit_type_identifier(named_type.name)
+  let type_visibility = if named_type.is_inline { "type " } else { "pub type " }
   match named_type.body {
     TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) => {
-      output.write_string("pub type ")
+      output.write_string(type_visibility)
       output.write_string(generated_name)
       output.write_string(" = ")
       let resolves_to_list = match resolve_type_ref(types, type_ref) {
@@ -449,7 +467,13 @@ fn write_named_type(
       output.write_string("\n")
     }
     TypeBody::Struct(fields, is_open) => {
-      output.write_string("pub(all) struct ")
+      output.write_string(
+        if named_type.is_inline {
+          "struct "
+        } else {
+          "pub(all) struct "
+        },
+      )
       output.write_string(generated_name)
       if fields.length() == 0 && !is_open {
         output.write_string(" {}\n")
@@ -490,7 +514,7 @@ fn write_named_type(
       output.write_string("}\n")
     }
     TypeBody::List(element_type) => {
-      output.write_string("pub type ")
+      output.write_string(type_visibility)
       output.write_string(generated_name)
       if named_type.ordered_elements is Some(_) {
         output.write_string(" = Array[@ion_model.IonValue]\n")
@@ -1435,7 +1459,7 @@ fn write_ion_type_helpers(
 ///|
 fn has_container_length_constraints(types : Array[NamedType]) -> Bool {
   for named_type in types {
-    if named_type.container_lengths.length() > 0 {
+    if named_type.container_lengths.length() > 0 && !named_type.is_inline {
       return true
     }
   }
@@ -1600,9 +1624,11 @@ fn write_struct_conversions(
   types : Array[NamedType],
 ) -> Unit raise SchemaError {
   let name = moonbit_type_identifier(named_type.name)
+  let visibility = if named_type.is_inline { "fn " } else { "pub fn " }
   output.write_string("///|\n/// Convert an Ion struct to ")
   output.write_string(name)
-  output.write_string(" with field-level diagnostics.\npub fn ")
+  output.write_string(" with field-level diagnostics.\n")
+  output.write_string(visibility)
   output.write_string(name)
   output.write_string("::from_ion(\n  value : @ion_model.IonValue,\n) -> ")
   output.write_string(name)
@@ -1877,53 +1903,56 @@ fn write_struct_conversions(
     output.write_string("  ")
   }
   output.write_string("}\n}\n\n")
-  output.write_string("///|\n/// Convert ")
-  output.write_string(name)
-  output.write_string(" into an Ion struct in schema field order.\npub fn ")
-  output.write_string(name)
-  output.write_string("::to_ion(self : ")
-  output.write_string(name)
-  output.write_string(
-    ") -> @ion_model.IonValue {\n  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []\n",
-  )
-  for field in fields {
-    let identifier = moonbit_field_identifier(
-      field.name,
-      "field \{named_type.name}.\{field.name}",
+  if !named_type.is_inline {
+    output.write_string("///|\n/// Convert ")
+    output.write_string(name)
+    output.write_string(" into an Ion struct in schema field order.\n")
+    output.write_string(visibility)
+    output.write_string(name)
+    output.write_string("::to_ion(self : ")
+    output.write_string(name)
+    output.write_string(
+      ") -> @ion_model.IonValue {\n  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []\n",
     )
-    if is_repeated_field(field.occurrence) {
-      output.write_string("  for field_value in self.")
-      output.write_string(identifier)
-      output.write_string(" {\n")
-      write_struct_field_push(
-        output, field, types, named_type, "    ", "field_value",
+    for field in fields {
+      let identifier = moonbit_field_identifier(
+        field.name,
+        "field \{named_type.name}.\{field.name}",
       )
-      output.write_string("  }\n")
-    } else if is_optional_field(field.occurrence) {
-      output.write_string("  match self.")
-      output.write_string(identifier)
-      output.write_string(" {\n    Some(field_value) => {\n")
-      write_struct_field_push(
-        output, field, types, named_type, "      ", "field_value",
-      )
-      output.write_string("    }\n    None => ()\n  }\n")
-    } else {
-      write_struct_field_push(
-        output,
-        field,
-        types,
-        named_type,
-        "  ",
-        "self." + identifier,
+      if is_repeated_field(field.occurrence) {
+        output.write_string("  for field_value in self.")
+        output.write_string(identifier)
+        output.write_string(" {\n")
+        write_struct_field_push(
+          output, field, types, named_type, "    ", "field_value",
+        )
+        output.write_string("  }\n")
+      } else if is_optional_field(field.occurrence) {
+        output.write_string("  match self.")
+        output.write_string(identifier)
+        output.write_string(" {\n    Some(field_value) => {\n")
+        write_struct_field_push(
+          output, field, types, named_type, "      ", "field_value",
+        )
+        output.write_string("    }\n    None => ()\n  }\n")
+      } else {
+        write_struct_field_push(
+          output,
+          field,
+          types,
+          named_type,
+          "  ",
+          "self." + identifier,
+        )
+      }
+    }
+    if is_open {
+      output.write_string(
+        "  for (field_symbol, field_value) in self.ion_schema_codegen_open_content {\n    output_fields.push((field_symbol, field_value))\n  }\n",
       )
     }
+    output.write_string("  @ion_model.IonValue::Struct(output_fields)\n}\n")
   }
-  if is_open {
-    output.write_string(
-      "  for (field_symbol, field_value) in self.ion_schema_codegen_open_content {\n    output_fields.push((field_symbol, field_value))\n  }\n",
-    )
-  }
-  output.write_string("  @ion_model.IonValue::Struct(output_fields)\n}\n")
 }
 
 ///|
@@ -1946,10 +1975,13 @@ fn write_ordered_list_conversions(
   types : Array[NamedType],
 ) -> Unit raise SchemaError {
   let generated_name = moonbit_type_identifier(named_type.name)
+  let visibility = if named_type.is_inline { "fn " } else { "pub fn " }
   output.write_string(
     "///|\n/// Convert an Ion list to " +
     generated_name +
-    " while validating its ordered elements.\npub fn from_ion_" +
+    " while validating its ordered elements.\n" +
+    visibility +
+    "from_ion_" +
     generated_name +
     "(\n  value : @ion_model.IonValue,\n) -> " +
     generated_name +
@@ -1970,15 +2002,19 @@ fn write_ordered_list_conversions(
     output, named_type, types, "value", "type_path", "  ",
   )
   output.write_string("  input_elements\n}\n\n")
-  output.write_string(
-    "///|\n/// Convert " +
-    generated_name +
-    " into an Ion list.\npub fn to_ion_" +
-    generated_name +
-    "(items : " +
-    generated_name +
-    ") -> @ion_model.IonValue {\n  @ion_model.IonValue::List(items)\n}\n",
-  )
+  if !named_type.is_inline {
+    output.write_string(
+      "///|\n/// Convert " +
+      generated_name +
+      " into an Ion list.\n" +
+      visibility +
+      "to_ion_" +
+      generated_name +
+      "(items : " +
+      generated_name +
+      ") -> @ion_model.IonValue {\n  @ion_model.IonValue::List(items)\n}\n",
+    )
+  }
 }
 
 ///|
@@ -2101,6 +2137,7 @@ fn write_list_conversions(
   types : Array[NamedType],
 ) -> Unit raise SchemaError {
   let generated_name = moonbit_type_identifier(named_type.name)
+  let visibility = if named_type.is_inline { "fn " } else { "pub fn " }
   let element_moonbit_type = moonbit_type_for_reference_in(
     element_type,
     types,
@@ -2115,7 +2152,8 @@ fn write_list_conversions(
     reference_has_valid_values(element_type, types)
   output.write_string("///|\n/// Convert an Ion list to ")
   output.write_string(generated_name)
-  output.write_string(" with element-level diagnostics.\npub fn ")
+  output.write_string(" with element-level diagnostics.\n")
+  output.write_string(visibility)
   output.write_string("from_ion_")
   output.write_string(generated_name)
   output.write_string("(\n  value : @ion_model.IonValue,\n) -> ")
@@ -2231,20 +2269,23 @@ fn write_list_conversions(
   )
   output.write_string("  converted\n}\n\n")
 
-  output.write_string("///|\n/// Convert ")
-  output.write_string(generated_name)
-  output.write_string(" into an Ion list.\npub fn ")
-  output.write_string("to_ion_")
-  output.write_string(generated_name)
-  output.write_string("(items : ")
-  output.write_string(generated_name)
-  output.write_string(
-    ") -> @ion_model.IonValue {\n  let output_elements : Array[@ion_model.IonValue] = []\n  for element in items {\n    output_elements.push(",
-  )
-  output.write_string(ion_value_expression(element_type, "element", types))
-  output.write_string(
-    ")\n  }\n  @ion_model.IonValue::List(output_elements)\n}\n",
-  )
+  if !named_type.is_inline {
+    output.write_string("///|\n/// Convert ")
+    output.write_string(generated_name)
+    output.write_string(" into an Ion list.\n")
+    output.write_string(visibility)
+    output.write_string("to_ion_")
+    output.write_string(generated_name)
+    output.write_string("(items : ")
+    output.write_string(generated_name)
+    output.write_string(
+      ") -> @ion_model.IonValue {\n  let output_elements : Array[@ion_model.IonValue] = []\n  for element in items {\n    output_elements.push(",
+    )
+    output.write_string(ion_value_expression(element_type, "element", types))
+    output.write_string(
+      ")\n  }\n  @ion_model.IonValue::List(output_elements)\n}\n",
+    )
+  }
 }
 
 ///|
