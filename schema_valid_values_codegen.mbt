@@ -230,7 +230,7 @@ fn write_named_valid_values_checks(
         output, named_type, value_expression, path_expression, indent,
       )
       write_named_annotation_checks(
-        output, named_type, value_expression, path_expression, indent,
+        output, named_type, types, value_expression, path_expression, indent,
       )
       write_named_type_algebra_checks(
         output, named_type, types, value_expression, path_expression, indent,

@@ -59,7 +59,7 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
       has_valid_values(schema.types) ||
       has_element_constraints(schema.types) ||
       has_ordered_elements(schema.types) ||
-      has_type_algebra_constraints(schema.types),
+      has_named_type_matcher_references(schema.types),
     )
     if has_container_length_constraints(schema.types) {
       output.write_string("\n")
@@ -278,6 +278,16 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
           )
         }
       None => ()
+    }
+    for constraint in named_type.annotation_constraints {
+      match constraint.standard_type_ref {
+        Some(type_ref) =>
+          validate_codegen_reference(
+            type_ref,
+            "annotations of \{named_type.name}",
+          )
+        None => ()
+      }
     }
 
     match named_type.body {
@@ -2946,6 +2956,13 @@ fn referenced_type_names(named_type : NamedType) -> Array[String] {
     match type_ref {
       TypeRef::Named(name) | TypeRef::NullOrNamed(name) => names.push(name)
       TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+    }
+  }
+  for constraint in named_type.annotation_constraints {
+    match constraint.standard_type_ref {
+      Some(TypeRef::Named(name) | TypeRef::NullOrNamed(name)) =>
+        names.push(name)
+      Some(TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_)) | None => ()
     }
   }
   names

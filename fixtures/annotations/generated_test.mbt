@@ -59,6 +59,22 @@ test "simple annotations support closed required and preserve raw values" {
 }
 
 ///|
+test "standard annotations can reference a named type" {
+  let value = @ion_model.IonValue::String("hello").with_annotations([
+    @ion_model.IonSymbol::from_text("record"),
+    @ion_model.IonSymbol::from_text("v1"),
+  ])
+  @annotations.validate_annotations_ExactlyTwoTagged(value)
+  assert_eq(
+    annotation_failure(
+      @annotations.validate_annotations_ExactlyTwoTagged,
+      value.with_annotations([@ion_model.IonSymbol::from_text("record")]),
+    ),
+    ("ExactlyTwoTagged", "annotations"),
+  )
+}
+
+///|
 test "annotation constraints propagate through aliases fields and lists" {
   try {
     ignore(

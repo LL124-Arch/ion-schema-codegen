@@ -93,6 +93,16 @@ fn ion_schema_codegen_matches_type(
 }
 
 ///|
+fn ion_schema_codegen_container_length(value : @ion_model.IonValue) -> Int? {
+  match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => Some(elements.length())
+    @ion_model.IonValue::Sexp(elements) => Some(elements.length())
+    @ion_model.IonValue::Struct(fields) => Some(fields.length())
+    _ => None
+  }
+}
+
+///|
 fn ion_schema_codegen_annotations_match(
   value : @ion_model.IonValue,
   allowed : Array[String],
@@ -182,6 +192,79 @@ pub fn validate_annotations_OpenTagged(
       path="OpenTagged",
       constraint="annotations",
       actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub type TwoAnnotationSymbols = @ion_model.IonValue
+
+///|
+fn ion_schema_codegen_matches_named_TwoAnnotationSymbols(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "$list") {
+      raise ConversionError::TypeMismatch(
+        path="TwoAnnotationSymbols",
+        expected="$list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    match ion_schema_codegen_container_length(value) {
+      Some(actual_length) =>
+        if actual_length < 2 || actual_length > 2 {
+          raise ConversionError::InvalidValue(
+            path="TwoAnnotationSymbols",
+            constraint="container_length",
+            actual=actual_length.to_string(),
+          )
+        }
+      None =>
+        raise ConversionError::InvalidValue(
+          path="TwoAnnotationSymbols",
+          constraint="container_length",
+          actual=ion_schema_codegen_actual_type(value),
+        )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type ExactlyTwoTagged = @ion_model.IonValue
+
+///|
+/// Validate annotations for ExactlyTwoTagged.
+pub fn validate_annotations_ExactlyTwoTagged(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="ExactlyTwoTagged",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  let ion_schema_codegen_annotations_ExactlyTwoTagged_0 : Array[
+    @ion_model.IonValue,
+  ] = []
+  for annotation in value.annotations() {
+    ion_schema_codegen_annotations_ExactlyTwoTagged_0.push(
+      @ion_model.IonValue::Symbol(annotation),
+    )
+  }
+  if !ion_schema_codegen_matches_named_TwoAnnotationSymbols(
+      @ion_model.IonValue::List(
+        ion_schema_codegen_annotations_ExactlyTwoTagged_0,
+      ),
+    ) {
+    raise ConversionError::InvalidValue(
+      path="ExactlyTwoTagged",
+      constraint="annotations",
+      actual="symbol list",
     )
   }
 }

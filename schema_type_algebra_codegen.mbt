@@ -12,6 +12,22 @@ fn has_type_algebra_constraints(types : Array[NamedType]) -> Bool {
 }
 
 ///|
+fn has_named_type_matcher_references(types : Array[NamedType]) -> Bool {
+  if has_type_algebra_constraints(types) {
+    return true
+  }
+  for named_type in types {
+    for constraint in named_type.annotation_constraints {
+      match constraint.standard_type_ref {
+        Some(TypeRef::Named(_) | TypeRef::NullOrNamed(_)) => return true
+        _ => ()
+      }
+    }
+  }
+  false
+}
+
+///|
 fn named_type_needs_algebra_matcher(
   name : String,
   types : Array[NamedType],
@@ -39,6 +55,13 @@ fn named_type_needs_algebra_matcher(
     for type_ref in named_type.not_constraints {
       if type_reference_names_target(type_ref, name) {
         return true
+      }
+    }
+    for constraint in named_type.annotation_constraints {
+      match constraint.standard_type_ref {
+        Some(type_ref) if type_reference_names_target(type_ref, name) =>
+          return true
+        _ => ()
       }
     }
   }
@@ -249,7 +272,7 @@ fn write_named_type_matcher(
   named_type : NamedType,
   types : Array[NamedType],
 ) -> Unit raise SchemaError {
-  if !has_type_algebra_constraints(types) {
+  if !has_named_type_matcher_references(types) {
     return
   }
   let generated_name = moonbit_type_identifier(named_type.name)

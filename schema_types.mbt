@@ -60,6 +60,7 @@ priv struct AnnotationConstraint {
   allowed : Array[String]
   closed : Bool
   required : Bool
+  standard_type_ref : TypeRef?
 }
 
 ///|

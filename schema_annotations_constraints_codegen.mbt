@@ -19,52 +19,104 @@ fn write_annotation_helper(output : StringBuilder) -> Unit {
 fn write_named_annotation_checks(
   output : StringBuilder,
   named_type : NamedType,
+  types : Array[NamedType],
   value_expression : String,
   path_expression : String,
   indent : String,
-) -> Unit {
+) -> Unit raise SchemaError {
+  let mut constraint_index = 0
   for constraint in named_type.annotation_constraints {
-    let allowed = StringBuilder()
-    allowed.write_char('[')
-    let mut first = true
-    for annotation in constraint.allowed {
-      if !first {
-        allowed.write_string(", ")
+    match constraint.standard_type_ref {
+      Some(type_ref) => {
+        let annotations_name = "ion_schema_codegen_annotations_" +
+          moonbit_type_identifier(named_type.name) +
+          "_" +
+          constraint_index.to_string()
+        let expression = type_reference_match_expression(
+          type_ref,
+          "@ion_model.IonValue::List(" + annotations_name + ")",
+          types,
+        )
+        output.write_string(
+          indent +
+          "let " +
+          annotations_name +
+          " : Array[@ion_model.IonValue] = []\n" +
+          indent +
+          "for annotation in " +
+          value_expression +
+          ".annotations() {\n" +
+          indent +
+          "  " +
+          annotations_name +
+          ".push(@ion_model.IonValue::Symbol(annotation))\n" +
+          indent +
+          "}\n" +
+          indent +
+          "if !(" +
+          expression +
+          ") {\n" +
+          indent +
+          "  raise ConversionError::InvalidValue(\n" +
+          indent +
+          "    path=" +
+          path_expression +
+          ",\n" +
+          indent +
+          "    constraint=\"annotations\",\n" +
+          indent +
+          "    actual=\"symbol list\",\n" +
+          indent +
+          "  )\n" +
+          indent +
+          "}\n",
+        )
       }
-      first = false
-      allowed.write_char('"')
-      allowed.write_string(moonbit_string_literal(annotation))
-      allowed.write_char('"')
+      None => {
+        let allowed = StringBuilder()
+        allowed.write_char('[')
+        let mut first = true
+        for annotation in constraint.allowed {
+          if !first {
+            allowed.write_string(", ")
+          }
+          first = false
+          allowed.write_char('"')
+          allowed.write_string(moonbit_string_literal(annotation))
+          allowed.write_char('"')
+        }
+        allowed.write_char(']')
+        output.write_string(
+          indent +
+          "if !ion_schema_codegen_annotations_match(" +
+          value_expression +
+          ", " +
+          allowed.to_string() +
+          ", " +
+          constraint.closed.to_string() +
+          ", " +
+          constraint.required.to_string() +
+          ") {\n" +
+          indent +
+          "  raise ConversionError::InvalidValue(\n" +
+          indent +
+          "    path=" +
+          path_expression +
+          ",\n" +
+          indent +
+          "    constraint=\"annotations\",\n" +
+          indent +
+          "    actual=ion_schema_codegen_actual_type(" +
+          value_expression +
+          "),\n" +
+          indent +
+          "  )\n" +
+          indent +
+          "}\n",
+        )
+      }
     }
-    allowed.write_char(']')
-    output.write_string(
-      indent +
-      "if !ion_schema_codegen_annotations_match(" +
-      value_expression +
-      ", " +
-      allowed.to_string() +
-      ", " +
-      constraint.closed.to_string() +
-      ", " +
-      constraint.required.to_string() +
-      ") {\n" +
-      indent +
-      "  raise ConversionError::InvalidValue(\n" +
-      indent +
-      "    path=" +
-      path_expression +
-      ",\n" +
-      indent +
-      "    constraint=\"annotations\",\n" +
-      indent +
-      "    actual=ion_schema_codegen_actual_type(" +
-      value_expression +
-      "),\n" +
-      indent +
-      "  )\n" +
-      indent +
-      "}\n",
-    )
+    constraint_index += 1
   }
 }
 
@@ -104,6 +156,7 @@ fn write_named_annotations_validator(
   write_named_annotation_checks(
     output,
     named_type,
+    types,
     "value",
     "\"" + moonbit_string_literal(named_type.name) + "\"",
     "  ",

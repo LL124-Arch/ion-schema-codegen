@@ -797,66 +797,84 @@ fn parse_annotation_fields(
   let constraints : Array[AnnotationConstraint] = []
   for value in values {
     let context = "annotations at type " + type_name
-    let mut closed = false
-    let mut required = false
-    for annotation in value.annotations() {
-      match annotation.text_value() {
-        Some("closed") if !closed => closed = true
-        Some("required") if !required => required = true
-        Some("closed" | "required") =>
-          raise SchemaError::InvalidSchema(
-            "annotations modifiers must not be repeated at " + context,
-          )
-        Some(modifier) =>
-          raise SchemaError::UnsupportedFeature(
-            "unsupported annotations modifier " + modifier + " at " + context,
-          )
-        None =>
-          raise SchemaError::InvalidSchema(
-            "annotations modifiers must be resolved symbols at " + context,
-          )
-      }
+    if has_annotation(value, "closed") || has_annotation(value, "required") {
+      constraints.push(parse_simple_annotation_constraint(value, context))
+    } else {
+      let type_ref = parse_logical_type_argument(value, context)
+      constraints.push({
+        allowed: [],
+        closed: false,
+        required: false,
+        standard_type_ref: Some(type_ref),
+      })
     }
-    if !closed && !required {
-      raise SchemaError::InvalidSchema(
-        "simple annotations must use closed and/or required at " + context,
-      )
-    }
-    let allowed_values = match value.without_annotations() {
-      @model.IonValue::List(values) => values
-      _ =>
-        raise SchemaError::InvalidSchema(
-          "simple annotations must be a list of symbols at " + context,
-        )
-    }
-    let allowed : Array[String] = []
-    for allowed_value in allowed_values {
-      if allowed_value.annotations().length() > 0 {
-        raise SchemaError::InvalidSchema(
-          "annotation symbols must be unannotated at " + context,
-        )
-      }
-      let symbol = match allowed_value.without_annotations() {
-        @model.IonValue::Symbol(symbol) =>
-          match symbol.text_value() {
-            Some(text) => text
-            None =>
-              raise SchemaError::InvalidSchema(
-                "annotation symbols must have text at " + context,
-              )
-          }
-        _ =>
-          raise SchemaError::InvalidSchema(
-            "simple annotations must contain only symbols at " + context,
-          )
-      }
-      if !contains_string(allowed, symbol) {
-        allowed.push(symbol)
-      }
-    }
-    constraints.push({ allowed, closed, required, })
   }
   constraints
+}
+
+///|
+fn parse_simple_annotation_constraint(
+  value : @model.IonValue,
+  context : String,
+) -> AnnotationConstraint raise SchemaError {
+  let mut closed = false
+  let mut required = false
+  for annotation in value.annotations() {
+    match annotation.text_value() {
+      Some("closed") if !closed => closed = true
+      Some("required") if !required => required = true
+      Some("closed" | "required") =>
+        raise SchemaError::InvalidSchema(
+          "annotations modifiers must not be repeated at " + context,
+        )
+      Some(modifier) =>
+        raise SchemaError::UnsupportedFeature(
+          "unsupported annotations modifier " + modifier + " at " + context,
+        )
+      None =>
+        raise SchemaError::InvalidSchema(
+          "annotations modifiers must be resolved symbols at " + context,
+        )
+    }
+  }
+  if !closed && !required {
+    raise SchemaError::InvalidSchema(
+      "simple annotations must use closed and/or required at " + context,
+    )
+  }
+  let allowed_values = match value.without_annotations() {
+    @model.IonValue::List(values) => values
+    _ =>
+      raise SchemaError::InvalidSchema(
+        "simple annotations must be a list of symbols at " + context,
+      )
+  }
+  let allowed : Array[String] = []
+  for allowed_value in allowed_values {
+    if allowed_value.annotations().length() > 0 {
+      raise SchemaError::InvalidSchema(
+        "annotation symbols must be unannotated at " + context,
+      )
+    }
+    let symbol = match allowed_value.without_annotations() {
+      @model.IonValue::Symbol(symbol) =>
+        match symbol.text_value() {
+          Some(text) => text
+          None =>
+            raise SchemaError::InvalidSchema(
+              "annotation symbols must have text at " + context,
+            )
+        }
+      _ =>
+        raise SchemaError::InvalidSchema(
+          "simple annotations must contain only symbols at " + context,
+        )
+    }
+    if !contains_string(allowed, symbol) {
+      allowed.push(symbol)
+    }
+  }
+  { allowed, closed, required, standard_type_ref: None, }
 }
 
 ///|
@@ -2108,6 +2126,17 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
         "annotations currently requires an IonValue-backed type at type " +
         named_type.name,
       )
+    }
+    for constraint in named_type.annotation_constraints {
+      match constraint.standard_type_ref {
+        Some(type_ref) =>
+          validate_type_reference(
+            types,
+            type_ref,
+            "annotations of " + named_type.name,
+          )
+        None => ()
+      }
     }
     if named_type.container_lengths.length() > 0 &&
       !supports_container_length(types, named_type.body) {
