@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.43.0 — 2026-10-10
+
+- 类型代数 inline containers 可在 list 元素、struct 字段中继续使用 inline type definitions，并保留 required/optional occurrence。
+- `$null_or` 可包装 inline list/struct；plain null 与容器 matcher 匹配值取并集，typed null 仍按具体类型匹配。
+
 ## 0.42.0 — 2026-10-10
 
 - 类型代数 inline definitions 可引用已有命名类型并叠加 `valid_values` 等受支持约束；匹配时同时验证别名目标和新增限制。

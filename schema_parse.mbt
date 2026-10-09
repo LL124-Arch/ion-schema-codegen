@@ -181,6 +181,8 @@ fn parse_named_type(
       let (type_ref, distinct) = parse_type_argument_with_distinct(
         element,
         "element of " + name,
+        types,
+        is_inline,
       )
       (Some(type_ref), distinct)
     }
@@ -204,6 +206,8 @@ fn parse_named_type(
       let (type_ref, distinct) = parse_type_argument_with_distinct(
         field_names,
         "field_names of " + name,
+        types,
+        is_inline,
       )
       (Some(type_ref), distinct)
     }
@@ -212,7 +216,9 @@ fn parse_named_type(
   let ordered_elements = match ordered_elements_fields {
     [] => None
     [ordered_value] =>
-      Some(parse_ordered_elements(ordered_value, "type " + name))
+      Some(
+        parse_ordered_elements(ordered_value, "type " + name, types, is_inline),
+      )
     _ => None
   }
   validate_type_definition_fields(
@@ -313,7 +319,8 @@ fn parse_named_type(
       }
       let (parsed_fields, is_open) = match fields {
         [] => ([], true)
-        [field_constraint] => parse_fields(name, field_constraint)
+        [field_constraint] =>
+          parse_fields(name, field_constraint, types, is_inline)
         _ => ([], true)
       }
       TypeBody::Struct(parsed_fields, is_open)
@@ -917,7 +924,9 @@ fn parse_annotation_fields(
     } else {
       match value.without_annotations() {
         @model.IonValue::Struct(_) =>
-          constraints.push(parse_standard_annotation_constraint(value, context))
+          constraints.push(
+            parse_standard_annotation_constraint(value, context, types),
+          )
         _ => {
           let type_ref = parse_logical_type_argument(value, context, types)
           constraints.push({
@@ -945,6 +954,7 @@ fn parse_annotation_fields(
 fn parse_standard_annotation_constraint(
   value : @model.IonValue,
   context : String,
+  types : Array[NamedType],
 ) -> AnnotationConstraint raise SchemaError {
   if value.annotations().length() > 0 {
     raise SchemaError::UnsupportedFeature(
@@ -1089,7 +1099,8 @@ fn parse_standard_annotation_constraint(
     standard_element_utf8_byte_lengths: element_utf8_byte_lengths,
     standard_ordered_elements: match value.get_fields("ordered_elements") {
       [] => None
-      [ordered_value] => Some(parse_ordered_elements(ordered_value, context))
+      [ordered_value] =>
+        Some(parse_ordered_elements(ordered_value, context, types, false))
       _ =>
         raise SchemaError::InvalidSchema(
           "ordered_elements may appear at most once at " + context,
@@ -1472,6 +1483,8 @@ fn parse_contains_values(
 fn parse_fields(
   type_name : String,
   fields_value : @model.IonValue,
+  types : Array[NamedType],
+  allow_inline : Bool,
 ) -> (Array[FieldSpec], Bool) raise SchemaError {
   let is_open = match fields_value.annotations() {
     [annotation] if annotation.text_value() == Some("closed") => false
@@ -1510,6 +1523,8 @@ fn parse_fields(
     let (type_ref, occurrence) = parse_type_argument(
       value,
       "field \{type_name}.\{field_name}",
+      types,
+      allow_inline,
     )
     result.push({ name: field_name, type_ref, occurrence, })
   }
@@ -1520,6 +1535,25 @@ fn parse_fields(
 fn parse_type_argument(
   value : @model.IonValue,
   context : String,
+  types : Array[NamedType],
+  allow_inline : Bool,
+) -> (TypeRef, FieldOccurrence) raise SchemaError {
+  parse_type_argument_with_occurrence(
+    value,
+    context,
+    { min_count: 0, max_count: Some(1), },
+    types,
+    allow_inline,
+  )
+}
+
+///|
+fn parse_type_argument_with_occurrence(
+  value : @model.IonValue,
+  context : String,
+  default_occurrence : FieldOccurrence,
+  types : Array[NamedType],
+  allow_inline : Bool,
 ) -> (TypeRef, FieldOccurrence) raise SchemaError {
   match value {
     @model.IonValue::Struct(_) => {
@@ -1528,12 +1562,30 @@ fn parse_type_argument(
           "annotated inline type arguments are not supported at \{context}",
         )
       }
-      validate_allowed_fields(value, ["type", "occurs"], context)
-      let type_value = required_single_field(value, "type", context)
-      let type_ref = parse_type_argument_reference(type_value, context)
+      let is_inline_definition = has_inline_definition_fields(value)
+      if is_inline_definition && !allow_inline {
+        raise SchemaError::UnsupportedFeature(
+          "nested inline type definitions are currently supported only inside an inline container at \{context}",
+        )
+      }
+      let type_ref = if is_inline_definition {
+        parse_logical_type_argument(
+          inline_definition_without_occurs(value),
+          context,
+          types,
+        )
+      } else {
+        validate_allowed_fields(value, ["type", "occurs"], context)
+        parse_type_argument_target(
+          required_single_field(value, "type", context),
+          context,
+          types,
+          allow_inline,
+        )
+      }
       let occurrence_values = value.get_fields("occurs")
       let occurrence = match occurrence_values {
-        [] => { min_count: 0, max_count: Some(1), }
+        [] => default_occurrence
         [occurs_value] => {
           let occurs = parse_occurs(occurs_value, context)
           if is_null_or_reference(type_ref) {
@@ -1552,35 +1604,51 @@ fn parse_type_argument(
     }
     _ =>
       (
-        parse_type_argument_reference(value, context),
-        { min_count: 0, max_count: Some(1), },
+        parse_type_argument_target(value, context, types, allow_inline),
+        default_occurrence,
       )
   }
 }
 
 ///|
-fn parse_type_argument_reference(
+fn has_inline_definition_fields(value : @model.IonValue) -> Bool {
+  for (symbol, _) in value.fields() {
+    match symbol.text_value() {
+      Some("type" | "occurs") => ()
+      _ => return true
+    }
+  }
+  false
+}
+
+///|
+fn inline_definition_without_occurs(value : @model.IonValue) -> @model.IonValue {
+  let fields : Array[(@model.IonSymbol, @model.IonValue)] = []
+  for (symbol, field_value) in value.fields() {
+    if symbol.text_value() != Some("occurs") {
+      fields.push((symbol, field_value))
+    }
+  }
+  @model.IonValue::Struct(fields)
+}
+
+///|
+fn parse_type_argument_target(
   value : @model.IonValue,
   context : String,
+  types : Array[NamedType],
+  allow_inline : Bool,
 ) -> TypeRef raise SchemaError {
-  match value.annotations() {
-    [] => parse_type_reference(value, context)
-    [annotation] if annotation.text_value() == Some("$null_or") => {
-      let inner = parse_type_reference(value.without_annotations(), context)
-      match inner {
-        TypeRef::Builtin(name) => TypeRef::NullOrBuiltin(name)
-        TypeRef::Named(name) => TypeRef::NullOrNamed(name)
-        TypeRef::NullOrBuiltin(_) | TypeRef::NullOrNamed(_) =>
-          raise SchemaError::UnsupportedFeature(
-            "nested $null_or annotations are not supported at \{context}",
-          )
-      }
+  if !allow_inline {
+    match value.without_annotations() {
+      @model.IonValue::Struct(_) =>
+        raise SchemaError::UnsupportedFeature(
+          "nested inline type definitions are currently supported only inside an inline container at \{context}",
+        )
+      _ => ()
     }
-    _ =>
-      raise SchemaError::UnsupportedFeature(
-        "only $null_or annotated type arguments are supported at \{context}",
-      )
   }
+  parse_logical_type_argument(value, context, types)
 }
 
 ///|
@@ -1664,8 +1732,10 @@ fn parse_logical_type_argument(
               @model.IonSymbol::from_text("type"),
             ],
           )
+          let placeholder_index = types.length()
+          types.push(empty_inline_named_type(inline_name))
           let inline_type = parse_named_type(inline_value, types, true)
-          types.push(inline_type)
+          types[placeholder_index] = inline_type
           TypeRef::Named(inline_name)
         }
         _ =>
@@ -1689,19 +1759,66 @@ fn parse_logical_type_argument(
 }
 
 ///|
+fn empty_inline_named_type(name : String) -> NamedType {
+  {
+    name,
+    is_inline: true,
+    body: TypeBody::Scalar(TypeRef::Builtin("$any")),
+    element_type: None,
+    element_distinct: false,
+    contains_values: None,
+    field_names_type: None,
+    field_names_distinct: false,
+    ordered_elements: None,
+    valid_values: None,
+    precision_ranges: [],
+    exponent_ranges: [],
+    timestamp_precision_ranges: [],
+    timestamp_offsets: [],
+    ieee754_float_formats: [],
+    regex_constraints: [],
+    annotation_constraints: [],
+    container_lengths: [],
+    codepoint_lengths: [],
+    utf8_byte_lengths: [],
+    byte_lengths: [],
+    all_of: [],
+    any_of: [],
+    one_of: [],
+    not_constraints: [],
+  }
+}
+
+///|
 fn parse_type_argument_with_distinct(
   value : @model.IonValue,
   context : String,
+  types : Array[NamedType],
+  allow_inline : Bool,
 ) -> (TypeRef, Bool) raise SchemaError {
   let annotations = value.annotations()
   match annotations {
-    [] => (parse_type_argument_reference(value, context), false)
+    [] =>
+      (parse_type_argument_target(value, context, types, allow_inline), false)
     [distinct] if distinct.text_value() == Some("distinct") =>
-      (parse_type_reference(value.without_annotations(), context), true)
+      (
+        parse_type_argument_target(
+          value.without_annotations(),
+          context,
+          types,
+          allow_inline,
+        ),
+        true,
+      )
     [null_or] if null_or.text_value() == Some("$null_or") =>
       (
         nullable_type_reference(
-          parse_type_reference(value.without_annotations(), context),
+          parse_type_argument_target(
+            value.without_annotations(),
+            context,
+            types,
+            allow_inline,
+          ),
         ),
         false,
       )
@@ -1709,7 +1826,12 @@ fn parse_type_argument_with_distinct(
       null_or.text_value() == Some("$null_or") =>
       (
         nullable_type_reference(
-          parse_type_reference(value.without_annotations(), context),
+          parse_type_argument_target(
+            value.without_annotations(),
+            context,
+            types,
+            allow_inline,
+          ),
         ),
         true,
       )
@@ -1734,6 +1856,8 @@ fn nullable_type_reference(type_ref : TypeRef) -> TypeRef {
 fn parse_ordered_elements(
   value : @model.IonValue,
   context : String,
+  types : Array[NamedType],
+  allow_inline : Bool,
 ) -> Array[OrderedElementSpec] raise SchemaError {
   let values = match value.annotations() {
     [] =>
@@ -1756,7 +1880,9 @@ fn parse_ordered_elements(
       index.to_string() +
       "] at " +
       context
-    let (type_ref, occurrence) = parse_ordered_type_argument(item, item_context)
+    let (type_ref, occurrence) = parse_ordered_type_argument(
+      item, item_context, types, allow_inline,
+    )
     result.push({ type_ref, occurrence, })
     index += 1
   }
@@ -1767,44 +1893,23 @@ fn parse_ordered_elements(
 fn parse_ordered_type_argument(
   value : @model.IonValue,
   context : String,
+  types : Array[NamedType],
+  allow_inline : Bool,
 ) -> (TypeRef, FieldOccurrence) raise SchemaError {
-  match value.without_annotations() {
-    @model.IonValue::Struct(_) => {
-      if value.annotations().length() > 0 {
-        raise SchemaError::UnsupportedFeature(
-          "annotated ordered_elements type arguments are not supported at " +
-          context,
-        )
-      }
-      validate_allowed_fields(value, ["type", "occurs"], context)
-      let type_ref = parse_type_argument_reference(
-        required_single_field(value, "type", context),
-        context,
-      )
-      let occurrence_values = value.get_fields("occurs")
-      let occurrence = match occurrence_values {
-        [] => { min_count: 1, max_count: Some(1), }
-        [occurs_value] => {
-          if is_null_or_reference(type_ref) {
-            raise SchemaError::InvalidOccurs(
-              "$null_or cannot be combined with explicit occurs at " + context,
-            )
-          }
-          parse_occurs(occurs_value, context)
-        }
-        _ =>
-          raise SchemaError::InvalidOccurs(
-            "occurs may appear at most once at " + context,
-          )
-      }
-      (type_ref, occurrence)
-    }
-    _ =>
-      (
-        parse_type_argument_reference(value, context),
-        { min_count: 1, max_count: Some(1), },
-      )
+  if value.without_annotations() is @model.IonValue::Struct(_) &&
+    value.annotations().length() > 0 {
+    raise SchemaError::UnsupportedFeature(
+      "annotated ordered_elements type arguments are not supported at " +
+      context,
+    )
   }
+  parse_type_argument_with_occurrence(
+    value,
+    context,
+    { min_count: 1, max_count: Some(1), },
+    types,
+    allow_inline,
+  )
 }
 
 ///|

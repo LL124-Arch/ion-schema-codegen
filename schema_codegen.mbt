@@ -146,6 +146,11 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
   for named_type in ordered_types {
     if named_type.is_inline {
       match named_type.body {
+        TypeBody::Scalar(_) | TypeBody::Alias(_) =>
+          if inline_type_is_used_in_container(named_type.name, schema.types) {
+            write_named_type(output, named_type, schema.types)
+            output.write_string("\n")
+          }
         TypeBody::List(element_type) => {
           write_named_type(output, named_type, schema.types)
           if named_type.ordered_elements is Some(_) {
@@ -171,7 +176,6 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
           )
           output.write_string("\n")
         }
-        TypeBody::Scalar(_) | TypeBody::Alias(_) => ()
       }
       if named_type.valid_values is Some(_) {
         write_named_valid_values(output, named_type, schema.types)
@@ -272,6 +276,30 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
     }
   }
   { source: output.to_string(), package_imports, }
+}
+
+///|
+fn inline_type_is_used_in_container(
+  name : String,
+  types : Array[NamedType],
+) -> Bool {
+  for named_type in types {
+    if !named_type.is_inline {
+      continue
+    }
+    match named_type.body {
+      TypeBody::List(TypeRef::Named(target)) if target == name => return true
+      TypeBody::Struct(fields, _) =>
+        for field in fields {
+          match field.type_ref {
+            TypeRef::Named(target) if target == name => return true
+            _ => ()
+          }
+        }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|

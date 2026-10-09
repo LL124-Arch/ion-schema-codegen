@@ -93,6 +93,28 @@ fn ion_schema_codegen_matches_type(
 }
 
 ///|
+fn ion_schema_codegen_regex_matches(
+  value : @ion_model.IonValue,
+  pattern : String,
+) -> Bool {
+  if value.is_null() {
+    return false
+  }
+  let text = match value.without_annotations() {
+    @ion_model.IonValue::String(text) => Some(text)
+    @ion_model.IonValue::Symbol(symbol) => symbol.text_value()
+    _ => None
+  }
+  match text {
+    Some(text) => {
+      let regex = @string.Regex(pattern) catch { _ => return false }
+      regex.execute(text) is Some(_)
+    }
+    None => false
+  }
+}
+
+///|
 fn ion_schema_codegen_valid_values_equal(
   left : @ion_model.IonValue,
   right : @ion_model.IonValue,
@@ -877,7 +899,24 @@ pub fn validate_type_MaybeInlineEven(
 }
 
 ///|
-type IonSchemaCodegenInternalInline12 = Array[@bigint.BigInt]
+type IonSchemaCodegenInternalInline13 = @bigint.BigInt
+
+///|
+/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline13.
+fn is_valid_values_IonSchemaCodegenInternalInline13(
+  value : @ion_model.IonValue,
+) -> Bool {
+  let allowed_values = @ion.parse_text("2\n4") catch { _ => [] }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+type IonSchemaCodegenInternalInline12 = Array[IonSchemaCodegenInternalInline13]
 
 ///|
 /// Convert an Ion list to IonSchemaCodegenInternalInline12 with element-level diagnostics.
@@ -911,13 +950,11 @@ fn from_ion_IonSchemaCodegenInternalInline12(
   let mut index = 0
   for element in input_elements {
     let element_path = type_path + "[" + index.to_string() + "]"
-    if element.annotations().length() > 0 {
-      raise ConversionError::AnnotatedValueNotSupported(path=element_path)
-    }
     if element.is_null() {
       raise ConversionError::NullNotAllowed(path=element_path)
     }
-    let item : @bigint.BigInt = match element.without_annotations() {
+    let item : IonSchemaCodegenInternalInline13 = match
+      element.without_annotations() {
       @ion_model.IonValue::Int(item) => item
       _ =>
         raise ConversionError::TypeMismatch(
@@ -925,6 +962,13 @@ fn from_ion_IonSchemaCodegenInternalInline12(
           expected="int",
           actual=ion_schema_codegen_actual_type(element),
         )
+    }
+    if !is_valid_values_IonSchemaCodegenInternalInline13(element) {
+      raise ConversionError::InvalidValue(
+        path=element_path,
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(element),
+      )
     }
     converted.push(item)
     index += 1
@@ -969,17 +1013,37 @@ pub fn validate_type_InlineIntList(
 }
 
 ///|
-priv struct IonSchemaCodegenInternalInline14 {
-  id : @bigint.BigInt
-  label : String?
+type IonSchemaCodegenInternalInline16 = @bigint.BigInt
+
+///|
+/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline16.
+fn is_valid_values_IonSchemaCodegenInternalInline16(
+  value : @ion_model.IonValue,
+) -> Bool {
+  let allowed_values = @ion.parse_text("7") catch { _ => [] }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
-/// Convert an Ion struct to IonSchemaCodegenInternalInline14 with field-level diagnostics.
-fn IonSchemaCodegenInternalInline14::from_ion(
+type IonSchemaCodegenInternalInline17 = String
+
+///|
+priv struct IonSchemaCodegenInternalInline15 {
+  id : IonSchemaCodegenInternalInline16
+  label : IonSchemaCodegenInternalInline17?
+}
+
+///|
+/// Convert an Ion struct to IonSchemaCodegenInternalInline15 with field-level diagnostics.
+fn IonSchemaCodegenInternalInline15::from_ion(
   value : @ion_model.IonValue,
-) -> IonSchemaCodegenInternalInline14 raise ConversionError {
-  let type_path = "ion_schema_codegen_internal_inline_14"
+) -> IonSchemaCodegenInternalInline15 raise ConversionError {
+  let type_path = "ion_schema_codegen_internal_inline_15"
   if value.is_null() {
     raise ConversionError::NullNotAllowed(path=type_path)
   }
@@ -1005,7 +1069,7 @@ fn IonSchemaCodegenInternalInline14::from_ion(
             input_field_0 = match input_field_0 {
               Some(_) =>
                 raise ConversionError::DuplicateField(
-                  path="ion_schema_codegen_internal_inline_14.id",
+                  path="ion_schema_codegen_internal_inline_15.id",
                 )
               None => Some(field_value)
             }
@@ -1013,32 +1077,30 @@ fn IonSchemaCodegenInternalInline14::from_ion(
             input_field_1 = match input_field_1 {
               Some(_) =>
                 raise ConversionError::DuplicateField(
-                  path="ion_schema_codegen_internal_inline_14.label",
+                  path="ion_schema_codegen_internal_inline_15.label",
                 )
               None => Some(field_value)
             }
           _ =>
             raise ConversionError::UnknownField(
-              path="ion_schema_codegen_internal_inline_14." + field_name,
+              path="ion_schema_codegen_internal_inline_15." + field_name,
             )
         }
       None =>
         raise ConversionError::UnknownSymbol(
-          path="ion_schema_codegen_internal_inline_14.<field>",
+          path="ion_schema_codegen_internal_inline_15.<field>",
           sid=field_symbol.sid_value().unwrap_or(0),
         )
     }
   }
-  let ion_schema_codegen_value_0 : @bigint.BigInt = match input_field_0 {
+  let ion_schema_codegen_value_0 : IonSchemaCodegenInternalInline16 = match
+    input_field_0 {
     Some(field_value) => {
-      let field_path = "ion_schema_codegen_internal_inline_14.id"
-      if field_value.annotations().length() > 0 {
-        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
-      }
+      let field_path = "ion_schema_codegen_internal_inline_15.id"
       if field_value.is_null() {
         raise ConversionError::NullNotAllowed(path=field_path)
       }
-      let field_item : @bigint.BigInt = match
+      let field_item : IonSchemaCodegenInternalInline16 = match
         field_value.without_annotations() {
         @ion_model.IonValue::Int(converted_value) => converted_value
         _ =>
@@ -1048,23 +1110,32 @@ fn IonSchemaCodegenInternalInline14::from_ion(
             actual=ion_schema_codegen_actual_type(field_value),
           )
       }
+      if !is_valid_values_IonSchemaCodegenInternalInline16(field_value) {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="valid_values",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
       field_item
     }
     None =>
       raise ConversionError::MissingRequiredField(
-        path="ion_schema_codegen_internal_inline_14.id",
+        path="ion_schema_codegen_internal_inline_15.id",
       )
   }
-  let ion_schema_codegen_value_1 : String? = match input_field_1 {
+  let ion_schema_codegen_value_1 : IonSchemaCodegenInternalInline17? = match
+    input_field_1 {
     Some(field_value) => {
-      let field_path = "ion_schema_codegen_internal_inline_14.label"
+      let field_path = "ion_schema_codegen_internal_inline_15.label"
       if field_value.annotations().length() > 0 {
         raise ConversionError::AnnotatedValueNotSupported(path=field_path)
       }
       if field_value.is_null() {
         raise ConversionError::NullNotAllowed(path=field_path)
       }
-      let field_item : String = match field_value.without_annotations() {
+      let field_item : IonSchemaCodegenInternalInline17 = match
+        field_value.without_annotations() {
         @ion_model.IonValue::String(converted_value) => converted_value
         _ =>
           raise ConversionError::TypeMismatch(
@@ -1072,6 +1143,13 @@ fn IonSchemaCodegenInternalInline14::from_ion(
             expected="string",
             actual=ion_schema_codegen_actual_type(field_value),
           )
+      }
+      if !ion_schema_codegen_regex_matches(field_value, "^[a-z]+$") {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="regex",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
       }
       Some(field_item)
     }
@@ -1081,11 +1159,11 @@ fn IonSchemaCodegenInternalInline14::from_ion(
 }
 
 ///|
-fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline14(
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline15(
   value : @ion_model.IonValue,
 ) -> Bool {
   try {
-    let matched = IonSchemaCodegenInternalInline14::from_ion(value)
+    let matched = IonSchemaCodegenInternalInline15::from_ion(value)
     ignore(matched.id)
     ignore(matched.label)
     true
@@ -1109,7 +1187,7 @@ pub fn validate_type_InlineRecord(
       actual=ion_schema_codegen_actual_type(value),
     )
   }
-  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline14(value) {
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline15(value) {
     raise ConversionError::InvalidValue(
       path="InlineRecord",
       constraint="all_of",
@@ -1119,8 +1197,8 @@ pub fn validate_type_InlineRecord(
 }
 
 ///|
-/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline16.
-fn is_valid_values_IonSchemaCodegenInternalInline16(
+/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline19.
+fn is_valid_values_IonSchemaCodegenInternalInline19(
   value : @ion_model.IonValue,
 ) -> Bool {
   let allowed_values = @ion.parse_text("2\n4") catch { _ => [] }
@@ -1133,27 +1211,27 @@ fn is_valid_values_IonSchemaCodegenInternalInline16(
 }
 
 ///|
-fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline16(
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline19(
   value : @ion_model.IonValue,
 ) -> Bool {
   try {
     if !ion_schema_codegen_matches_type(value, "int") {
       raise ConversionError::TypeMismatch(
-        path="ion_schema_codegen_internal_inline_16",
+        path="ion_schema_codegen_internal_inline_19",
         expected="int",
         actual=ion_schema_codegen_actual_type(value),
       )
     }
-    if !is_valid_values_IonSchemaCodegenInternalInline16(value) {
+    if !is_valid_values_IonSchemaCodegenInternalInline19(value) {
       raise ConversionError::InvalidValue(
-        path="ion_schema_codegen_internal_inline_16",
+        path="ion_schema_codegen_internal_inline_19",
         constraint="valid_values",
         actual=ion_schema_codegen_actual_type(value),
       )
     }
     if !is_valid_values_Positive(value) {
       raise ConversionError::InvalidValue(
-        path="ion_schema_codegen_internal_inline_16",
+        path="ion_schema_codegen_internal_inline_19",
         constraint="valid_values",
         actual=ion_schema_codegen_actual_type(value),
       )
@@ -1179,9 +1257,117 @@ pub fn validate_type_InlineAlias(
       actual=ion_schema_codegen_actual_type(value),
     )
   }
-  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline16(value) {
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline19(value) {
     raise ConversionError::InvalidValue(
       path="InlineAlias",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+type IonSchemaCodegenInternalInline22 = @bigint.BigInt
+
+///|
+/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline22.
+fn is_valid_values_IonSchemaCodegenInternalInline22(
+  value : @ion_model.IonValue,
+) -> Bool {
+  let allowed_values = @ion.parse_text("2\n4") catch { _ => [] }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+type IonSchemaCodegenInternalInline21 = Array[IonSchemaCodegenInternalInline22]
+
+///|
+/// Convert an Ion list to IonSchemaCodegenInternalInline21 with element-level diagnostics.
+fn from_ion_IonSchemaCodegenInternalInline21(
+  value : @ion_model.IonValue,
+) -> IonSchemaCodegenInternalInline21 raise ConversionError {
+  let type_path = "ion_schema_codegen_internal_inline_21"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : IonSchemaCodegenInternalInline21 = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : IonSchemaCodegenInternalInline22 = match
+      element.without_annotations() {
+      @ion_model.IonValue::Int(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="int",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    if !is_valid_values_IonSchemaCodegenInternalInline22(element) {
+      raise ConversionError::InvalidValue(
+        path=element_path,
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(element),
+      )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline21(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    ignore(from_ion_IonSchemaCodegenInternalInline21(value))
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type MaybeInlineIntList = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for MaybeInlineIntList.
+pub fn validate_type_MaybeInlineIntList(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="MaybeInlineIntList",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !(ion_schema_codegen_matches_type(value, "$null") ||
+    ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline21(value)) {
+    raise ConversionError::InvalidValue(
+      path="MaybeInlineIntList",
       constraint="all_of",
       actual=ion_schema_codegen_actual_type(value),
     )

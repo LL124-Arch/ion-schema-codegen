@@ -65,6 +65,7 @@ test "all_of validates inline list definitions" {
       @ion_model.IonValue::String("not a list"),
       @ion_model.IonValue::List([]),
       @ion_model.IonValue::List([integer(2), @ion_model.IonValue::String("x")]),
+      @ion_model.IonValue::List([integer(2), integer(3)]),
     ] {
     assert_eq(
       all_of_error(@all_of.validate_type_InlineIntList, invalid),
@@ -92,12 +93,32 @@ test "all_of validates inline struct fields and closedness" {
       ]),
       @ion_model.IonValue::Struct([
         field("id", integer(7)),
+        field("label", @ion_model.IonValue::String("NOT VALID")),
+      ]),
+      @ion_model.IonValue::Struct([
+        field("id", integer(7)),
         field("extra", integer(8)),
       ]),
     ] {
     assert_eq(
       all_of_error(@all_of.validate_type_InlineRecord, invalid),
       ("InlineRecord", "all_of"),
+    )
+  }
+}
+
+///|
+test "nullable inline containers accept plain null or nested matches" {
+  let plain_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Null)
+  let typed_list_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::List)
+  @all_of.validate_type_MaybeInlineIntList(plain_null)
+  @all_of.validate_type_MaybeInlineIntList(
+    @ion_model.IonValue::List([integer(2), integer(4)]),
+  )
+  for invalid in [typed_list_null, @ion_model.IonValue::List([integer(3)])] {
+    assert_eq(
+      all_of_error(@all_of.validate_type_MaybeInlineIntList, invalid),
+      ("MaybeInlineIntList", "all_of"),
     )
   }
 }
