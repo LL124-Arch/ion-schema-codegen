@@ -127,6 +127,24 @@ fn ion_schema_codegen_prefix_error(
 pub type Imported1Shared = @bigint.BigInt
 
 ///|
+fn ion_schema_codegen_matches_named_Imported1Shared(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="Imported1_Shared",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
 pub type Imported1Extra = String
 
 ///|
@@ -226,22 +244,6 @@ pub fn Imported2Envelope::to_ion(
 
 ///|
 pub type Shared = Imported1Shared
-
-///|
-fn ion_schema_codegen_matches_named_Shared(value : @ion_model.IonValue) -> Bool {
-  try {
-    if !ion_schema_codegen_matches_type(value, "int") {
-      raise ConversionError::TypeMismatch(
-        path="Shared",
-        expected="int",
-        actual=ion_schema_codegen_actual_type(value),
-      )
-    }
-    true
-  } catch {
-    _ => false
-  }
-}
 
 ///|
 pub type Extra = Imported1Extra
@@ -436,7 +438,7 @@ pub fn validate_type_NotShared(
       actual=ion_schema_codegen_actual_type(value),
     )
   }
-  if ion_schema_codegen_matches_named_Shared(value) {
+  if ion_schema_codegen_matches_named_Imported1Shared(value) {
     raise ConversionError::InvalidValue(
       path="NotShared",
       constraint="not",

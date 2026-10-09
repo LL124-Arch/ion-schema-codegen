@@ -12,6 +12,15 @@ test "parse type algebra and reject unsupported type argument forms" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: Raw, all_of: [$any, $null_or::int]} type::{name: Alias, type: Raw} type::{name: Choice, any_of: [int, string]} type::{name: ExclusiveChoice, one_of: [int, string]} type::{name: Negated, not: $null_or::int} type::{name: Inline, all_of: [{type: int, valid_values: [1, 2]}]}",
   )
+  let inline_import = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Imported, not: {id: \"other.isl\", type: OtherType}}",
+  )
+  assert_true(
+    match inline_import {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
   for
     invalid in [
       "type::{name: Empty, all_of: []}", "type::{name: UnsupportedInline, all_of: [{container_length: 1}]}",

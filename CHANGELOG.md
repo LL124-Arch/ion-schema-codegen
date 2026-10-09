@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.39.0 — 2026-10-09
+
+- Native CLI 会递归加载类型代数中的 inline imports，并将 `{id, type}` 参数改写为导入 Schema 中的实际类型；支持 `$null_or` 包裹和 all/any/one/not 四种组合。
+- inline import 不进入 Schema 的通用可见名称范围；相对文件及选定类型不存在时返回文件上下文错误。纯库 API 对 inline import 显式报错。
+
 ## 0.38.0 — 2026-10-09
 
 - Inline scalar type definitions 可组合当前已实现的值约束；逻辑分支 matcher 会执行 `regex` 等约束，而不是只匹配底层 Ion 类型。

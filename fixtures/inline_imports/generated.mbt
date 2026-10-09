@@ -380,72 +380,11 @@ fn ion_schema_codegen_compare_timestamps(
 }
 
 ///|
-pub type Positive = @bigint.BigInt
+pub type Imported1LimitedInt = @bigint.BigInt
 
 ///|
-/// Test whether an Ion value satisfies valid_values for Positive.
-pub fn is_valid_values_Positive(value : @ion_model.IonValue) -> Bool {
-  let allowed_values = @ion.parse_text("range::[1, max]") catch { _ => [] }
-  for candidate in allowed_values {
-    if ion_schema_codegen_valid_values_match(value, candidate) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-/// Validate the Ion type and valid_values set for Positive.
-pub fn validate_Positive(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
-  if !ion_schema_codegen_matches_type(value, "int") {
-    raise ConversionError::TypeMismatch(
-      path="Positive",
-      expected="int",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
-  if !is_valid_values_Positive(value) {
-    raise ConversionError::InvalidValue(
-      path="Positive",
-      constraint="valid_values",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
-}
-
-///|
-fn ion_schema_codegen_matches_named_Positive(
-  value : @ion_model.IonValue,
-) -> Bool {
-  try {
-    if !ion_schema_codegen_matches_type(value, "int") {
-      raise ConversionError::TypeMismatch(
-        path="Positive",
-        expected="int",
-        actual=ion_schema_codegen_actual_type(value),
-      )
-    }
-    if !is_valid_values_Positive(value) {
-      raise ConversionError::InvalidValue(
-        path="Positive",
-        constraint="valid_values",
-        actual=ion_schema_codegen_actual_type(value),
-      )
-    }
-    true
-  } catch {
-    _ => false
-  }
-}
-
-///|
-pub type BelowTen = @bigint.BigInt
-
-///|
-/// Test whether an Ion value satisfies valid_values for BelowTen.
-pub fn is_valid_values_BelowTen(value : @ion_model.IonValue) -> Bool {
+/// Test whether an Ion value satisfies valid_values for Imported1LimitedInt.
+pub fn is_valid_values_Imported1LimitedInt(value : @ion_model.IonValue) -> Bool {
   let allowed_values = @ion.parse_text("range::[min, 9]") catch { _ => [] }
   for candidate in allowed_values {
     if ion_schema_codegen_valid_values_match(value, candidate) {
@@ -456,20 +395,20 @@ pub fn is_valid_values_BelowTen(value : @ion_model.IonValue) -> Bool {
 }
 
 ///|
-/// Validate the Ion type and valid_values set for BelowTen.
-pub fn validate_BelowTen(
+/// Validate the Ion type and valid_values set for Imported1LimitedInt.
+pub fn validate_Imported1LimitedInt(
   value : @ion_model.IonValue,
 ) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "int") {
     raise ConversionError::TypeMismatch(
-      path="BelowTen",
+      path="Imported1_LimitedInt",
       expected="int",
       actual=ion_schema_codegen_actual_type(value),
     )
   }
-  if !is_valid_values_BelowTen(value) {
+  if !is_valid_values_Imported1LimitedInt(value) {
     raise ConversionError::InvalidValue(
-      path="BelowTen",
+      path="Imported1_LimitedInt",
       constraint="valid_values",
       actual=ion_schema_codegen_actual_type(value),
     )
@@ -477,20 +416,20 @@ pub fn validate_BelowTen(
 }
 
 ///|
-fn ion_schema_codegen_matches_named_BelowTen(
+fn ion_schema_codegen_matches_named_Imported1LimitedInt(
   value : @ion_model.IonValue,
 ) -> Bool {
   try {
     if !ion_schema_codegen_matches_type(value, "int") {
       raise ConversionError::TypeMismatch(
-        path="BelowTen",
+        path="Imported1_LimitedInt",
         expected="int",
         actual=ion_schema_codegen_actual_type(value),
       )
     }
-    if !is_valid_values_BelowTen(value) {
+    if !is_valid_values_Imported1LimitedInt(value) {
       raise ConversionError::InvalidValue(
-        path="BelowTen",
+        path="Imported1_LimitedInt",
         constraint="valid_values",
         actual=ion_schema_codegen_actual_type(value),
       )
@@ -502,30 +441,23 @@ fn ion_schema_codegen_matches_named_BelowTen(
 }
 
 ///|
-pub type PositiveBelowTen = @ion_model.IonValue
+pub type InlineAll = @ion_model.IonValue
 
 ///|
-/// Validate the type algebra constraints for PositiveBelowTen.
-pub fn validate_type_PositiveBelowTen(
+/// Validate the type algebra constraints for InlineAll.
+pub fn validate_type_InlineAll(
   value : @ion_model.IonValue,
 ) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "$any") {
     raise ConversionError::TypeMismatch(
-      path="PositiveBelowTen",
+      path="InlineAll",
       expected="$any",
       actual=ion_schema_codegen_actual_type(value),
     )
   }
-  if !ion_schema_codegen_matches_named_Positive(value) {
+  if !ion_schema_codegen_matches_named_Imported1LimitedInt(value) {
     raise ConversionError::InvalidValue(
-      path="PositiveBelowTen",
-      constraint="all_of",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
-  if !ion_schema_codegen_matches_named_BelowTen(value) {
-    raise ConversionError::InvalidValue(
-      path="PositiveBelowTen",
+      path="InlineAll",
       constraint="all_of",
       actual=ion_schema_codegen_actual_type(value),
     )
@@ -533,80 +465,121 @@ pub fn validate_type_PositiveBelowTen(
 }
 
 ///|
-pub type PositiveBelowTenAlias = PositiveBelowTen
+pub type InlineAny = @ion_model.IonValue
 
 ///|
-pub type PositiveBelowTenList = Array[PositiveBelowTenAlias]
-
-///|
-/// Convert an Ion list to PositiveBelowTenList with element-level diagnostics.
-pub fn from_ion_PositiveBelowTenList(
+/// Validate the type algebra constraints for InlineAny.
+pub fn validate_type_InlineAny(
   value : @ion_model.IonValue,
-) -> PositiveBelowTenList raise ConversionError {
-  let type_path = "PositiveBelowTenList"
-  if value.is_null() {
-    raise ConversionError::NullNotAllowed(path=type_path)
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineAny",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
   }
-  if value.annotations().length() > 0 {
-    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  if !(ion_schema_codegen_matches_named_Imported1LimitedInt(value) ||
+    ion_schema_codegen_matches_type(value, "string")) {
+    raise ConversionError::InvalidValue(
+      path="InlineAny",
+      constraint="any_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
   }
-  let input_elements = match value.without_annotations() {
-    @ion_model.IonValue::List(elements) => elements
-    _ =>
-      raise ConversionError::TypeMismatch(
-        path=type_path,
-        expected="list",
-        actual=ion_schema_codegen_actual_type(value),
-      )
-  }
-  let converted : PositiveBelowTenList = []
-  let mut index = 0
-  for element in input_elements {
-    let element_path = type_path + "[" + index.to_string() + "]"
-    let item : PositiveBelowTenAlias = element
-    if !ion_schema_codegen_matches_named_Positive(element) {
-      raise ConversionError::InvalidValue(
-        path=element_path,
-        constraint="all_of",
-        actual=ion_schema_codegen_actual_type(element),
-      )
-    }
-    if !ion_schema_codegen_matches_named_BelowTen(element) {
-      raise ConversionError::InvalidValue(
-        path=element_path,
-        constraint="all_of",
-        actual=ion_schema_codegen_actual_type(element),
-      )
-    }
-    converted.push(item)
-    index += 1
-  }
-  converted
 }
 
 ///|
-/// Convert PositiveBelowTenList into an Ion list.
-pub fn to_ion_PositiveBelowTenList(
-  items : PositiveBelowTenList,
-) -> @ion_model.IonValue {
-  let output_elements : Array[@ion_model.IonValue] = []
-  for element in items {
-    output_elements.push(element)
-  }
-  @ion_model.IonValue::List(output_elements)
-}
+pub type InlineOne = @ion_model.IonValue
 
 ///|
-pub(all) struct PositiveBelowTenRecord {
-  value : PositiveBelowTenAlias
-}
-
-///|
-/// Convert an Ion struct to PositiveBelowTenRecord with field-level diagnostics.
-pub fn PositiveBelowTenRecord::from_ion(
+/// Validate the type algebra constraints for InlineOne.
+pub fn validate_type_InlineOne(
   value : @ion_model.IonValue,
-) -> PositiveBelowTenRecord raise ConversionError {
-  let type_path = "PositiveBelowTenRecord"
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineOne",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  let mut ion_schema_codegen_one_of_match_count_InlineOne_0 = 0
+  if ion_schema_codegen_matches_named_Imported1LimitedInt(value) {
+    ion_schema_codegen_one_of_match_count_InlineOne_0 += 1
+  }
+  if ion_schema_codegen_matches_type(value, "string") {
+    ion_schema_codegen_one_of_match_count_InlineOne_0 += 1
+  }
+  if ion_schema_codegen_one_of_match_count_InlineOne_0 != 1 {
+    raise ConversionError::InvalidValue(
+      path="InlineOne",
+      constraint="one_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub type InlineNot = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineNot.
+pub fn validate_type_InlineNot(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineNot",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if ion_schema_codegen_matches_named_Imported1LimitedInt(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineNot",
+      constraint="not",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub type InlineNullableNot = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineNullableNot.
+pub fn validate_type_InlineNullableNot(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineNullableNot",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if ion_schema_codegen_matches_type(value, "$null") ||
+    ion_schema_codegen_matches_named_Imported1LimitedInt(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineNullableNot",
+      constraint="not",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub(all) struct InlineRecord {
+  count : InlineAll
+}
+
+///|
+/// Convert an Ion struct to InlineRecord with field-level diagnostics.
+pub fn InlineRecord::from_ion(
+  value : @ion_model.IonValue,
+) -> InlineRecord raise ConversionError {
+  let type_path = "InlineRecord"
   if value.is_null() {
     raise ConversionError::NullNotAllowed(path=type_path)
   }
@@ -627,38 +600,29 @@ pub fn PositiveBelowTenRecord::from_ion(
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "value" =>
+          "count" =>
             input_field_0 = match input_field_0 {
               Some(_) =>
-                raise ConversionError::DuplicateField(
-                  path="PositiveBelowTenRecord.value",
-                )
+                raise ConversionError::DuplicateField(path="InlineRecord.count")
               None => Some(field_value)
             }
           _ =>
             raise ConversionError::UnknownField(
-              path="PositiveBelowTenRecord." + field_name,
+              path="InlineRecord." + field_name,
             )
         }
       None =>
         raise ConversionError::UnknownSymbol(
-          path="PositiveBelowTenRecord.<field>",
+          path="InlineRecord.<field>",
           sid=field_symbol.sid_value().unwrap_or(0),
         )
     }
   }
-  let ion_schema_codegen_value_0 : PositiveBelowTenAlias = match input_field_0 {
+  let ion_schema_codegen_value_0 : InlineAll = match input_field_0 {
     Some(field_value) => {
-      let field_path = "PositiveBelowTenRecord.value"
-      let field_item : PositiveBelowTenAlias = field_value
-      if !ion_schema_codegen_matches_named_Positive(field_value) {
-        raise ConversionError::InvalidValue(
-          path=field_path,
-          constraint="all_of",
-          actual=ion_schema_codegen_actual_type(field_value),
-        )
-      }
-      if !ion_schema_codegen_matches_named_BelowTen(field_value) {
+      let field_path = "InlineRecord.count"
+      let field_item : InlineAll = field_value
+      if !ion_schema_codegen_matches_named_Imported1LimitedInt(field_value) {
         raise ConversionError::InvalidValue(
           path=field_path,
           constraint="all_of",
@@ -668,210 +632,67 @@ pub fn PositiveBelowTenRecord::from_ion(
       field_item
     }
     None =>
-      raise ConversionError::MissingRequiredField(
-        path="PositiveBelowTenRecord.value",
-      )
+      raise ConversionError::MissingRequiredField(path="InlineRecord.count")
   }
-  { value: ion_schema_codegen_value_0, }
+  { count: ion_schema_codegen_value_0, }
 }
 
 ///|
-/// Convert PositiveBelowTenRecord into an Ion struct in schema field order.
-pub fn PositiveBelowTenRecord::to_ion(
-  self : PositiveBelowTenRecord,
-) -> @ion_model.IonValue {
+/// Convert InlineRecord into an Ion struct in schema field order.
+pub fn InlineRecord::to_ion(self : InlineRecord) -> @ion_model.IonValue {
   let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
-  output_fields.push((@ion_model.IonSymbol::from_text("value"), self.value))
+  output_fields.push((@ion_model.IonSymbol::from_text("count"), self.count))
   @ion_model.IonValue::Struct(output_fields)
 }
 
 ///|
-pub type MaybeInt = @ion_model.IonValue
+pub type InlineList = Array[InlineAll]
 
 ///|
-/// Validate the type algebra constraints for MaybeInt.
-pub fn validate_type_MaybeInt(
+/// Convert an Ion list to InlineList with element-level diagnostics.
+pub fn from_ion_InlineList(
   value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
-  if !ion_schema_codegen_matches_type(value, "$any") {
-    raise ConversionError::TypeMismatch(
-      path="MaybeInt",
-      expected="$any",
-      actual=ion_schema_codegen_actual_type(value),
-    )
+) -> InlineList raise ConversionError {
+  let type_path = "InlineList"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
   }
-  if !ion_schema_codegen_matches_type(value, "$any") {
-    raise ConversionError::InvalidValue(
-      path="MaybeInt",
-      constraint="all_of",
-      actual=ion_schema_codegen_actual_type(value),
-    )
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
   }
-  if !(ion_schema_codegen_matches_type(value, "$null") ||
-    ion_schema_codegen_matches_type(value, "int")) {
-    raise ConversionError::InvalidValue(
-      path="MaybeInt",
-      constraint="all_of",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
-}
-
-///|
-pub type MaybeTypedInt = @ion_model.IonValue
-
-///|
-/// Validate the type algebra constraints for MaybeTypedInt.
-pub fn validate_type_MaybeTypedInt(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
-  if !ion_schema_codegen_matches_type(value, "$any") {
-    raise ConversionError::TypeMismatch(
-      path="MaybeTypedInt",
-      expected="$any",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
-  if !ion_schema_codegen_matches_type(value, "$any") {
-    raise ConversionError::InvalidValue(
-      path="MaybeTypedInt",
-      constraint="all_of",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
-  if !(ion_schema_codegen_matches_type(value, "$null") ||
-    ion_schema_codegen_matches_type(value, "$int")) {
-    raise ConversionError::InvalidValue(
-      path="MaybeTypedInt",
-      constraint="all_of",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
-}
-
-///|
-/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline8.
-fn is_valid_values_IonSchemaCodegenInternalInline8(
-  value : @ion_model.IonValue,
-) -> Bool {
-  let allowed_values = @ion.parse_text("2\n4") catch { _ => [] }
-  for candidate in allowed_values {
-    if ion_schema_codegen_valid_values_match(value, candidate) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline8(
-  value : @ion_model.IonValue,
-) -> Bool {
-  try {
-    if !ion_schema_codegen_matches_type(value, "int") {
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
       raise ConversionError::TypeMismatch(
-        path="ion_schema_codegen_internal_inline_8",
-        expected="int",
+        path=type_path,
+        expected="list",
         actual=ion_schema_codegen_actual_type(value),
       )
-    }
-    if !is_valid_values_IonSchemaCodegenInternalInline8(value) {
+  }
+  let converted : InlineList = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    let item : InlineAll = element
+    if !ion_schema_codegen_matches_named_Imported1LimitedInt(element) {
       raise ConversionError::InvalidValue(
-        path="ion_schema_codegen_internal_inline_8",
-        constraint="valid_values",
-        actual=ion_schema_codegen_actual_type(value),
+        path=element_path,
+        constraint="all_of",
+        actual=ion_schema_codegen_actual_type(element),
       )
     }
-    true
-  } catch {
-    _ => false
+    converted.push(item)
+    index += 1
   }
+  converted
 }
 
 ///|
-pub type InlineEven = @ion_model.IonValue
-
-///|
-/// Validate the type algebra constraints for InlineEven.
-pub fn validate_type_InlineEven(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
-  if !ion_schema_codegen_matches_type(value, "$any") {
-    raise ConversionError::TypeMismatch(
-      path="InlineEven",
-      expected="$any",
-      actual=ion_schema_codegen_actual_type(value),
-    )
+/// Convert InlineList into an Ion list.
+pub fn to_ion_InlineList(items : InlineList) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(element)
   }
-  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline8(value) {
-    raise ConversionError::InvalidValue(
-      path="InlineEven",
-      constraint="all_of",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
-}
-
-///|
-/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline10.
-fn is_valid_values_IonSchemaCodegenInternalInline10(
-  value : @ion_model.IonValue,
-) -> Bool {
-  let allowed_values = @ion.parse_text("2") catch { _ => [] }
-  for candidate in allowed_values {
-    if ion_schema_codegen_valid_values_match(value, candidate) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline10(
-  value : @ion_model.IonValue,
-) -> Bool {
-  try {
-    if !ion_schema_codegen_matches_type(value, "int") {
-      raise ConversionError::TypeMismatch(
-        path="ion_schema_codegen_internal_inline_10",
-        expected="int",
-        actual=ion_schema_codegen_actual_type(value),
-      )
-    }
-    if !is_valid_values_IonSchemaCodegenInternalInline10(value) {
-      raise ConversionError::InvalidValue(
-        path="ion_schema_codegen_internal_inline_10",
-        constraint="valid_values",
-        actual=ion_schema_codegen_actual_type(value),
-      )
-    }
-    true
-  } catch {
-    _ => false
-  }
-}
-
-///|
-pub type MaybeInlineEven = @ion_model.IonValue
-
-///|
-/// Validate the type algebra constraints for MaybeInlineEven.
-pub fn validate_type_MaybeInlineEven(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
-  if !ion_schema_codegen_matches_type(value, "$any") {
-    raise ConversionError::TypeMismatch(
-      path="MaybeInlineEven",
-      expected="$any",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
-  if !(ion_schema_codegen_matches_type(value, "$null") ||
-    ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline10(value)) {
-    raise ConversionError::InvalidValue(
-      path="MaybeInlineEven",
-      constraint="all_of",
-      actual=ion_schema_codegen_actual_type(value),
-    )
-  }
+  @ion_model.IonValue::List(output_elements)
 }

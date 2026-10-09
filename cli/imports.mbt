@@ -4,6 +4,7 @@ priv struct CliSchemaImport {
   imported_type : String?
   as_name : String?
   target_path : String
+  is_inline : Bool
 }
 
 ///|
@@ -151,7 +152,7 @@ fn cli_import_entry(
   if as_name is Some(_) && imported_type is None {
     raise CliError("as requires a selected type import in " + path)
   }
-  { id, imported_type, as_name, target_path: "", }
+  { id, imported_type, as_name, target_path: "", is_inline: false, }
 }
 
 ///|
@@ -257,7 +258,80 @@ fn cli_schema_imports(
     }
     value_index += 1
   }
+  for imported in cli_collect_inline_imports(values, path) {
+    imports.push(imported)
+  }
   imports
+}
+
+///|
+fn cli_collect_inline_imports(
+  values : Array[@model.IonValue],
+  path : String,
+) -> Array[CliSchemaImport] raise CliError {
+  let imports : Array[CliSchemaImport] = []
+  for value in values {
+    if cli_annotation_is(value, "type") {
+      for argument in value.get_fields("all_of") {
+        cli_collect_logical_imports(argument, path, imports)
+      }
+      for argument in value.get_fields("any_of") {
+        cli_collect_logical_imports(argument, path, imports)
+      }
+      for argument in value.get_fields("one_of") {
+        cli_collect_logical_imports(argument, path, imports)
+      }
+      for argument in value.get_fields("not") {
+        cli_collect_logical_argument_import(argument, path, imports)
+      }
+    }
+  }
+  imports
+}
+
+///|
+fn cli_collect_logical_imports(
+  value : @model.IonValue,
+  path : String,
+  imports : Array[CliSchemaImport],
+) -> Unit raise CliError {
+  let arguments = match value.without_annotations() {
+    @model.IonValue::List(values) => values
+    _ => return
+  }
+  for argument in arguments {
+    cli_collect_logical_argument_import(argument, path, imports)
+  }
+}
+
+///|
+fn cli_collect_logical_argument_import(
+  value : @model.IonValue,
+  path : String,
+  imports : Array[CliSchemaImport],
+) -> Unit raise CliError {
+  match value.annotations() {
+    [annotation] if annotation.text_value() == Some("$null_or") =>
+      cli_collect_logical_argument_import(
+        value.without_annotations(),
+        path,
+        imports,
+      )
+    _ =>
+      match value.without_annotations() {
+        @model.IonValue::Struct(_) if value.get_fields("id").length() > 0 => {
+          let imported = cli_import_entry(value, path)
+          if imported.imported_type is None || imported.as_name is Some(_) {
+            raise CliError(
+              "inline import requires id and type and does not support as in " +
+              path,
+            )
+          }
+          imports.push({ ..imported, is_inline: true, })
+        }
+        _ => ()
+      }
+  }
 }
 
 ///|
@@ -438,6 +512,9 @@ fn cli_scope(
     scope.push((local_name, cli_emitted_type_name(document, local_name)))
   }
   for imported in document.imports {
+    if imported.is_inline {
+      continue
+    }
     let target_index = match
       cli_document_index(documents, imported.target_path) {
       Some(index) => index
@@ -569,11 +646,124 @@ fn cli_rewrite_ordered_elements(
 }
 
 ///|
+fn cli_rewrite_logical_argument(
+  value : @model.IonValue,
+  scope : Array[(String, String)],
+  document : CliSchemaDocument,
+  documents : Array[CliSchemaDocument],
+) -> @model.IonValue raise CliError {
+  match value.annotations() {
+    [annotation] if annotation.text_value() == Some("$null_or") =>
+      cli_rewrite_logical_argument(
+        value.without_annotations(),
+        scope,
+        document,
+        documents,
+      ).with_annotations(value.annotations())
+    [] =>
+      match value.without_annotations() {
+        @model.IonValue::Symbol(_) => cli_rewrite_reference(value, scope)
+        @model.IonValue::Struct(_) if value.get_fields("id").length() > 0 => {
+          let imported = cli_import_entry(value, document.path)
+          let imported_type = match imported.imported_type {
+            Some(name) => name
+            None =>
+              raise CliError(
+                "inline import requires a type field in " + document.path,
+              )
+          }
+          if imported.as_name is Some(_) {
+            raise CliError(
+              "inline import does not support as in " + document.path,
+            )
+          }
+          let target_path = match
+            cli_find_inline_import(document, imported.id, imported_type) {
+            Some(path) => path
+            None =>
+              raise CliError(
+                "inline import " +
+                imported.id +
+                " type " +
+                imported_type +
+                " was not loaded from " +
+                document.path,
+              )
+          }
+          let target_index = match cli_document_index(documents, target_path) {
+            Some(index) => index
+            None => raise CliError("internal inline import resolution failure")
+          }
+          let target = documents[target_index]
+          if !target.local_names.contains(imported_type) {
+            raise CliError(
+              "inline import type " +
+              imported_type +
+              " is not declared in " +
+              target.path,
+            )
+          }
+          @model.IonValue::Symbol(
+            @model.IonSymbol::from_text(
+              cli_emitted_type_name(target, imported_type),
+            ),
+          )
+        }
+        @model.IonValue::Struct(_) => cli_rewrite_argument(value, scope)
+        _ => value
+      }
+    _ =>
+      raise CliError(
+        "unsupported annotated inline type argument in " + document.path,
+      )
+  }
+}
+
+///|
+fn cli_find_inline_import(
+  document : CliSchemaDocument,
+  id : String,
+  imported_type : String,
+) -> String? {
+  for imported in document.imports {
+    if imported.is_inline &&
+      imported.id == id &&
+      imported.imported_type == Some(imported_type) {
+      return Some(imported.target_path)
+    }
+  }
+  None
+}
+
+///|
+fn cli_rewrite_logical_list(
+  value : @model.IonValue,
+  scope : Array[(String, String)],
+  document : CliSchemaDocument,
+  documents : Array[CliSchemaDocument],
+) -> @model.IonValue raise CliError {
+  match value.without_annotations() {
+    @model.IonValue::List(values) => {
+      let rewritten : Array[@model.IonValue] = []
+      for item in values {
+        rewritten.push(
+          cli_rewrite_logical_argument(item, scope, document, documents),
+        )
+      }
+      @model.IonValue::List(rewritten).with_annotations(value.annotations())
+    }
+    _ => value
+  }
+}
+
+///|
 fn cli_rewrite_type(
   value : @model.IonValue,
   name : String,
   scope : Array[(String, String)],
-) -> @model.IonValue {
+  document : CliSchemaDocument,
+  documents : Array[CliSchemaDocument],
+) -> @model.IonValue raise CliError {
   match value.without_annotations() {
     @model.IonValue::Struct(fields) => {
       let rewritten_fields : Array[(@model.IonSymbol, @model.IonValue)] = []
@@ -587,6 +777,14 @@ fn cli_rewrite_type(
           Some("ordered_elements") =>
             cli_rewrite_ordered_elements(field_value, scope)
           Some("fields") => cli_rewrite_fields(field_value, scope)
+          Some("all_of") =>
+            cli_rewrite_logical_list(field_value, scope, document, documents)
+          Some("any_of" | "one_of") =>
+            cli_rewrite_logical_list(field_value, scope, document, documents)
+          Some("not") =>
+            cli_rewrite_logical_argument(
+              field_value, scope, document, documents,
+            )
           _ => field_value
         }
         rewritten_fields.push((symbol, rewritten_value))
@@ -660,6 +858,8 @@ fn cli_schema_values(
             value,
             cli_emitted_type_name(document, original_name),
             scope,
+            document,
+            documents,
           ),
         )
       }
@@ -682,7 +882,9 @@ fn cli_schema_values(
         Some(name_value) => cli_symbol_text(name_value).unwrap_or("")
         None => ""
       }
-      output.push(cli_rewrite_type(value, original_name, root_scope))
+      output.push(
+        cli_rewrite_type(value, original_name, root_scope, root, documents),
+      )
     }
   }
   for value in root.values {
