@@ -270,6 +270,34 @@ pub fn validate_annotations_ExactlyTwoTagged(
 }
 
 ///|
+pub type OneOrTwoAnnotations = @ion_model.IonValue
+
+///|
+/// Validate annotations for OneOrTwoAnnotations.
+pub fn validate_annotations_OneOrTwoAnnotations(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="OneOrTwoAnnotations",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  let ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0 = value
+    .annotations()
+    .length()
+  if ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0 < 1 ||
+    ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0 > 2 {
+    raise ConversionError::InvalidValue(
+      path="OneOrTwoAnnotations",
+      constraint="annotations",
+      actual=ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0.to_string(),
+    )
+  }
+}
+
+///|
 pub type TagList = Array[TaggedAlias]
 
 ///|

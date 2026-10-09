@@ -75,6 +75,38 @@ test "standard annotations can reference a named type" {
 }
 
 ///|
+test "standard annotations support exact and ranged container lengths" {
+  let value = @ion_model.IonValue::String("hello")
+  @annotations.validate_annotations_OneOrTwoAnnotations(
+    value.with_annotations([@ion_model.IonSymbol::from_text("record")]),
+  )
+  @annotations.validate_annotations_OneOrTwoAnnotations(
+    value.with_annotations([
+      @ion_model.IonSymbol::from_text("record"),
+      @ion_model.IonSymbol::from_text("v1"),
+    ]),
+  )
+  assert_eq(
+    annotation_failure(
+      @annotations.validate_annotations_OneOrTwoAnnotations,
+      value.with_annotations([]),
+    ),
+    ("OneOrTwoAnnotations", "annotations"),
+  )
+  assert_eq(
+    annotation_failure(
+      @annotations.validate_annotations_OneOrTwoAnnotations,
+      value.with_annotations([
+        @ion_model.IonSymbol::from_text("record"),
+        @ion_model.IonSymbol::from_text("v1"),
+        @ion_model.IonSymbol::from_text("extra"),
+      ]),
+    ),
+    ("OneOrTwoAnnotations", "annotations"),
+  )
+}
+
+///|
 test "annotation constraints propagate through aliases fields and lists" {
   try {
     ignore(

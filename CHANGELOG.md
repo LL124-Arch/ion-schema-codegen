@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.32.0 — 2026-10-09
+
+- `annotations` 标准 inline type argument 支持 `container_length` 精确值与范围，按值的注解数量校验。
+- 非法注解数量沿用 `annotations` 错误分类，并保留当前值路径。
+
 ## 0.31.0 — 2026-10-09
 
 - `annotations` 标准语法接受 built-in、命名类型及 `$null_or` 类型引用，将值注解按有序 symbol list 校验。

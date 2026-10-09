@@ -61,6 +61,8 @@ priv struct AnnotationConstraint {
   closed : Bool
   required : Bool
   standard_type_ref : TypeRef?
+  standard_inline : Bool
+  standard_container_lengths : Array[IntegerRange]
 }
 
 ///|

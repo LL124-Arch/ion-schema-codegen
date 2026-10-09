@@ -800,16 +800,50 @@ fn parse_annotation_fields(
     if has_annotation(value, "closed") || has_annotation(value, "required") {
       constraints.push(parse_simple_annotation_constraint(value, context))
     } else {
-      let type_ref = parse_logical_type_argument(value, context)
-      constraints.push({
-        allowed: [],
-        closed: false,
-        required: false,
-        standard_type_ref: Some(type_ref),
-      })
+      match value.without_annotations() {
+        @model.IonValue::Struct(_) =>
+          constraints.push(parse_standard_annotation_constraint(value, context))
+        _ => {
+          let type_ref = parse_logical_type_argument(value, context)
+          constraints.push({
+            allowed: [],
+            closed: false,
+            required: false,
+            standard_type_ref: Some(type_ref),
+            standard_inline: false,
+            standard_container_lengths: [],
+          })
+        }
+      }
     }
   }
   constraints
+}
+
+///|
+fn parse_standard_annotation_constraint(
+  value : @model.IonValue,
+  context : String,
+) -> AnnotationConstraint raise SchemaError {
+  if value.annotations().length() > 0 {
+    raise SchemaError::UnsupportedFeature(
+      "annotated standard annotations type arguments are not supported at " +
+      context,
+    )
+  }
+  validate_allowed_fields(value, ["container_length"], context)
+  {
+    allowed: [],
+    closed: false,
+    required: false,
+    standard_type_ref: None,
+    standard_inline: true,
+    standard_container_lengths: parse_integer_constraint_fields(
+      value.get_fields("container_length"),
+      "container_length",
+      context,
+    ),
+  }
 }
 
 ///|
@@ -874,7 +908,14 @@ fn parse_simple_annotation_constraint(
       allowed.push(symbol)
     }
   }
-  { allowed, closed, required, standard_type_ref: None, }
+  {
+    allowed,
+    closed,
+    required,
+    standard_type_ref: None,
+    standard_inline: false,
+    standard_container_lengths: [],
+  }
 }
 
 ///|

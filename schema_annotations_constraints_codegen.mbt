@@ -72,6 +72,28 @@ fn write_named_annotation_checks(
           "}\n",
         )
       }
+      None if constraint.standard_inline => {
+        let annotation_count_name = "ion_schema_codegen_annotation_count_" +
+          moonbit_type_identifier(named_type.name) +
+          "_" +
+          constraint_index.to_string()
+        output.write_string(
+          indent +
+          "let " +
+          annotation_count_name +
+          " = " +
+          value_expression +
+          ".annotations().length()\n",
+        )
+        write_integer_range_checks(
+          output,
+          constraint.standard_container_lengths,
+          annotation_count_name,
+          path_expression,
+          "annotations",
+          indent,
+        )
+      }
       None => {
         let allowed = StringBuilder()
         allowed.write_char('[')
