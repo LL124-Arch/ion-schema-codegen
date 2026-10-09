@@ -1,0 +1,96 @@
+///|
+fn integer(value : Int) -> @ion_model.IonValue {
+  @ion_model.IonValue::Int(@bigint.BigInt::from_int(value))
+}
+
+///|
+fn all_of_error(
+  validate : (@ion_model.IonValue) -> Unit raise @all_of.ConversionError,
+  value : @ion_model.IonValue,
+) -> (String, String) {
+  try {
+    validate(value)
+    ("", "")
+  } catch {
+    @all_of.ConversionError::InvalidValue(path~, constraint~, ..) =>
+      (path, constraint)
+    _ => ("unexpected", "unexpected")
+  } noraise {
+    _ => ("unexpected", "unexpected")
+  }
+}
+
+///|
+fn field(
+  name : String,
+  value : @ion_model.IonValue,
+) -> (@ion_model.IonSymbol, @ion_model.IonValue) {
+  (@ion_model.IonSymbol::from_text(name), value)
+}
+
+///|
+test "all_of intersects named types and defaults to raw IonValue" {
+  assert_true(@all_of.is_valid_values_Positive(integer(7)))
+  assert_true(@all_of.is_valid_values_BelowTen(integer(7)))
+  @all_of.validate_Positive(integer(7))
+  @all_of.validate_BelowTen(integer(7))
+  @all_of.validate_type_PositiveBelowTen(integer(7))
+  assert_eq(
+    all_of_error(@all_of.validate_type_PositiveBelowTen, integer(12)),
+    ("PositiveBelowTen", "all_of"),
+  )
+  assert_eq(
+    all_of_error(@all_of.validate_type_PositiveBelowTen, integer(0)),
+    ("PositiveBelowTen", "all_of"),
+  )
+}
+
+///|
+test "all_of propagates through aliases fields and list elements" {
+  try {
+    ignore(
+      @all_of.PositiveBelowTenRecord::from_ion(
+        @ion_model.IonValue::Struct([field("value", integer(12))]),
+      ),
+    )
+    assert_true(false)
+  } catch {
+    @all_of.ConversionError::InvalidValue(path~, constraint~, ..) => {
+      assert_eq(path, "PositiveBelowTenRecord.value")
+      assert_eq(constraint, "all_of")
+    }
+    _ => assert_true(false)
+  } noraise {
+    _ => assert_true(false)
+  }
+  try {
+    ignore(
+      @all_of.from_ion_PositiveBelowTenList(
+        @ion_model.IonValue::List([integer(12)]),
+      ),
+    )
+    assert_true(false)
+  } catch {
+    @all_of.ConversionError::InvalidValue(path~, constraint~, ..) => {
+      assert_eq(path, "PositiveBelowTenList[0]")
+      assert_eq(constraint, "all_of")
+    }
+    _ => assert_true(false)
+  } noraise {
+    _ => assert_true(false)
+  }
+}
+
+///|
+test "all_of nullable arguments preserve plain and typed null rules" {
+  let plain_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Null)
+  let typed_int_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Int)
+  @all_of.validate_type_MaybeInt(plain_null)
+  @all_of.validate_type_MaybeTypedInt(plain_null)
+  @all_of.validate_type_MaybeTypedInt(typed_int_null)
+  assert_eq(
+    all_of_error(@all_of.validate_type_MaybeInt, typed_int_null),
+    ("MaybeInt", "all_of"),
+  )
+  @all_of.validate_type_MaybeInt(integer(4))
+}

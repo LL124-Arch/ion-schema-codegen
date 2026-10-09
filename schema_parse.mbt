@@ -116,8 +116,19 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     raise SchemaError::InvalidSchema("type name must not be empty")
   }
 
-  let type_value = required_single_field(value, "type", "type \{name}")
-  let base_name = type_symbol_name(type_value, "type \{name}")
+  let type_fields = value.get_fields("type")
+  if type_fields.length() > 1 {
+    raise SchemaError::InvalidSchema("duplicate type field at type \{name}")
+  }
+  let type_value = match type_fields {
+    [field] => Some(field)
+    [] => None
+    _ => None
+  }
+  let base_name = match type_value {
+    Some(field) => type_symbol_name(field, "type \{name}")
+    None => "$any"
+  }
   let fields = value.get_fields("fields")
   let elements = value.get_fields("element")
   let contains_constraints = value.get_fields("contains")
@@ -135,6 +146,18 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let codepoint_length_fields = value.get_fields("codepoint_length")
   let utf8_byte_length_fields = value.get_fields("utf8_byte_length")
   let byte_length_fields = value.get_fields("byte_length")
+  let all_of_fields = value.get_fields("all_of")
+  if type_value is None &&
+    (
+      fields.length() > 0 ||
+      elements.length() > 0 ||
+      field_names_fields.length() > 0 ||
+      ordered_elements_fields.length() > 0
+    ) {
+    raise SchemaError::InvalidSchema(
+      "type \{name} must explicitly declare type: struct or list for container constraints",
+    )
+  }
   if elements.length() > 1 {
     raise SchemaError::InvalidSchema(
       "element may appear at most once at type " + name,
@@ -215,6 +238,16 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let byte_lengths = parse_integer_constraint_fields(
     byte_length_fields, "byte_length", name,
   )
+  let all_of : Array[TypeRef] = []
+  for constraint in all_of_fields {
+    for
+      type_ref in parse_type_reference_list(
+        constraint,
+        "all_of at type " + name,
+      ) {
+      all_of.push(type_ref)
+    }
+  }
   let precision_ranges = parse_decimal_constraint_fields(
     precision_fields, "precision", name,
   )
@@ -282,7 +315,10 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
           "scalar or alias type \{name} cannot use fields",
         )
       }
-      let reference = parse_type_reference(type_value, "type \{name}")
+      let reference = match type_value {
+        Some(field) => parse_type_reference(field, "type \{name}")
+        None => TypeRef::Builtin("$any")
+      }
       match reference {
         TypeRef::Builtin(_) => TypeBody::Scalar(reference)
         TypeRef::Named(_) => TypeBody::Alias(reference)
@@ -310,6 +346,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     ieee754_float_formats,
     regex_constraints,
     annotation_constraints,
+    all_of,
     container_lengths,
     codepoint_lengths,
     utf8_byte_lengths,
@@ -1210,6 +1247,75 @@ fn parse_type_argument_reference(
 }
 
 ///|
+fn parse_type_reference_list(
+  value : @model.IonValue,
+  context : String,
+) -> Array[TypeRef] raise SchemaError {
+  let values = match value.annotations() {
+    [] =>
+      match value.without_annotations() {
+        @model.IonValue::List(values) => values
+        _ => raise SchemaError::InvalidSchema("\{context} must be an Ion list")
+      }
+    _ =>
+      raise SchemaError::UnsupportedFeature(
+        "annotated type reference lists are not supported at \{context}",
+      )
+  }
+  if values.length() == 0 {
+    raise SchemaError::InvalidSchema("\{context} must not be empty")
+  }
+  let result : Array[TypeRef] = []
+  let mut index = 0
+  for item in values {
+    result.push(parse_logical_type_argument(item, "\{context}[\{index}]"))
+    index += 1
+  }
+  result
+}
+
+///|
+fn parse_logical_type_argument(
+  value : @model.IonValue,
+  context : String,
+) -> TypeRef raise SchemaError {
+  match value.annotations() {
+    [] =>
+      match value.without_annotations() {
+        @model.IonValue::Symbol(symbol) =>
+          match symbol.text_value() {
+            Some(name) if name == "struct" || name == "list" =>
+              TypeRef::Builtin(name)
+            Some(_) => parse_type_reference(value, context)
+            None =>
+              raise SchemaError::UnsupportedFeature(
+                "unresolved type argument at \{context}",
+              )
+          }
+        @model.IonValue::Struct(_) =>
+          raise SchemaError::UnsupportedFeature(
+            "inline type definitions and inline imports are not supported at \{context}",
+          )
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "expected a type symbol at \{context}",
+          )
+      }
+    [annotation] if annotation.text_value() == Some("$null_or") => {
+      let inner = parse_logical_type_argument(
+        value.without_annotations(),
+        context,
+      )
+      nullable_type_reference(inner)
+    }
+    _ =>
+      raise SchemaError::UnsupportedFeature(
+        "only $null_or annotated type arguments are supported at \{context}",
+      )
+  }
+}
+
+///|
 fn parse_type_argument_with_distinct(
   value : @model.IonValue,
   context : String,
@@ -1560,7 +1666,7 @@ fn validate_type_definition_fields(
       "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
       "contains", "precision", "exponent", "timestamp_precision", "timestamp_offset",
       "ieee754_float", "regex", "container_length", "codepoint_length", "utf8_byte_length",
-      "byte_length", "annotations",
+      "byte_length", "annotations", "all_of",
     ],
     "type \{type_name}",
   )
@@ -2009,6 +2115,27 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
         named_type.name,
       )
     }
+    if named_type.all_of.length() > 0 {
+      match named_type.body {
+        TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+          if is_document_reference(types, type_ref) {
+            raise SchemaError::UnsupportedFeature(
+              "type algebra on document streams is not supported at type " +
+              named_type.name,
+            )
+          }
+        TypeBody::Struct(_, _) | TypeBody::List(_) => ()
+      }
+      for type_ref in named_type.all_of {
+        validate_type_reference(types, type_ref, "all_of of " + named_type.name)
+        if is_document_reference(types, type_ref) {
+          raise SchemaError::UnsupportedFeature(
+            "document stream type arguments are not supported in type algebra at type " +
+            named_type.name,
+          )
+        }
+      }
+    }
     if named_type.valid_values is Some(valid_values) {
       match named_type.body {
         TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
@@ -2277,13 +2404,24 @@ fn validate_type_reference(
 }
 
 ///|
+fn is_document_reference(
+  types : Array[NamedType],
+  type_ref : TypeRef,
+) -> Bool raise SchemaError {
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar("document") => true
+    _ => false
+  }
+}
+
+///|
 fn is_supported_scalar(name : String) -> Bool {
   contains_string(
     [
       "bool", "int", "float", "decimal", "string", "symbol", "timestamp", "blob",
-      "clob", "sexp", "any", "$any", "number", "document", "$null", "$bool", "$int",
-      "$float", "$decimal", "$string", "$symbol", "$timestamp", "$blob", "$clob",
-      "$list", "$sexp", "$struct", "$number", "$text", "$lob",
+      "clob", "sexp", "any", "$any", "number", "document", "struct", "list", "$null",
+      "$bool", "$int", "$float", "$decimal", "$string", "$symbol", "$timestamp",
+      "$blob", "$clob", "$list", "$sexp", "$struct", "$number", "$text", "$lob",
     ],
     name,
   )

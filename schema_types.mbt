@@ -97,6 +97,7 @@ priv struct NamedType {
   codepoint_lengths : Array[IntegerRange]
   utf8_byte_lengths : Array[IntegerRange]
   byte_lengths : Array[IntegerRange]
+  all_of : Array[TypeRef]
 }
 
 ///|

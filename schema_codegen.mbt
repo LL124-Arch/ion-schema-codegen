@@ -58,7 +58,8 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
       has_decimal_constraints(schema.types) ||
       has_valid_values(schema.types) ||
       has_element_constraints(schema.types) ||
-      has_ordered_elements(schema.types),
+      has_ordered_elements(schema.types) ||
+      has_type_algebra_constraints(schema.types),
     )
     if has_container_length_constraints(schema.types) {
       output.write_string("\n")
@@ -202,6 +203,14 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
           output.write_string("\n")
           write_ordered_list_conversions(output, named_type, schema.types)
         }
+    }
+    if named_type.all_of.length() > 0 {
+      output.write_string("\n")
+      write_named_type_algebra_validator(output, named_type, schema.types)
+    }
+    if named_type_needs_algebra_matcher(named_type.name, schema.types) {
+      output.write_string("\n")
+      write_named_type_matcher(output, named_type, schema.types)
     }
   }
   { source: output.to_string(), package_imports, }
@@ -1790,6 +1799,9 @@ fn write_struct_conversions(
     i += 1
   }
 
+  write_named_type_algebra_checks(
+    output, named_type, types, "value", "type_path", "  ",
+  )
   output.write_string("  {")
   if fields.length() > 0 || is_open {
     output.write_string("\n")
@@ -1903,6 +1915,9 @@ fn write_ordered_list_conversions(
     "type_path",
     "  ",
     types.length(),
+  )
+  write_named_type_algebra_checks(
+    output, named_type, types, "value", "type_path", "  ",
   )
   output.write_string("  input_elements\n}\n\n")
   output.write_string(
@@ -2160,7 +2175,11 @@ fn write_list_conversions(
   if needs_element_path {
     output.write_string("    index += 1\n")
   }
-  output.write_string("  }\n  converted\n}\n\n")
+  output.write_string("  }\n")
+  write_named_type_algebra_checks(
+    output, named_type, types, "value", "type_path", "  ",
+  )
+  output.write_string("  converted\n}\n\n")
 
   output.write_string("///|\n/// Convert ")
   output.write_string(generated_name)
@@ -2898,6 +2917,12 @@ fn referenced_type_names(named_type : NamedType) -> Array[String] {
       }
     None => ()
   }
+  for type_ref in named_type.all_of {
+    match type_ref {
+      TypeRef::Named(name) | TypeRef::NullOrNamed(name) => names.push(name)
+      TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+    }
+  }
   names
 }
 
@@ -3010,6 +3035,7 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
       named_type.ieee754_float_formats.length() > 0 ||
       named_type.regex_constraints.length() > 0 ||
       named_type.annotation_constraints.length() > 0 ||
+      named_type.all_of.length() > 0 ||
       named_type.container_lengths.length() > 0 ||
       named_type.element_type is Some(_) ||
       has_named_contains_values(named_type) ||

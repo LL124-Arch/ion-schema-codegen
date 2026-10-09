@@ -8,6 +8,50 @@ fn expect_schema_error(source : String) -> @ion-schema-codegen.SchemaError {
 }
 
 ///|
+test "parse all_of and reject unsupported type argument forms" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: Raw, all_of: [$any, $null_or::int]} type::{name: Alias, type: Raw}",
+  )
+  for
+    invalid in [
+      "type::{name: Empty, all_of: []}", "type::{name: Inline, all_of: [{type: int}]}",
+      "type::{name: Container, element: int}",
+    ] {
+    let error = expect_schema_error("$ion_schema_2_0 \{invalid}")
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+        @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+        _ => false
+      },
+    )
+  }
+  let document_argument = expect_schema_error(
+    "$ion_schema_2_0 type::{name: StreamType, all_of: [document]}",
+  )
+  assert_true(
+    match document_argument {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+  let cycle_found = try {
+    ignore(
+      @ion-schema-codegen.generate_code(
+        "$ion_schema_2_0 type::{name: Recursive, all_of: [Recursive]}",
+      ),
+    )
+    false
+  } catch {
+    @ion-schema-codegen.SchemaError::CyclicTypeReference(_) => true
+    _ => false
+  } noraise {
+    _ => false
+  }
+  assert_true(cycle_found)
+}
+
+///|
 test "parse supported scalar struct list and named references" {
   let source = "$ion_schema_2_0 type::{name: Address, type: struct, fields: closed::{city: string}} type::{name: Person, type: struct, fields: closed::{address: Address, age: {type: int, occurs: required}, name: string, nickname: {type: string, occurs: optional}}} type::{name: People, type: list, element: Person} type::{name: DisplayName, type: string}"
   @ion-schema-codegen.check_schema(source)
@@ -413,6 +457,7 @@ test "accept open fields and valid_values and reject unsupported constraints and
   )
   assert_true(
     match unsupported_constraint {
+      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
       @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
       _ => false
     },
