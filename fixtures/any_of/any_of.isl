@@ -9,3 +9,4 @@ type::{name: NumberOrTextAlias, type: NumberOrText}
 type::{name: ChoiceList, type: list, element: NumberOrTextAlias}
 type::{name: ChoiceRecord, type: struct, fields: closed::{value: {type: NumberOrTextAlias, occurs: required}}}
 type::{name: InlineNumberOrText, any_of: [{type: int, valid_values: [2, 4]}, string]}
+type::{name: InlinePatternOrInt, any_of: [{type: string, regex: "^ion$"}, int]}

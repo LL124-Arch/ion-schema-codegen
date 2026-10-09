@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.38.0 — 2026-10-09
+
+- Inline scalar type definitions 可组合当前已实现的值约束；逻辑分支 matcher 会执行 `regex` 等约束，而不是只匹配底层 Ion 类型。
+- 显式拒绝容器 inline definitions 与仍不支持的逻辑约束组合。
+
 ## 0.37.0 — 2026-10-09
 
 - 类型代数接受 `$null_or::{type: ..., valid_values: [...]}` inline 参数；plain null 或匹配值通过，错误 typed null 和集合外值继续失败。

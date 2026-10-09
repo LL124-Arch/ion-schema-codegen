@@ -93,6 +93,28 @@ fn ion_schema_codegen_matches_type(
 }
 
 ///|
+fn ion_schema_codegen_regex_matches(
+  value : @ion_model.IonValue,
+  pattern : String,
+) -> Bool {
+  if value.is_null() {
+    return false
+  }
+  let text = match value.without_annotations() {
+    @ion_model.IonValue::String(text) => Some(text)
+    @ion_model.IonValue::Symbol(symbol) => symbol.text_value()
+    _ => None
+  }
+  match text {
+    Some(text) => {
+      let regex = @string.Regex(pattern) catch { _ => return false }
+      regex.execute(text) is Some(_)
+    }
+    None => false
+  }
+}
+
+///|
 fn ion_schema_codegen_valid_values_equal(
   left : @ion_model.IonValue,
   right : @ion_model.IonValue,
@@ -795,6 +817,56 @@ pub fn validate_type_InlineNumberOrText(
     ion_schema_codegen_matches_type(value, "string")) {
     raise ConversionError::InvalidValue(
       path="InlineNumberOrText",
+      constraint="any_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline11(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "string") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_11",
+        expected="string",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !ion_schema_codegen_regex_matches(value, "^ion$") {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_11",
+        constraint="regex",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlinePatternOrInt = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlinePatternOrInt.
+pub fn validate_type_InlinePatternOrInt(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlinePatternOrInt",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !(ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline11(value) ||
+    ion_schema_codegen_matches_type(value, "int")) {
+    raise ConversionError::InvalidValue(
+      path="InlinePatternOrInt",
       constraint="any_of",
       actual=ion_schema_codegen_actual_type(value),
     )

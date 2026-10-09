@@ -364,13 +364,14 @@ fn parse_named_type(
   }
   if is_inline &&
     !inline_type_definition_supported(
-      value, element_type, field_names_type, ordered_elements, contains_values, precision_ranges,
-      exponent_ranges, timestamp_precision_ranges, timestamp_offsets, ieee754_float_formats,
-      regex_constraints, annotation_constraints, container_lengths, codepoint_lengths,
-      utf8_byte_lengths, byte_lengths, all_of, any_of, one_of, not_constraints,
+      value, body, element_type, field_names_type, ordered_elements, contains_values,
+      precision_ranges, exponent_ranges, timestamp_precision_ranges, timestamp_offsets,
+      ieee754_float_formats, regex_constraints, annotation_constraints, container_lengths,
+      codepoint_lengths, utf8_byte_lengths, byte_lengths, all_of, any_of, one_of,
+      not_constraints,
     ) {
     raise SchemaError::UnsupportedFeature(
-      "inline type definitions currently support scalar type and valid_values constraints at {name}",
+      "inline type definitions currently support scalar types and their implemented value constraints at \{name}",
     )
   }
   {
@@ -405,6 +406,7 @@ fn parse_named_type(
 ///|
 fn inline_type_definition_supported(
   value : @model.IonValue,
+  body : TypeBody,
   element_type : TypeRef?,
   field_names_type : TypeRef?,
   ordered_elements : Array[OrderedElementSpec]?,
@@ -428,25 +430,62 @@ fn inline_type_definition_supported(
   let fields = value.fields()
   for (symbol, _) in fields {
     match symbol.text_value() {
-      Some("name" | "type" | "valid_values") => ()
+      Some(
+        "name"
+        | "type"
+        | "valid_values"
+        | "precision"
+        | "exponent"
+        | "timestamp_precision"
+        | "timestamp_offset"
+        | "ieee754_float"
+        | "regex"
+        | "annotations"
+        | "codepoint_length"
+        | "utf8_byte_length"
+        | "byte_length"
+      ) => ()
       _ => return false
     }
+  }
+  match body {
+    TypeBody::Scalar(_) => ()
+    TypeBody::Alias(_) | TypeBody::Struct(_, _) | TypeBody::List(_) =>
+      return false
   }
   element_type is None &&
   field_names_type is None &&
   ordered_elements is None &&
   contains_values is None &&
-  precision_ranges.length() == 0 &&
-  exponent_ranges.length() == 0 &&
-  timestamp_precision_ranges.length() == 0 &&
-  timestamp_offsets.length() == 0 &&
-  ieee754_float_formats.length() == 0 &&
-  regex_constraints.length() == 0 &&
-  annotation_constraints.length() == 0 &&
+  (precision_ranges.length() > 0 || value.get_fields("precision").length() == 0) &&
+  (exponent_ranges.length() > 0 || value.get_fields("exponent").length() == 0) &&
+  (
+    timestamp_precision_ranges.length() > 0 ||
+    value.get_fields("timestamp_precision").length() == 0
+  ) &&
+  (
+    timestamp_offsets.length() > 0 ||
+    value.get_fields("timestamp_offset").length() == 0
+  ) &&
+  (
+    ieee754_float_formats.length() > 0 ||
+    value.get_fields("ieee754_float").length() == 0
+  ) &&
+  (regex_constraints.length() > 0 || value.get_fields("regex").length() == 0) &&
+  (
+    annotation_constraints.length() > 0 ||
+    value.get_fields("annotations").length() == 0
+  ) &&
   container_lengths.length() == 0 &&
-  codepoint_lengths.length() == 0 &&
-  utf8_byte_lengths.length() == 0 &&
-  byte_lengths.length() == 0 &&
+  (
+    codepoint_lengths.length() > 0 ||
+    value.get_fields("codepoint_length").length() == 0
+  ) &&
+  (
+    utf8_byte_lengths.length() > 0 ||
+    value.get_fields("utf8_byte_length").length() == 0
+  ) &&
+  (byte_lengths.length() > 0 || value.get_fields("byte_length").length() == 0) &&
   all_of.length() == 0 &&
   any_of.length() == 0 &&
   one_of.length() == 0 &&

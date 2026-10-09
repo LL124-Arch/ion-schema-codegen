@@ -59,6 +59,18 @@ test "any_of matches inline scalar definitions" {
 }
 
 ///|
+test "inline scalar matcher executes its regular expression constraints" {
+  @any_of.validate_type_InlinePatternOrInt(@ion_model.IonValue::String("ion"))
+  assert_eq(
+    any_of_error(
+      @any_of.validate_type_InlinePatternOrInt,
+      @ion_model.IonValue::String("ocean"),
+    ),
+    ("InlinePatternOrInt", "any_of"),
+  )
+}
+
+///|
 test "any_of nullable branch admits plain null and rejects typed null" {
   @any_of.validate_type_MaybeInt(
     @ion_model.IonValue::null(kind=@ion_model.IonNull::Null),
