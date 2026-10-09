@@ -4,10 +4,10 @@
 
 ## 支持范围
 
-- all_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import 及 `$null_or` 类型参数列表，所有分支均须匹配；命名类型省略 type 时按 `$any` 表示并保留原始 IonValue。类型参数支持标量及 list inline type definition 和 `$null_or::{...}`；plain null 与 inline 类型匹配值组成并集，typed null 仍按声明类型区分。Struct inline definitions 仍显式报错。需要容器结构的命名类型仍须显式声明 type: struct 或 type: list。
-- any_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、标量 inline definition 及 `$null_or` 类型参数列表，至少一个分支须匹配；支持重叠分支并逐支独立验证。
-- one_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、标量 inline definition 及 `$null_or` 类型参数列表，恰好一个分支须匹配；重叠类型和重复分支会分别计数。
-- not 支持单个 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、标量 inline definition 及 `$null_or` 类型参数；分支匹配时拒绝当前值，分支转换或校验失败时通过。
+- all_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import 及 `$null_or` 类型参数列表，所有分支均须匹配；命名类型省略 type 时按 `$any` 表示并保留原始 IonValue。类型参数支持 scalar、list 和 struct inline type definition 及 `$null_or::{...}`；plain null 与 inline 类型匹配值组成并集，typed null 仍按声明类型区分。
+- any_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、scalar/list/struct inline definition 及 `$null_or` 类型参数列表，至少一个分支须匹配；支持重叠分支并逐支独立验证。
+- one_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、scalar/list/struct inline definition 及 `$null_or` 类型参数列表，恰好一个分支须匹配；重叠类型和重复分支会分别计数。
+- not 支持单个 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、scalar/list/struct inline definition 及 `$null_or` 类型参数；分支匹配时拒绝当前值，分支转换或校验失败时通过。
 - `container_length` 支持 list、sexp、struct 和 document 的精确长度与整数范围；struct 按字段总出现次数计数，document 按顶层值数计数。
 - `codepoint_length` 与 `utf8_byte_length` 支持 string 和 symbol；`byte_length` 支持 blob 和 clob，均可使用精确值或整数范围。
 - 标量：`bool`、`int`、`float`、`decimal`、`string`、`symbol`、`timestamp`、`blob` 和 `clob`。
@@ -35,7 +35,7 @@
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
-项目不实现完整的 Ion Schema 校验器。程序化库 API 仍只接收单个 Schema；包含 imports 的文件请使用 native CLI。递归类型和 `annotations` 尚未实现的标准 inline 子约束仍显式报错。`annotations` 标准语法支持 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型及 `$null_or` 类型引用；inline 对象目前实现 `container_length`、`contains`、`element.valid_values`、`element.regex`、`element.codepoint_length`、`element.utf8_byte_length` 和 `ordered_elements`，简化语法保留注解的限制不变。`all_of` / `any_of` / `one_of` / `not` 的 inline type definition 支持 scalar 及 list 类型和已有对应约束；struct inline definition 与 `document` 类型参数仍显式报错。类型代数 inline import 仅由 native CLI 解析 `{id: "相对路径.isl", type: TypeName}`，程序化 API 对该形式明确报错。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；对其支持的 `annotations` 约束会检查并保留注解。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
+项目不实现完整的 Ion Schema 校验器。程序化库 API 仍只接收单个 Schema；包含 imports 的文件请使用 native CLI。递归类型和 `annotations` 尚未实现的标准 inline 子约束仍显式报错。`annotations` 标准语法支持 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型及 `$null_or` 类型引用；inline 对象目前实现 `container_length`、`contains`、`element.valid_values`、`element.regex`、`element.codepoint_length`、`element.utf8_byte_length` 和 `ordered_elements`，简化语法保留注解的限制不变。`all_of` / `any_of` / `one_of` / `not` 的 inline type definition 支持 scalar、list 和 struct 及对应已实现约束；递归定义与 `document` 类型参数仍显式报错。类型代数 inline import 仅由 native CLI 解析 `{id: "相对路径.isl", type: TypeName}`，程序化 API 对该形式明确报错。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；对其支持的 `annotations` 约束会检查并保留注解。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
 
 ## 安装与检查
 

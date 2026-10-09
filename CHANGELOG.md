@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.41.0 — 2026-10-10
+
+- 类型代数 inline type definition 新增 `type: struct` 支持，可按字段约束校验必选/可选字段、类型及 closed struct 边界。
+- 匿名 struct 的模型和校验转换函数为 package-private，不扩展生成包公开类型接口。
+
 ## 0.40.0 — 2026-10-10
 
 - 类型代数 inline type definition 支持 `type: list` 与元素类型、长度和包含约束；matcher 通过 package-private 转换代码验证列表内容。

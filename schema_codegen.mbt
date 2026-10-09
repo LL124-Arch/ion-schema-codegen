@@ -160,7 +160,18 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
           }
           output.write_string("\n")
         }
-        TypeBody::Scalar(_) | TypeBody::Alias(_) | TypeBody::Struct(_, _) => ()
+        TypeBody::Struct(fields, is_open) => {
+          write_named_type(output, named_type, schema.types)
+          write_struct_conversions(
+            output,
+            named_type,
+            fields,
+            is_open,
+            schema.types,
+          )
+          output.write_string("\n")
+        }
+        TypeBody::Scalar(_) | TypeBody::Alias(_) => ()
       }
       if named_type.valid_values is Some(_) {
         write_named_valid_values(output, named_type, schema.types)
@@ -469,7 +480,7 @@ fn write_named_type(
     TypeBody::Struct(fields, is_open) => {
       output.write_string(
         if named_type.is_inline {
-          "struct "
+          "priv struct "
         } else {
           "pub(all) struct "
         },

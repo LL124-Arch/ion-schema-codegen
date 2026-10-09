@@ -967,3 +967,153 @@ pub fn validate_type_InlineIntList(
     )
   }
 }
+
+///|
+priv struct IonSchemaCodegenInternalInline14 {
+  id : @bigint.BigInt
+  label : String?
+}
+
+///|
+/// Convert an Ion struct to IonSchemaCodegenInternalInline14 with field-level diagnostics.
+fn IonSchemaCodegenInternalInline14::from_ion(
+  value : @ion_model.IonValue,
+) -> IonSchemaCodegenInternalInline14 raise ConversionError {
+  let type_path = "ion_schema_codegen_internal_inline_14"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  let mut input_field_1 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "id" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="ion_schema_codegen_internal_inline_14.id",
+                )
+              None => Some(field_value)
+            }
+          "label" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="ion_schema_codegen_internal_inline_14.label",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="ion_schema_codegen_internal_inline_14." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="ion_schema_codegen_internal_inline_14.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : @bigint.BigInt = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "ion_schema_codegen_internal_inline_14.id"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : @bigint.BigInt = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Int(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="int",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="ion_schema_codegen_internal_inline_14.id",
+      )
+  }
+  let ion_schema_codegen_value_1 : String? = match input_field_1 {
+    Some(field_value) => {
+      let field_path = "ion_schema_codegen_internal_inline_14.label"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="string",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      Some(field_item)
+    }
+    None => None
+  }
+  { id: ion_schema_codegen_value_0, label: ion_schema_codegen_value_1, }
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline14(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    let matched = IonSchemaCodegenInternalInline14::from_ion(value)
+    ignore(matched.id)
+    ignore(matched.label)
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineRecord = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineRecord.
+pub fn validate_type_InlineRecord(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineRecord",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline14(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineRecord",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}

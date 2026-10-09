@@ -444,6 +444,8 @@ fn inline_type_definition_supported(
         | "codepoint_length"
         | "utf8_byte_length"
         | "byte_length"
+        | "fields"
+        | "field_names"
         | "element"
         | "contains"
         | "ordered_elements"
@@ -480,7 +482,9 @@ fn inline_type_definition_supported(
       !has_scalar_constraints &&
       value.get_fields("fields").length() == 0 &&
       field_names_type is None
-    TypeBody::Alias(_) | TypeBody::Struct(_, _) => false
+    TypeBody::Struct(_, _) =>
+      !has_type_algebra && !has_scalar_constraints && ordered_elements is None
+    TypeBody::Alias(_) => false
   }
 }
 

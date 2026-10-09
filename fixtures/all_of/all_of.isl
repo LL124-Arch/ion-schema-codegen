@@ -10,3 +10,4 @@ type::{name: MaybeTypedInt, all_of: [$any, $null_or::$int]}
 type::{name: InlineEven, all_of: [{type: int, valid_values: [2, 4]}]}
 type::{name: MaybeInlineEven, all_of: [$null_or::{type: int, valid_values: [2]}]}
 type::{name: InlineIntList, all_of: [{type: list, element: int, container_length: range::[1, 3]}]}
+type::{name: InlineRecord, all_of: [{type: struct, fields: closed::{id: {type: int, occurs: required}, label: {type: string, occurs: optional}}}]}

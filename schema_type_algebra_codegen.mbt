@@ -301,12 +301,34 @@ fn write_named_type_matcher(
     "(value : @ion_model.IonValue) -> Bool {\n",
   )
   match named_type.body {
-    TypeBody::Struct(_, _) =>
-      output.write_string(
-        "  try {\n    ignore(" +
-        generated_name +
-        "::from_ion(value))\n    true\n  } catch {\n    _ => false\n  }\n",
-      )
+    TypeBody::Struct(fields, is_open) =>
+      if named_type.is_inline {
+        output.write_string(
+          "  try {\n    let matched = " + generated_name + "::from_ion(value)\n",
+        )
+        for field in fields {
+          output.write_string(
+            "    ignore(matched." +
+            moonbit_field_identifier(
+              field.name,
+              "field \\{named_type.name}.\\{field.name}",
+            ) +
+            ")\n",
+          )
+        }
+        if is_open {
+          output.write_string(
+            "    ignore(matched.ion_schema_codegen_open_content)\n",
+          )
+        }
+        output.write_string("    true\n  } catch {\n    _ => false\n  }\n")
+      } else {
+        output.write_string(
+          "  try {\n    ignore(" +
+          generated_name +
+          "::from_ion(value))\n    true\n  } catch {\n    _ => false\n  }\n",
+        )
+      }
     TypeBody::List(_) =>
       output.write_string(
         "  try {\n    ignore(from_ion_" +

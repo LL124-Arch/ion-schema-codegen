@@ -74,6 +74,35 @@ test "all_of validates inline list definitions" {
 }
 
 ///|
+test "all_of validates inline struct fields and closedness" {
+  @all_of.validate_type_InlineRecord(
+    @ion_model.IonValue::Struct([field("id", integer(7))]),
+  )
+  @all_of.validate_type_InlineRecord(
+    @ion_model.IonValue::Struct([
+      field("id", integer(7)),
+      field("label", @ion_model.IonValue::String("ready")),
+    ]),
+  )
+  for
+    invalid in [
+      @ion_model.IonValue::Struct([]),
+      @ion_model.IonValue::Struct([
+        field("id", @ion_model.IonValue::String("bad")),
+      ]),
+      @ion_model.IonValue::Struct([
+        field("id", integer(7)),
+        field("extra", integer(8)),
+      ]),
+    ] {
+    assert_eq(
+      all_of_error(@all_of.validate_type_InlineRecord, invalid),
+      ("InlineRecord", "all_of"),
+    )
+  }
+}
+
+///|
 test "nullable inline definitions accept only plain null or a matching value" {
   let plain_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Null)
   let typed_int_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Int)
