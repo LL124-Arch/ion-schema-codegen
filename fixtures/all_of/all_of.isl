@@ -8,3 +8,4 @@ type::{name: PositiveBelowTenRecord, type: struct, fields: closed::{value: {type
 type::{name: MaybeInt, all_of: [$any, $null_or::int]}
 type::{name: MaybeTypedInt, all_of: [$any, $null_or::$int]}
 type::{name: InlineEven, all_of: [{type: int, valid_values: [2, 4]}]}
+type::{name: MaybeInlineEven, all_of: [$null_or::{type: int, valid_values: [2]}]}

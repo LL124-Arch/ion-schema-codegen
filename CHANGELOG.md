@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.37.0 — 2026-10-09
+
+- 类型代数接受 `$null_or::{type: ..., valid_values: [...]}` inline 参数；plain null 或匹配值通过，错误 typed null 和集合外值继续失败。
+- nullable inline matcher 适用于 `all_of`、`any_of`、`one_of` 和 `not`，保留既有分支计数语义。
+
 ## 0.36.0 — 2026-10-09
 
 - `all_of`、`any_of`、`one_of` 和 `not` 类型参数接受标量 `type` 与 `valid_values` 组成的 inline type definition；匿名 matcher 为内部实现，不生成公开类型声明。

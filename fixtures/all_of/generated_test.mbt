@@ -56,6 +56,22 @@ test "all_of accepts anonymous scalar definitions without exposing a type" {
 }
 
 ///|
+test "nullable inline definitions accept only plain null or a matching value" {
+  let plain_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Null)
+  let typed_int_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Int)
+  @all_of.validate_type_MaybeInlineEven(plain_null)
+  @all_of.validate_type_MaybeInlineEven(integer(2))
+  assert_eq(
+    all_of_error(@all_of.validate_type_MaybeInlineEven, typed_int_null),
+    ("MaybeInlineEven", "all_of"),
+  )
+  assert_eq(
+    all_of_error(@all_of.validate_type_MaybeInlineEven, integer(4)),
+    ("MaybeInlineEven", "all_of"),
+  )
+}
+
+///|
 test "all_of propagates through aliases fields and list elements" {
   try {
     ignore(

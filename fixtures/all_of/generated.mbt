@@ -39,7 +39,6 @@ fn ion_schema_codegen_actual_type(value : @ion_model.IonValue) -> String {
     (false, actual_kind) => ion_schema_codegen_kind_name(actual_kind)
   }
 }
-
 ///|
 fn ion_schema_codegen_matches_type(
   value : @ion_model.IonValue,
@@ -76,12 +75,9 @@ fn ion_schema_codegen_matches_type(
     "struct" => !is_null && kind == @ion_model.IonNull::Struct
     "$struct" => kind == @ion_model.IonNull::Struct
     "number" | "$number" =>
-      (
-        kind == @ion_model.IonNull::Int ||
+      (kind == @ion_model.IonNull::Int ||
         kind == @ion_model.IonNull::Float ||
-        kind == @ion_model.IonNull::Decimal
-      ) &&
-      (expected == "$number" || !is_null)
+        kind == @ion_model.IonNull::Decimal) && (expected == "$number" || !is_null)
     "text" | "$text" =>
       (kind == @ion_model.IonNull::String || kind == @ion_model.IonNull::Symbol) &&
       (expected == "$text" || !is_null)
@@ -163,10 +159,7 @@ fn ion_schema_codegen_range_contains(
         match ion_schema_codegen_compare_values(value, minimum) {
           Some(order) =>
             order > 0 ||
-            (
-              order == 0 &&
-              !ion_schema_codegen_has_annotation(minimum, "exclusive")
-            )
+            (order == 0 && !ion_schema_codegen_has_annotation(minimum, "exclusive"))
           None => false
         }
       }
@@ -176,10 +169,7 @@ fn ion_schema_codegen_range_contains(
         match ion_schema_codegen_compare_values(value, maximum) {
           Some(order) =>
             order < 0 ||
-            (
-              order == 0 &&
-              !ion_schema_codegen_has_annotation(maximum, "exclusive")
-            )
+            (order == 0 && !ion_schema_codegen_has_annotation(maximum, "exclusive"))
           None => false
         }
       }
@@ -194,31 +184,22 @@ fn ion_schema_codegen_compare_values(
   left : @ion_model.IonValue,
   right : @ion_model.IonValue,
 ) -> Int? {
-  match
-    (
-      ion_schema_codegen_number_parts(left),
-      ion_schema_codegen_number_parts(right),
-    ) {
-    (
-      Some((left_coefficient, left_exponent)),
-      Some((right_coefficient, right_exponent)),
-    ) =>
-      Some(
-        ion_schema_codegen_compare_decimal_parts(
-          left_coefficient, left_exponent, right_coefficient, right_exponent,
-        ),
-      )
+  match (ion_schema_codegen_number_parts(left), ion_schema_codegen_number_parts(right)) {
+    (Some((left_coefficient, left_exponent)), Some((right_coefficient, right_exponent))) =>
+      Some(ion_schema_codegen_compare_decimal_parts(
+        left_coefficient,
+        left_exponent,
+        right_coefficient,
+        right_exponent,
+      ))
     _ =>
       match (left.without_annotations(), right.without_annotations()) {
-        (
-          @ion_model.IonValue::Timestamp(left),
-          @ion_model.IonValue::Timestamp(right),
-        ) => Some(ion_schema_codegen_compare_timestamps(left, right))
+        (@ion_model.IonValue::Timestamp(left), @ion_model.IonValue::Timestamp(right)) =>
+          Some(ion_schema_codegen_compare_timestamps(left, right))
         _ => None
       }
   }
 }
-
 ///|
 fn ion_schema_codegen_power(base : Int, exponent : Int) -> @bigint.BigInt {
   @bigint.BigInt::pow(
@@ -241,7 +222,9 @@ fn ion_schema_codegen_number_parts(
 }
 
 ///|
-fn ion_schema_codegen_float_parts(value : Float) -> (@bigint.BigInt, Int)? {
+fn ion_schema_codegen_float_parts(
+  value : Float,
+) -> (@bigint.BigInt, Int)? {
   let bits = value.reinterpret_as_uint()
   let exponent_bits = ((bits >> 23) & 0xFF).reinterpret_as_int()
   let fraction_bits = (bits & 0x7FFFFF).reinterpret_as_int()
@@ -287,13 +270,11 @@ fn ion_schema_codegen_compare_decimal_parts(
   if left_sign == 0 {
     return 0
   }
-  let left_order = @bigint.BigInt::from_int(
-      left_coefficient.to_string().length(),
-    ) +
+  let left_order =
+    @bigint.BigInt::from_int(left_coefficient.to_string().length()) +
     @bigint.BigInt::from_int(left_exponent)
-  let right_order = @bigint.BigInt::from_int(
-      right_coefficient.to_string().length(),
-    ) +
+  let right_order =
+    @bigint.BigInt::from_int(right_coefficient.to_string().length()) +
     @bigint.BigInt::from_int(right_exponent)
   let order = left_order.compare(right_order)
   if order != 0 {
@@ -310,7 +291,6 @@ fn ion_schema_codegen_compare_decimal_parts(
     ion_schema_codegen_power(10, right_exponent - common_exponent)
   left_scaled.compare(right_scaled)
 }
-
 ///|
 fn ion_schema_codegen_is_leap_year(year : Int) -> Bool {
   year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
@@ -330,24 +310,25 @@ fn ion_schema_codegen_days_in_month(year : Int, month : Int) -> Int {
 fn ion_schema_codegen_timestamp_seconds(
   timestamp : @ion_model.IonTimestamp,
 ) -> @bigint.BigInt {
-  let previous_year = @bigint.BigInt::from_int(timestamp.year()) -
-    @bigint.BigInt::from_int(1)
-  let mut days = previous_year * @bigint.BigInt::from_int(365) +
+  let previous_year =
+    @bigint.BigInt::from_int(timestamp.year()) - @bigint.BigInt::from_int(1)
+  let mut days =
+    previous_year * @bigint.BigInt::from_int(365) +
     previous_year / @bigint.BigInt::from_int(4) -
     previous_year / @bigint.BigInt::from_int(100) +
     previous_year / @bigint.BigInt::from_int(400)
   let month = timestamp.month().unwrap_or(1)
   for prior_month in 1..<month {
-    days = days +
-      @bigint.BigInt::from_int(
-        ion_schema_codegen_days_in_month(timestamp.year(), prior_month),
-      )
+    days = days + @bigint.BigInt::from_int(
+      ion_schema_codegen_days_in_month(timestamp.year(), prior_month),
+    )
   }
   if month > 2 && ion_schema_codegen_is_leap_year(timestamp.year()) {
     days = days + @bigint.BigInt::from_int(1)
   }
   days = days + @bigint.BigInt::from_int(timestamp.day().unwrap_or(1) - 1)
-  let local_seconds = timestamp.hour().unwrap_or(0) * 3600 +
+  let local_seconds =
+    timestamp.hour().unwrap_or(0) * 3600 +
     timestamp.minute().unwrap_or(0) * 60 +
     timestamp.second().unwrap_or(0)
   days * @bigint.BigInt::from_int(86400) +
@@ -360,22 +341,26 @@ fn ion_schema_codegen_compare_timestamps(
   left : @ion_model.IonTimestamp,
   right : @ion_model.IonTimestamp,
 ) -> Int {
-  let seconds_order = ion_schema_codegen_timestamp_seconds(left).compare(
-    ion_schema_codegen_timestamp_seconds(right),
-  )
+  let seconds_order =
+    ion_schema_codegen_timestamp_seconds(left).compare(
+      ion_schema_codegen_timestamp_seconds(right),
+    )
   if seconds_order != 0 {
     return seconds_order
   }
-  let left_fraction = left
-    .fraction_coefficient()
-    .unwrap_or(@bigint.BigInt::from_int(0))
+  let left_fraction = left.fraction_coefficient().unwrap_or(
+    @bigint.BigInt::from_int(0),
+  )
   let left_exponent = left.fraction_exponent().unwrap_or(0)
-  let right_fraction = right
-    .fraction_coefficient()
-    .unwrap_or(@bigint.BigInt::from_int(0))
+  let right_fraction = right.fraction_coefficient().unwrap_or(
+    @bigint.BigInt::from_int(0),
+  )
   let right_exponent = right.fraction_exponent().unwrap_or(0)
   ion_schema_codegen_compare_decimal_parts(
-    left_fraction, left_exponent, right_fraction, right_exponent,
+    left_fraction,
+    left_exponent,
+    right_fraction,
+    right_exponent,
   )
 }
 
@@ -385,7 +370,9 @@ pub type Positive = @bigint.BigInt
 ///|
 /// Test whether an Ion value satisfies valid_values for Positive.
 pub fn is_valid_values_Positive(value : @ion_model.IonValue) -> Bool {
-  let allowed_values = @ion.parse_text("range::[1, max]") catch { _ => [] }
+  let allowed_values = @ion.parse_text("range::[1, max]") catch {
+    _ => []
+  }
   for candidate in allowed_values {
     if ion_schema_codegen_valid_values_match(value, candidate) {
       return true
@@ -396,9 +383,7 @@ pub fn is_valid_values_Positive(value : @ion_model.IonValue) -> Bool {
 
 ///|
 /// Validate the Ion type and valid_values set for Positive.
-pub fn validate_Positive(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_Positive(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "int") {
     raise ConversionError::TypeMismatch(
       path="Positive",
@@ -416,9 +401,7 @@ pub fn validate_Positive(
 }
 
 ///|
-fn ion_schema_codegen_matches_named_Positive(
-  value : @ion_model.IonValue,
-) -> Bool {
+fn ion_schema_codegen_matches_named_Positive(value : @ion_model.IonValue) -> Bool {
   try {
     if !ion_schema_codegen_matches_type(value, "int") {
       raise ConversionError::TypeMismatch(
@@ -446,7 +429,9 @@ pub type BelowTen = @bigint.BigInt
 ///|
 /// Test whether an Ion value satisfies valid_values for BelowTen.
 pub fn is_valid_values_BelowTen(value : @ion_model.IonValue) -> Bool {
-  let allowed_values = @ion.parse_text("range::[min, 9]") catch { _ => [] }
+  let allowed_values = @ion.parse_text("range::[min, 9]") catch {
+    _ => []
+  }
   for candidate in allowed_values {
     if ion_schema_codegen_valid_values_match(value, candidate) {
       return true
@@ -457,9 +442,7 @@ pub fn is_valid_values_BelowTen(value : @ion_model.IonValue) -> Bool {
 
 ///|
 /// Validate the Ion type and valid_values set for BelowTen.
-pub fn validate_BelowTen(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_BelowTen(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "int") {
     raise ConversionError::TypeMismatch(
       path="BelowTen",
@@ -477,9 +460,7 @@ pub fn validate_BelowTen(
 }
 
 ///|
-fn ion_schema_codegen_matches_named_BelowTen(
-  value : @ion_model.IonValue,
-) -> Bool {
+fn ion_schema_codegen_matches_named_BelowTen(value : @ion_model.IonValue) -> Bool {
   try {
     if !ion_schema_codegen_matches_type(value, "int") {
       raise ConversionError::TypeMismatch(
@@ -506,9 +487,7 @@ pub type PositiveBelowTen = @ion_model.IonValue
 
 ///|
 /// Validate the type algebra constraints for PositiveBelowTen.
-pub fn validate_type_PositiveBelowTen(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_type_PositiveBelowTen(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "$any") {
     raise ConversionError::TypeMismatch(
       path="PositiveBelowTen",
@@ -586,9 +565,7 @@ pub fn from_ion_PositiveBelowTenList(
 
 ///|
 /// Convert PositiveBelowTenList into an Ion list.
-pub fn to_ion_PositiveBelowTenList(
-  items : PositiveBelowTenList,
-) -> @ion_model.IonValue {
+pub fn to_ion_PositiveBelowTenList(items : PositiveBelowTenList) -> @ion_model.IonValue {
   let output_elements : Array[@ion_model.IonValue] = []
   for element in items {
     output_elements.push(element)
@@ -615,36 +592,23 @@ pub fn PositiveBelowTenRecord::from_ion(
   }
   let input_fields = match value.without_annotations() {
     @ion_model.IonValue::Struct(fields) => fields
-    _ =>
-      raise ConversionError::TypeMismatch(
-        path=type_path,
-        expected="struct",
-        actual=ion_schema_codegen_actual_type(value),
-      )
+    _ => raise ConversionError::TypeMismatch(path=type_path, expected="struct", actual=ion_schema_codegen_actual_type(value))
   }
   let mut input_field_0 : @ion_model.IonValue? = None
   for (field_symbol, field_value) in input_fields {
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "value" =>
-            input_field_0 = match input_field_0 {
-              Some(_) =>
-                raise ConversionError::DuplicateField(
-                  path="PositiveBelowTenRecord.value",
-                )
-              None => Some(field_value)
-            }
-          _ =>
-            raise ConversionError::UnknownField(
-              path="PositiveBelowTenRecord." + field_name,
-            )
+          "value" => input_field_0 = match input_field_0 {
+            Some(_) =>
+              raise ConversionError::DuplicateField(
+                path="PositiveBelowTenRecord.value",
+              )
+            None => Some(field_value)
+          }
+          _ => raise ConversionError::UnknownField(path="PositiveBelowTenRecord." + field_name)
         }
-      None =>
-        raise ConversionError::UnknownSymbol(
-          path="PositiveBelowTenRecord.<field>",
-          sid=field_symbol.sid_value().unwrap_or(0),
-        )
+      None => raise ConversionError::UnknownSymbol(path="PositiveBelowTenRecord.<field>", sid=field_symbol.sid_value().unwrap_or(0))
     }
   }
   let ion_schema_codegen_value_0 : PositiveBelowTenAlias = match input_field_0 {
@@ -667,21 +631,21 @@ pub fn PositiveBelowTenRecord::from_ion(
       }
       field_item
     }
-    None =>
-      raise ConversionError::MissingRequiredField(
-        path="PositiveBelowTenRecord.value",
-      )
+    None => raise ConversionError::MissingRequiredField(path="PositiveBelowTenRecord.value")
   }
-  { value: ion_schema_codegen_value_0, }
+  {
+    value: ion_schema_codegen_value_0,
+  }
 }
 
 ///|
 /// Convert PositiveBelowTenRecord into an Ion struct in schema field order.
-pub fn PositiveBelowTenRecord::to_ion(
-  self : PositiveBelowTenRecord,
-) -> @ion_model.IonValue {
+pub fn PositiveBelowTenRecord::to_ion(self : PositiveBelowTenRecord) -> @ion_model.IonValue {
   let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
-  output_fields.push((@ion_model.IonSymbol::from_text("value"), self.value))
+  output_fields.push(
+    (@ion_model.IonSymbol::from_text("value"),
+      self.value),
+  )
   @ion_model.IonValue::Struct(output_fields)
 }
 
@@ -690,9 +654,7 @@ pub type MaybeInt = @ion_model.IonValue
 
 ///|
 /// Validate the type algebra constraints for MaybeInt.
-pub fn validate_type_MaybeInt(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_type_MaybeInt(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "$any") {
     raise ConversionError::TypeMismatch(
       path="MaybeInt",
@@ -707,8 +669,7 @@ pub fn validate_type_MaybeInt(
       actual=ion_schema_codegen_actual_type(value),
     )
   }
-  if !(ion_schema_codegen_matches_type(value, "$null") ||
-    ion_schema_codegen_matches_type(value, "int")) {
+  if !(ion_schema_codegen_matches_type(value, "$null") || ion_schema_codegen_matches_type(value, "int")) {
     raise ConversionError::InvalidValue(
       path="MaybeInt",
       constraint="all_of",
@@ -722,9 +683,7 @@ pub type MaybeTypedInt = @ion_model.IonValue
 
 ///|
 /// Validate the type algebra constraints for MaybeTypedInt.
-pub fn validate_type_MaybeTypedInt(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_type_MaybeTypedInt(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "$any") {
     raise ConversionError::TypeMismatch(
       path="MaybeTypedInt",
@@ -739,8 +698,7 @@ pub fn validate_type_MaybeTypedInt(
       actual=ion_schema_codegen_actual_type(value),
     )
   }
-  if !(ion_schema_codegen_matches_type(value, "$null") ||
-    ion_schema_codegen_matches_type(value, "$int")) {
+  if !(ion_schema_codegen_matches_type(value, "$null") || ion_schema_codegen_matches_type(value, "$int")) {
     raise ConversionError::InvalidValue(
       path="MaybeTypedInt",
       constraint="all_of",
@@ -748,13 +706,12 @@ pub fn validate_type_MaybeTypedInt(
     )
   }
 }
-
 ///|
 /// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline8.
-fn is_valid_values_IonSchemaCodegenInternalInline8(
-  value : @ion_model.IonValue,
-) -> Bool {
-  let allowed_values = @ion.parse_text("2\n4") catch { _ => [] }
+fn is_valid_values_IonSchemaCodegenInternalInline8(value : @ion_model.IonValue) -> Bool {
+  let allowed_values = @ion.parse_text("2\n4") catch {
+    _ => []
+  }
   for candidate in allowed_values {
     if ion_schema_codegen_valid_values_match(value, candidate) {
       return true
@@ -763,10 +720,9 @@ fn is_valid_values_IonSchemaCodegenInternalInline8(
   false
 }
 
+
 ///|
-fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline8(
-  value : @ion_model.IonValue,
-) -> Bool {
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline8(value : @ion_model.IonValue) -> Bool {
   try {
     if !ion_schema_codegen_matches_type(value, "int") {
       raise ConversionError::TypeMismatch(
@@ -788,14 +744,13 @@ fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline8(
   }
 }
 
+
 ///|
 pub type InlineEven = @ion_model.IonValue
 
 ///|
 /// Validate the type algebra constraints for InlineEven.
-pub fn validate_type_InlineEven(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_type_InlineEven(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "$any") {
     raise ConversionError::TypeMismatch(
       path="InlineEven",
@@ -806,6 +761,66 @@ pub fn validate_type_InlineEven(
   if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline8(value) {
     raise ConversionError::InvalidValue(
       path="InlineEven",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+///|
+/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline10.
+fn is_valid_values_IonSchemaCodegenInternalInline10(value : @ion_model.IonValue) -> Bool {
+  let allowed_values = @ion.parse_text("2") catch {
+    _ => []
+  }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline10(value : @ion_model.IonValue) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_10",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !is_valid_values_IonSchemaCodegenInternalInline10(value) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_10",
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+
+///|
+pub type MaybeInlineEven = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for MaybeInlineEven.
+pub fn validate_type_MaybeInlineEven(value : @ion_model.IonValue) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="MaybeInlineEven",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !(ion_schema_codegen_matches_type(value, "$null") || ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline10(value)) {
+    raise ConversionError::InvalidValue(
+      path="MaybeInlineEven",
       constraint="all_of",
       actual=ion_schema_codegen_actual_type(value),
     )

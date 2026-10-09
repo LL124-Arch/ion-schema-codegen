@@ -4,7 +4,7 @@
 
 ## 支持范围
 
-- all_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型及 $null_or 类型参数列表，所有分支均须匹配；命名类型省略 type 时按 $any 表示并保留原始 IonValue。类型参数支持 `{type: 标量, valid_values: [...]}` 形式的 inline type definition；其他 inline 约束组合、约束参数内的 inline import 和 document 类型参数仍显式报错。需要容器结构的约束仍须显式声明 type: struct 或 type: list。
+- all_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型及 `$null_or` 类型参数列表，所有分支均须匹配；命名类型省略 type 时按 `$any` 表示并保留原始 IonValue。类型参数支持 `{type: 标量, valid_values: [...]}` 形式的 inline type definition，也支持 `$null_or::{...}`；plain null 与 inline 类型匹配值组成并集，typed null 仍按声明类型区分。其他 inline 约束组合、约束参数内的 inline import 和 document 类型参数仍显式报错。需要容器结构的约束仍须显式声明 type: struct 或 type: list。
 - any_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、标量 type/valid_values inline definition 及 $null_or 类型参数列表，至少一个分支须匹配；支持重叠分支并逐支独立验证。
 - one_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、标量 type/valid_values inline definition 及 $null_or 类型参数列表，恰好一个分支须匹配；重叠类型和重复分支会分别计数。
 - not 支持单个 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、标量 type/valid_values inline definition 及 $null_or 类型参数；分支匹配时拒绝当前值，分支转换或校验失败时通过。
