@@ -65,6 +65,10 @@ priv struct AnnotationConstraint {
   standard_container_lengths : Array[IntegerRange]
   standard_contains_values : Array[String]?
   standard_element_valid_values : Array[String]?
+  standard_element_regexes : Array[RegexConstraint]
+  standard_element_codepoint_lengths : Array[IntegerRange]
+  standard_element_utf8_byte_lengths : Array[IntegerRange]
+  standard_ordered_elements : Array[OrderedElementSpec]?
 }
 
 ///|

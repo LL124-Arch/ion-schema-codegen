@@ -6,6 +6,12 @@ fn has_content_length_constraints(types : Array[NamedType]) -> Bool {
       named_type.byte_lengths.length() > 0 {
       return true
     }
+    for constraint in named_type.annotation_constraints {
+      if constraint.standard_element_codepoint_lengths.length() > 0 ||
+        constraint.standard_element_utf8_byte_lengths.length() > 0 {
+        return true
+      }
+    }
   }
   false
 }
@@ -27,6 +33,14 @@ fn write_content_length_helpers(
     }
     if named_type.byte_lengths.length() > 0 {
       needs_byte_length = true
+    }
+    for constraint in named_type.annotation_constraints {
+      if constraint.standard_element_codepoint_lengths.length() > 0 {
+        needs_codepoint_length = true
+      }
+      if constraint.standard_element_utf8_byte_lengths.length() > 0 {
+        needs_utf8_byte_length = true
+      }
     }
   }
   if needs_codepoint_length {

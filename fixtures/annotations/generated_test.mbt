@@ -193,6 +193,74 @@ test "standard annotations element valid_values checks every symbol" {
 }
 
 ///|
+test "standard annotations element regex and text lengths" {
+  @annotations.validate_annotations_VersionAnnotationTokens(
+    @ion_model.IonValue::String("hello").with_annotations([
+      @ion_model.IonSymbol::from_text("v1"),
+    ]),
+  )
+  @annotations.validate_annotations_VersionAnnotationTokens(
+    @ion_model.IonValue::String("hello"),
+  )
+  assert_eq(
+    annotation_failure(
+      @annotations.validate_annotations_VersionAnnotationTokens,
+      @ion_model.IonValue::String("hello").with_annotations([
+        @ion_model.IonSymbol::from_text("record"),
+      ]),
+    ),
+    ("VersionAnnotationTokens", "annotations"),
+  )
+  @annotations.validate_annotations_UnicodeAnnotationLength(
+    @ion_model.IonValue::String("hello").with_annotations([
+      @ion_model.IonSymbol::from_text("éx"),
+    ]),
+  )
+  assert_eq(
+    annotation_failure(
+      @annotations.validate_annotations_UnicodeAnnotationLength,
+      @ion_model.IonValue::String("hello").with_annotations([
+        @ion_model.IonSymbol::from_text("ab"),
+      ]),
+    ),
+    ("UnicodeAnnotationLength", "annotations"),
+  )
+}
+
+///|
+test "standard annotations ordered_elements handles required and ranged steps" {
+  @annotations.validate_annotations_OrderedAnnotationTokens(
+    @ion_model.IonValue::String("hello").with_annotations([
+      @ion_model.IonSymbol::from_text("record"),
+    ]),
+  )
+  @annotations.validate_annotations_OrderedAnnotationTokens(
+    @ion_model.IonValue::String("hello").with_annotations([
+      @ion_model.IonSymbol::from_text("record"),
+      @ion_model.IonSymbol::from_text("v1"),
+      @ion_model.IonSymbol::from_text("v1"),
+    ]),
+  )
+  assert_eq(
+    annotation_failure(
+      @annotations.validate_annotations_OrderedAnnotationTokens,
+      @ion_model.IonValue::String("hello").with_annotations([
+        @ion_model.IonSymbol::from_text("v1"),
+        @ion_model.IonSymbol::from_text("record"),
+      ]),
+    ),
+    ("OrderedAnnotationTokens", "annotations"),
+  )
+  assert_eq(
+    annotation_failure(
+      @annotations.validate_annotations_OrderedAnnotationTokens,
+      @ion_model.IonValue::String("hello"),
+    ),
+    ("OrderedAnnotationTokens", "annotations"),
+  )
+}
+
+///|
 test "annotation constraints propagate through aliases fields and lists" {
   try {
     ignore(

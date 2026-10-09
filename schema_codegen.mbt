@@ -97,6 +97,10 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
       output.write_string("\n")
       write_annotation_helper(output)
     }
+    if has_annotation_ordered_constraints(schema.types) {
+      output.write_string("\n")
+      write_annotation_ordered_helper(output)
+    }
     let has_distinct_elements = has_distinct_element_constraints(schema.types)
     let has_distinct_field_names = has_distinct_field_names_constraints(
       schema.types,
@@ -116,7 +120,10 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
         write_distinct_field_names_helper(output)
       }
       if has_contains {
-        write_contains_helper(output)
+        write_contains_helper(
+          output,
+          has_struct_contains_constraints(schema.types),
+        )
       }
     }
     if has_valid_values(schema.types) {
@@ -286,6 +293,16 @@ fn validate_codegen_subset(types : Array[NamedType]) -> Unit raise SchemaError {
             type_ref,
             "annotations of \{named_type.name}",
           )
+        None => ()
+      }
+      match constraint.standard_ordered_elements {
+        Some(ordered_elements) =>
+          for ordered_element in ordered_elements {
+            validate_codegen_reference(
+              ordered_element.type_ref,
+              "annotations ordered_elements of \{named_type.name}",
+            )
+          }
         None => ()
       }
     }
@@ -2964,6 +2981,17 @@ fn referenced_type_names(named_type : NamedType) -> Array[String] {
         names.push(name)
       Some(TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_)) | None => ()
     }
+    match constraint.standard_ordered_elements {
+      Some(ordered_elements) =>
+        for ordered_element in ordered_elements {
+          match ordered_element.type_ref {
+            TypeRef::Named(name) | TypeRef::NullOrNamed(name) =>
+              names.push(name)
+            TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+          }
+        }
+      None => ()
+    }
   }
   names
 }
@@ -3021,6 +3049,22 @@ fn uses_bigint(types : Array[NamedType]) -> Bool raise SchemaError {
           }
         }
       None => ()
+    }
+    for constraint in named_type.annotation_constraints {
+      match constraint.standard_type_ref {
+        Some(type_ref) if needs_nullable_type_check(type_ref, types) =>
+          return true
+        _ => ()
+      }
+      match constraint.standard_ordered_elements {
+        Some(ordered_elements) =>
+          for ordered_element in ordered_elements {
+            if needs_nullable_type_check(ordered_element.type_ref, types) {
+              return true
+            }
+          }
+        None => ()
+      }
     }
     match named_type.element_type {
       Some(type_ref) if matches_int(resolve_type_ref(types, type_ref)) &&

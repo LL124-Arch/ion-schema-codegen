@@ -37,6 +37,27 @@ fn has_named_contains_values(named_type : NamedType) -> Bool {
 }
 
 ///|
+fn has_struct_contains_constraints(
+  types : Array[NamedType],
+) -> Bool raise SchemaError {
+  for named_type in types {
+    if !has_named_contains_values(named_type) {
+      continue
+    }
+    match named_type.body {
+      TypeBody::Struct(_, _) => return true
+      TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+        match resolve_type_ref(types, type_ref) {
+          ResolvedType::Struct(_) => return true
+          _ => ()
+        }
+      TypeBody::List(_) => ()
+    }
+  }
+  false
+}
+
+///|
 
 ///|
 fn write_symbol_equality_helper(output : StringBuilder) -> Unit {
@@ -118,10 +139,18 @@ fn write_distinct_values_check(
 }
 
 ///|
-fn write_contains_helper(output : StringBuilder) -> Unit {
+fn write_contains_helper(
+  output : StringBuilder,
+  include_struct_field_values : Bool,
+) -> Unit {
   output.write_string(
     "\n///|\nfn ion_schema_codegen_contains_missing(\n  values : Array[@ion_model.IonValue],\n  required : Array[@ion_model.IonValue],\n) -> @ion_model.IonValue? {\n  for expected in required {\n    let mut found = false\n    for value in values {\n      if ion_schema_codegen_values_equal(expected, value) {\n        found = true\n        break\n      }\n    }\n    if !found {\n      return Some(expected)\n    }\n  }\n  None\n}\n\n///|\nfn ion_schema_codegen_check_contains(\n  values : Array[@ion_model.IonValue],\n  encoded_required : String,\n  path : String,\n) -> Unit raise ConversionError {\n  let required = @ion.parse_text(encoded_required) catch {\n    _ => []\n  }\n  match ion_schema_codegen_contains_missing(values, required) {\n    Some(missing) =>\n      raise ConversionError::InvalidValue(\n        path=path,\n        constraint=\"contains\",\n        actual=@ion.encode_value_text(missing) catch {\n          _ => \"<unencodable Ion value>\"\n        },\n      )\n    None => ()\n  }\n}",
   )
+  if include_struct_field_values {
+    output.write_string(
+      "\n\n///|\nfn ion_schema_codegen_struct_field_values(\n  fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)],\n) -> Array[@ion_model.IonValue] {\n  let values : Array[@ion_model.IonValue] = []\n  for (_, value) in fields {\n    values.push(value)\n  }\n  values\n}\n",
+    )
+  }
 }
 
 ///|

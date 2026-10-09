@@ -22,6 +22,16 @@ fn has_named_type_matcher_references(types : Array[NamedType]) -> Bool {
         Some(TypeRef::Named(_) | TypeRef::NullOrNamed(_)) => return true
         _ => ()
       }
+      match constraint.standard_ordered_elements {
+        Some(ordered_elements) =>
+          for ordered_element in ordered_elements {
+            match ordered_element.type_ref {
+              TypeRef::Named(_) | TypeRef::NullOrNamed(_) => return true
+              TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+            }
+          }
+        None => ()
+      }
     }
   }
   false
@@ -62,6 +72,15 @@ fn named_type_needs_algebra_matcher(
         Some(type_ref) if type_reference_names_target(type_ref, name) =>
           return true
         _ => ()
+      }
+      match constraint.standard_ordered_elements {
+        Some(ordered_elements) =>
+          for ordered_element in ordered_elements {
+            if type_reference_names_target(ordered_element.type_ref, name) {
+              return true
+            }
+          }
+        None => ()
       }
     }
   }

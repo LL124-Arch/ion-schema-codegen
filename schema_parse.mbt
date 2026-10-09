@@ -814,6 +814,10 @@ fn parse_annotation_fields(
             standard_container_lengths: [],
             standard_contains_values: None,
             standard_element_valid_values: None,
+            standard_element_regexes: [],
+            standard_element_codepoint_lengths: [],
+            standard_element_utf8_byte_lengths: [],
+            standard_ordered_elements: None,
           })
         }
       }
@@ -835,7 +839,7 @@ fn parse_standard_annotation_constraint(
   }
   validate_allowed_fields(
     value,
-    ["container_length", "contains", "element"],
+    ["container_length", "contains", "element", "ordered_elements"],
     context,
   )
   let contains_values : Array[String] = []
@@ -867,6 +871,10 @@ fn parse_standard_annotation_constraint(
     }
   }
   let element_values : Array[String] = []
+  let element_regexes : Array[RegexConstraint] = []
+  let element_codepoint_lengths : Array[IntegerRange] = []
+  let element_utf8_byte_lengths : Array[IntegerRange] = []
+  let mut has_element_valid_values = false
   let element_fields = value.get_fields("element")
   for element_value in element_fields {
     if element_value.annotations().length() > 0 {
@@ -875,12 +883,40 @@ fn parse_standard_annotation_constraint(
         context,
       )
     }
-    validate_allowed_fields(element_value, ["valid_values"], context)
+    validate_allowed_fields(
+      element_value,
+      ["valid_values", "regex", "codepoint_length", "utf8_byte_length"],
+      context,
+    )
     let valid_values_fields = element_value.get_fields("valid_values")
-    if valid_values_fields.length() == 0 {
+    if valid_values_fields.length() > 0 {
+      has_element_valid_values = true
+    }
+    let regex_fields = element_value.get_fields("regex")
+    let codepoint_fields = element_value.get_fields("codepoint_length")
+    let utf8_fields = element_value.get_fields("utf8_byte_length")
+    if valid_values_fields.length() == 0 &&
+      regex_fields.length() == 0 &&
+      codepoint_fields.length() == 0 &&
+      utf8_fields.length() == 0 {
       raise SchemaError::InvalidSchema(
-        "annotations element requires valid_values at " + context,
+        "annotations element requires a supported constraint at " + context,
       )
+    }
+    for regex in parse_regex_fields(regex_fields, context) {
+      element_regexes.push(regex)
+    }
+    for
+      length in parse_integer_constraint_fields(
+        codepoint_fields, "codepoint_length", context,
+      ) {
+      element_codepoint_lengths.push(length)
+    }
+    for
+      length in parse_integer_constraint_fields(
+        utf8_fields, "utf8_byte_length", context,
+      ) {
+      element_utf8_byte_lengths.push(length)
     }
     for valid_values_field in valid_values_fields {
       for valid_value in parse_valid_values(valid_values_field, context) {
@@ -928,10 +964,21 @@ fn parse_standard_annotation_constraint(
     } else {
       None
     },
-    standard_element_valid_values: if element_fields.length() > 0 {
+    standard_element_valid_values: if has_element_valid_values {
       Some(element_values)
     } else {
       None
+    },
+    standard_element_regexes: element_regexes,
+    standard_element_codepoint_lengths: element_codepoint_lengths,
+    standard_element_utf8_byte_lengths: element_utf8_byte_lengths,
+    standard_ordered_elements: match value.get_fields("ordered_elements") {
+      [] => None
+      [ordered_value] => Some(parse_ordered_elements(ordered_value, context))
+      _ =>
+        raise SchemaError::InvalidSchema(
+          "ordered_elements may appear at most once at " + context,
+        )
     },
   }
 }
@@ -1007,6 +1054,10 @@ fn parse_simple_annotation_constraint(
     standard_container_lengths: [],
     standard_contains_values: None,
     standard_element_valid_values: None,
+    standard_element_regexes: [],
+    standard_element_codepoint_lengths: [],
+    standard_element_utf8_byte_lengths: [],
+    standard_ordered_elements: None,
   }
 }
 
@@ -2268,6 +2319,17 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
             type_ref,
             "annotations of " + named_type.name,
           )
+        None => ()
+      }
+      match constraint.standard_ordered_elements {
+        Some(ordered_elements) =>
+          for ordered_element in ordered_elements {
+            validate_type_reference(
+              types,
+              ordered_element.type_ref,
+              "annotations ordered_elements of " + named_type.name,
+            )
+          }
         None => ()
       }
     }

@@ -4,6 +4,11 @@ fn has_regex_constraints(types : Array[NamedType]) -> Bool {
     if named_type.regex_constraints.length() > 0 {
       return true
     }
+    for constraint in named_type.annotation_constraints {
+      if constraint.standard_element_regexes.length() > 0 {
+        return true
+      }
+    }
   }
   false
 }

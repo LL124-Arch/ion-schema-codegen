@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.35.0 — 2026-10-09
+
+- `annotations` 标准 inline `element` 支持 `regex`、`codepoint_length` 和 `utf8_byte_length`，按每个 symbol token 的文本校验。
+- 支持 `ordered_elements` 对注解 token 有序分组校验，包括必选、可选、精确及范围次数；未消费 token 和无文本 symbol 返回 `annotations` 错误。
+
 ## 0.34.0 — 2026-10-09
 
 - `annotations` 标准 inline 表达式支持 `element: {valid_values: [...]}`，逐个限制注解 symbol token。
