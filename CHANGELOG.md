@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.42.0 — 2026-10-10
+
+- 类型代数 inline definitions 可引用已有命名类型并叠加 `valid_values` 等受支持约束；匹配时同时验证别名目标和新增限制。
+- Inline alias 的容器长度约束生成所需的运行时辅助函数，且不泄漏匿名定义的公开 API。
+
 ## 0.41.0 — 2026-10-10
 
 - 类型代数 inline type definition 新增 `type: struct` 支持，可按字段约束校验必选/可选字段、类型及 closed struct 边界。

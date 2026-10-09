@@ -103,6 +103,18 @@ test "all_of validates inline struct fields and closedness" {
 }
 
 ///|
+test "inline aliases intersect referenced type constraints" {
+  @all_of.validate_type_InlineAlias(integer(2))
+  @all_of.validate_type_InlineAlias(integer(4))
+  for invalid in [integer(1), integer(3), integer(12)] {
+    assert_eq(
+      all_of_error(@all_of.validate_type_InlineAlias, invalid),
+      ("InlineAlias", "all_of"),
+    )
+  }
+}
+
+///|
 test "nullable inline definitions accept only plain null or a matching value" {
   let plain_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Null)
   let typed_int_null = @ion_model.IonValue::null(kind=@ion_model.IonNull::Int)

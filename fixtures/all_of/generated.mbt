@@ -1117,3 +1117,73 @@ pub fn validate_type_InlineRecord(
     )
   }
 }
+
+///|
+/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline16.
+fn is_valid_values_IonSchemaCodegenInternalInline16(
+  value : @ion_model.IonValue,
+) -> Bool {
+  let allowed_values = @ion.parse_text("2\n4") catch { _ => [] }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline16(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_16",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !is_valid_values_IonSchemaCodegenInternalInline16(value) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_16",
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !is_valid_values_Positive(value) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_16",
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineAlias = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineAlias.
+pub fn validate_type_InlineAlias(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineAlias",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline16(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineAlias",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}

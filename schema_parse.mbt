@@ -484,7 +484,7 @@ fn inline_type_definition_supported(
       field_names_type is None
     TypeBody::Struct(_, _) =>
       !has_type_algebra && !has_scalar_constraints && ordered_elements is None
-    TypeBody::Alias(_) => false
+    TypeBody::Alias(_) => !has_type_algebra
   }
 }
 

@@ -1470,8 +1470,12 @@ fn write_ion_type_helpers(
 ///|
 fn has_container_length_constraints(types : Array[NamedType]) -> Bool {
   for named_type in types {
-    if named_type.container_lengths.length() > 0 && !named_type.is_inline {
-      return true
+    if named_type.container_lengths.length() > 0 {
+      match named_type.body {
+        TypeBody::Alias(_) => return true
+        _ if !named_type.is_inline => return true
+        _ => ()
+      }
     }
   }
   false
