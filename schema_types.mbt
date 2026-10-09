@@ -56,6 +56,13 @@ priv struct RegexConstraint {
 }
 
 ///|
+priv struct AnnotationConstraint {
+  allowed : Array[String]
+  closed : Bool
+  required : Bool
+}
+
+///|
 priv struct OrderedElementSpec {
   type_ref : TypeRef
   occurrence : FieldOccurrence
@@ -85,6 +92,7 @@ priv struct NamedType {
   timestamp_offsets : Array[Array[Int?]]
   ieee754_float_formats : Array[String]
   regex_constraints : Array[RegexConstraint]
+  annotation_constraints : Array[AnnotationConstraint]
   container_lengths : Array[IntegerRange]
   codepoint_lengths : Array[IntegerRange]
   utf8_byte_lengths : Array[IntegerRange]

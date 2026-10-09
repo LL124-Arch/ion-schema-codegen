@@ -212,6 +212,37 @@ test "parse regex patterns, flags, and supported value types" {
 }
 
 ///|
+test "parse simple annotation constraints and reject unsupported forms" {
+  @ion-schema-codegen.check_schema(
+    "$ion_schema_2_0 type::{name: Tagged, type: $any, annotations: closed::required::[record, v1]} type::{name: OptionalTag, type: $any, annotations: required::[message]} type::{name: EmptyTags, type: $any, annotations: closed::[] } type::{name: Stream, type: document, annotations: closed::[]}",
+  )
+  for
+    invalid in [
+      "[]", "x::[]", "closed::[1]", "closed::[x::tag]", "closed::closed::[]",
+    ] {
+    let error = expect_schema_error(
+      "$ion_schema_2_0 type::{name: BadTags, type: $any, annotations: \{invalid}}",
+    )
+    assert_true(
+      match error {
+        @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+        @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+        _ => false
+      },
+    )
+  }
+  let projected = expect_schema_error(
+    "$ion_schema_2_0 type::{name: Text, type: string, annotations: closed::[tag]}",
+  )
+  assert_true(
+    match projected {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+}
+
+///|
 test "accept non-null any and nullable universal any" {
   @ion-schema-codegen.check_schema(
     "$ion_schema_2_0 type::{name: AnyValue, type: any}",

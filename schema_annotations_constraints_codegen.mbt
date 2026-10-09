@@ -1,0 +1,146 @@
+///|
+fn has_annotation_constraints(types : Array[NamedType]) -> Bool {
+  for named_type in types {
+    if named_type.annotation_constraints.length() > 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn write_annotation_helper(output : StringBuilder) -> Unit {
+  output.write_string(
+    "///|\nfn ion_schema_codegen_annotations_match(\n  value : @ion_model.IonValue,\n  allowed : Array[String],\n  closed : Bool,\n  required : Bool,\n) -> Bool {\n  let annotations = value.annotations()\n  if required {\n    for expected in allowed {\n      let mut found = false\n      for actual in annotations {\n        if actual.text_value() == Some(expected) {\n          found = true\n          break\n        }\n      }\n      if !found {\n        return false\n      }\n    }\n  }\n  if closed {\n    for actual in annotations {\n      let text = match actual.text_value() {\n        Some(text) => text\n        None => return false\n      }\n      let mut allowed_annotation = false\n      for expected in allowed {\n        if expected == text {\n          allowed_annotation = true\n          break\n        }\n      }\n      if !allowed_annotation {\n        return false\n      }\n    }\n  }\n  true\n}\n",
+  )
+}
+
+///|
+fn write_named_annotation_checks(
+  output : StringBuilder,
+  named_type : NamedType,
+  value_expression : String,
+  path_expression : String,
+  indent : String,
+) -> Unit {
+  for constraint in named_type.annotation_constraints {
+    let allowed = StringBuilder()
+    allowed.write_char('[')
+    let mut first = true
+    for annotation in constraint.allowed {
+      if !first {
+        allowed.write_string(", ")
+      }
+      first = false
+      allowed.write_char('"')
+      allowed.write_string(moonbit_string_literal(annotation))
+      allowed.write_char('"')
+    }
+    allowed.write_char(']')
+    output.write_string(
+      indent +
+      "if !ion_schema_codegen_annotations_match(" +
+      value_expression +
+      ", " +
+      allowed.to_string() +
+      ", " +
+      constraint.closed.to_string() +
+      ", " +
+      constraint.required.to_string() +
+      ") {\n" +
+      indent +
+      "  raise ConversionError::InvalidValue(\n" +
+      indent +
+      "    path=" +
+      path_expression +
+      ",\n" +
+      indent +
+      "    constraint=\"annotations\",\n" +
+      indent +
+      "    actual=ion_schema_codegen_actual_type(" +
+      value_expression +
+      "),\n" +
+      indent +
+      "  )\n" +
+      indent +
+      "}\n",
+    )
+  }
+}
+
+///|
+fn write_named_annotations_validator(
+  output : StringBuilder,
+  named_type : NamedType,
+  types : Array[NamedType],
+) -> Unit raise SchemaError {
+  if named_type.annotation_constraints.length() == 0 {
+    return
+  }
+  let type_ref = match named_type.body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) => type_ref
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return
+  }
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar("document") => return
+    _ => ()
+  }
+  let generated_name = moonbit_type_identifier(named_type.name)
+  output.write_string("///|\n/// Validate annotations for ")
+  output.write_string(generated_name)
+  output.write_string(
+    ".\npub fn validate_annotations_" +
+    generated_name +
+    "(value : @ion_model.IonValue) -> Unit raise ConversionError {\n",
+  )
+  write_type_validation_with_path_expression(
+    output,
+    type_ref,
+    "value",
+    types,
+    "\"" + moonbit_string_literal(named_type.name) + "\"",
+    "  ",
+  )
+  write_named_annotation_checks(
+    output,
+    named_type,
+    "value",
+    "\"" + moonbit_string_literal(named_type.name) + "\"",
+    "  ",
+  )
+  write_reference_valid_values_checks(
+    output,
+    type_ref,
+    types,
+    "value",
+    "\"" + moonbit_string_literal(named_type.name) + "\"",
+    "  ",
+  )
+  output.write_string("}\n")
+}
+
+///|
+fn write_document_annotations_failure(
+  output : StringBuilder,
+  named_type : NamedType,
+  path_expression : String,
+  indent : String,
+) -> Unit {
+  if named_type.annotation_constraints.length() == 0 {
+    return
+  }
+  output.write_string(
+    indent +
+    "raise ConversionError::InvalidValue(\n" +
+    indent +
+    "  path=" +
+    path_expression +
+    ",\n" +
+    indent +
+    "  constraint=\"annotations\",\n" +
+    indent +
+    "  actual=\"document\",\n" +
+    indent +
+    ")\n",
+  )
+}

@@ -16,6 +16,7 @@
 - `timestamp_offset` 支持 `±hh:mm` 集合，`+00:00` 与 `Z` 等价，`-00:00` 表示未知偏移；非法格式和越界小时/分钟会在 Schema 解析阶段报错。
 - `ieee754_float` 接受 `binary16`、`binary32` 和 `binary64`；`binary16` 按 Float 位模式检查无损表示，包含次正规数、溢出、正负零、NaN 与无穷值。当前 Ion core 的 `IonValue::Float` 使用 MoonBit 32 位 `Float`，因此 binary32/64 对已解析值不会再缩窄，也无法检测 Ion core 在解析时已舍弃的 binary64 精度。
 - `regex` 支持 string 和有文本的 symbol 子串匹配、常用字符类/量词/分组/交替/锚点，以及 `i` 大小写和 `m` 多行标志；点号不匹配换行。无文本 symbol 不匹配。当前子集不接受特殊分组、未实现的转义，以及字符类内部的 `\D` / `\S` / `\W`，并在 Schema 检查时显式报错。
+- `annotations` 支持简化语法的 `closed` 与 `required` 修饰符，检查任意 Ion 值的注解集合；仅接受以 `IonValue` 保存并能往返保留注解的类型（如 `any`、`$any`、nullable 类型及其别名）。标准语法、原生标量投影类型上的注解约束暂不支持并会显式报错；`document` 不满足任何注解约束。
 - `element` 支持 list、sexp、document 和 struct 中每个值的类型约束；`distinct::T` 会按 Ion 值等价语义（含注解）拒绝容器中的重复值。struct 可与 `fields` 组合，也可仅用 `element` 校验并保留开放字段。
 - 列表元素支持受支持标量或同一 Schema 命名类型；sexp、document 和 struct 元素按输入顺序逐项校验并在错误路径中标明位置。
 - `ordered_elements` 支持 list、sexp 和 document 的异质顺序约束，包含 required、optional、固定次数和整数范围 `occurs`；回溯匹配完整消费序列，并以 `Array[@ion_model.IonValue]` 保存原始值。
@@ -30,7 +31,7 @@
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
-项目不实现完整的 Ion Schema 校验器。程序化库 API 仍只接收单个 Schema；包含 imports 的文件请使用 native CLI。递归类型、注解和类型代数等约束会显式报错。inline type definition 仍不支持。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；该行为保留注解，不代表实现了 ISL 的注解约束。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
+项目不实现完整的 Ion Schema 校验器。程序化库 API 仍只接收单个 Schema；包含 imports 的文件请使用 native CLI。递归类型、类型代数及 `annotations` 标准语法等仍显式报错；inline type definition 仍不支持。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；对其支持的简化 `annotations` 约束会检查并保留注解。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
 
 ## 安装与检查
 

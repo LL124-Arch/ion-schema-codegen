@@ -229,6 +229,9 @@ fn write_named_valid_values_checks(
       write_named_regex_checks(
         output, named_type, value_expression, path_expression, indent,
       )
+      write_named_annotation_checks(
+        output, named_type, value_expression, path_expression, indent,
+      )
       write_named_element_checks(
         output, named_type, types, value_expression, path_expression, indent,
       )
@@ -284,7 +287,8 @@ fn named_type_has_valid_values(
   }
   match find_named_type(types, name) {
     Some(named_type) =>
-      if named_type.valid_values is Some(_) {
+      if named_type.valid_values is Some(_) ||
+        named_type.annotation_constraints.length() > 0 {
         true
       } else {
         match named_type.body {

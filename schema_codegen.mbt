@@ -92,6 +92,10 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
       output.write_string("\n")
       write_regex_helpers(output)
     }
+    if has_annotation_constraints(schema.types) {
+      output.write_string("\n")
+      write_annotation_helper(output)
+    }
     let has_distinct_elements = has_distinct_element_constraints(schema.types)
     let has_distinct_field_names = has_distinct_field_names_constraints(
       schema.types,
@@ -165,6 +169,10 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
     if named_type.regex_constraints.length() > 0 {
       output.write_string("\n")
       write_named_regex_validator(output, named_type, schema.types)
+    }
+    if named_type.annotation_constraints.length() > 0 {
+      output.write_string("\n")
+      write_named_annotations_validator(output, named_type, schema.types)
     }
     match named_type.body {
       TypeBody::Struct(fields, is_open) => {
@@ -457,6 +465,7 @@ fn write_document_conversions(
   output.write_string(generated_name)
   if named_type.container_lengths.length() > 0 ||
     named_type.element_type is Some(_) ||
+    named_type.annotation_constraints.length() > 0 ||
     has_named_contains_values(named_type) ||
     named_type.ordered_elements is Some(_) ||
     has_document_alias_constraints(named_type, types, types.length()) {
@@ -499,6 +508,7 @@ fn has_document_alias_constraints(
       match find_named_type(types, next) {
         Some(target) =>
           target.container_lengths.length() > 0 ||
+          target.annotation_constraints.length() > 0 ||
           target.element_type is Some(_) ||
           has_named_contains_values(target) ||
           target.element_distinct ||
@@ -553,6 +563,9 @@ fn write_document_constraint_chain(
   }
   write_ordered_sequence_check(
     output, named_type, values_expression, path_expression, indent,
+  )
+  write_document_annotations_failure(
+    output, named_type, path_expression, indent,
   )
   match named_type.body {
     TypeBody::Alias(TypeRef::Named(next)) =>
@@ -2033,7 +2046,8 @@ fn write_list_conversions(
   let allows_null = reference_accepts_null(element_type, types)
   let needs_element_path = !is_raw_ion_value ||
     !allows_null ||
-    !is_universal_any_reference(element_type, types)
+    !is_universal_any_reference(element_type, types) ||
+    reference_has_valid_values(element_type, types)
   output.write_string("///|\n/// Convert an Ion list to ")
   output.write_string(generated_name)
   output.write_string(" with element-level diagnostics.\npub fn ")
@@ -2218,7 +2232,7 @@ fn field_item_needs_path(
   }
   let raw = is_raw_ion_value_reference(field.type_ref, types)
   let allows_null = reference_accepts_null(field.type_ref, types)
-  if !raw || !allows_null {
+  if !raw || !allows_null || reference_has_valid_values(field.type_ref, types) {
     return true
   }
   match resolve_type_ref(types, field.type_ref) {
@@ -2995,6 +3009,7 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
       named_type.timestamp_offsets.length() > 0 ||
       named_type.ieee754_float_formats.length() > 0 ||
       named_type.regex_constraints.length() > 0 ||
+      named_type.annotation_constraints.length() > 0 ||
       named_type.container_lengths.length() > 0 ||
       named_type.element_type is Some(_) ||
       has_named_contains_values(named_type) ||

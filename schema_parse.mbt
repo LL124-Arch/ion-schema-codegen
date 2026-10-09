@@ -130,6 +130,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let timestamp_offset_fields = value.get_fields("timestamp_offset")
   let ieee754_float_fields = value.get_fields("ieee754_float")
   let regex_fields = value.get_fields("regex")
+  let annotation_fields = value.get_fields("annotations")
   let container_length_fields = value.get_fields("container_length")
   let codepoint_length_fields = value.get_fields("codepoint_length")
   let utf8_byte_length_fields = value.get_fields("utf8_byte_length")
@@ -230,6 +231,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     ieee754_float_fields, name,
   )
   let regex_constraints = parse_regex_fields(regex_fields, name)
+  let annotation_constraints = parse_annotation_fields(annotation_fields, name)
 
   let body = match base_name {
     "struct" => {
@@ -307,6 +309,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     timestamp_offsets,
     ieee754_float_formats,
     regex_constraints,
+    annotation_constraints,
     container_lengths,
     codepoint_lengths,
     utf8_byte_lengths,
@@ -725,6 +728,76 @@ fn parse_regex_fields(
       pattern, ignore_case, multiline, context,
     )
     constraints.push({ pattern: normalized_pattern, })
+  }
+  constraints
+}
+
+///|
+fn parse_annotation_fields(
+  values : Array[@model.IonValue],
+  type_name : String,
+) -> Array[AnnotationConstraint] raise SchemaError {
+  let constraints : Array[AnnotationConstraint] = []
+  for value in values {
+    let context = "annotations at type " + type_name
+    let mut closed = false
+    let mut required = false
+    for annotation in value.annotations() {
+      match annotation.text_value() {
+        Some("closed") if !closed => closed = true
+        Some("required") if !required => required = true
+        Some("closed" | "required") =>
+          raise SchemaError::InvalidSchema(
+            "annotations modifiers must not be repeated at " + context,
+          )
+        Some(modifier) =>
+          raise SchemaError::UnsupportedFeature(
+            "unsupported annotations modifier " + modifier + " at " + context,
+          )
+        None =>
+          raise SchemaError::InvalidSchema(
+            "annotations modifiers must be resolved symbols at " + context,
+          )
+      }
+    }
+    if !closed && !required {
+      raise SchemaError::InvalidSchema(
+        "simple annotations must use closed and/or required at " + context,
+      )
+    }
+    let allowed_values = match value.without_annotations() {
+      @model.IonValue::List(values) => values
+      _ =>
+        raise SchemaError::InvalidSchema(
+          "simple annotations must be a list of symbols at " + context,
+        )
+    }
+    let allowed : Array[String] = []
+    for allowed_value in allowed_values {
+      if allowed_value.annotations().length() > 0 {
+        raise SchemaError::InvalidSchema(
+          "annotation symbols must be unannotated at " + context,
+        )
+      }
+      let symbol = match allowed_value.without_annotations() {
+        @model.IonValue::Symbol(symbol) =>
+          match symbol.text_value() {
+            Some(text) => text
+            None =>
+              raise SchemaError::InvalidSchema(
+                "annotation symbols must have text at " + context,
+              )
+          }
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "simple annotations must contain only symbols at " + context,
+          )
+      }
+      if !contains_string(allowed, symbol) {
+        allowed.push(symbol)
+      }
+    }
+    constraints.push({ allowed, closed, required, })
   }
   constraints
 }
@@ -1487,7 +1560,7 @@ fn validate_type_definition_fields(
       "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
       "contains", "precision", "exponent", "timestamp_precision", "timestamp_offset",
       "ieee754_float", "regex", "container_length", "codepoint_length", "utf8_byte_length",
-      "byte_length",
+      "byte_length", "annotations",
     ],
     "type \{type_name}",
   )
@@ -1772,6 +1845,22 @@ fn supports_regex_constraint(
 }
 
 ///|
+fn supports_annotations_constraint(
+  types : Array[NamedType],
+  body : TypeBody,
+) -> Bool raise SchemaError {
+  let type_ref = match body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) => type_ref
+    TypeBody::Struct(_, _) | TypeBody::List(_) => return false
+  }
+  match resolve_type_ref(types, type_ref) {
+    ResolvedType::Scalar("document") => true
+    ResolvedType::Scalar(_) => is_raw_ion_value_reference(type_ref, types)
+    ResolvedType::Struct(_) | ResolvedType::List(_) => false
+  }
+}
+
+///|
 fn supports_ordered_elements(
   types : Array[NamedType],
   named_type : NamedType,
@@ -1882,6 +1971,13 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
       !supports_regex_constraint(types, named_type.body) {
       raise SchemaError::UnsupportedFeature(
         "regex applies only to string or symbol values at type " +
+        named_type.name,
+      )
+    }
+    if named_type.annotation_constraints.length() > 0 &&
+      !supports_annotations_constraint(types, named_type.body) {
+      raise SchemaError::UnsupportedFeature(
+        "annotations currently requires an IonValue-backed type at type " +
         named_type.name,
       )
     }
