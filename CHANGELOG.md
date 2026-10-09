@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.33.0 — 2026-10-09
+
+- `annotations` 标准 inline type argument 支持 `contains` 符号集合；按无序包含语义检查，重复期望符号不增加要求。
+- `contains` 仅接受有文本的未注解 symbol，错误沿用 `annotations` 分类及原值路径。
+
 ## 0.32.0 — 2026-10-09
 
 - `annotations` 标准 inline type argument 支持 `container_length` 精确值与范围，按值的注解数量校验。

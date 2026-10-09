@@ -812,6 +812,7 @@ fn parse_annotation_fields(
             standard_type_ref: Some(type_ref),
             standard_inline: false,
             standard_container_lengths: [],
+            standard_contains_values: None,
           })
         }
       }
@@ -831,7 +832,35 @@ fn parse_standard_annotation_constraint(
       context,
     )
   }
-  validate_allowed_fields(value, ["container_length"], context)
+  validate_allowed_fields(value, ["container_length", "contains"], context)
+  let contains_values : Array[String] = []
+  let contains_fields = value.get_fields("contains")
+  for contains_value in contains_fields {
+    for required in parse_contains_values(contains_value, context) {
+      if required.annotations().length() > 0 {
+        raise SchemaError::InvalidSchema(
+          "annotations contains values must be unannotated symbols at \{context}",
+        )
+      }
+      match required.without_annotations() {
+        @model.IonValue::Symbol(symbol) =>
+          match symbol.text_value() {
+            Some(text) =>
+              if !contains_values.contains(text) {
+                contains_values.push(text)
+              }
+            None =>
+              raise SchemaError::UnsupportedFeature(
+                "unresolved symbols in annotations contains are not supported at \{context}",
+              )
+          }
+        _ =>
+          raise SchemaError::InvalidSchema(
+            "annotations contains values must be symbols at \{context}",
+          )
+      }
+    }
+  }
   {
     allowed: [],
     closed: false,
@@ -843,6 +872,11 @@ fn parse_standard_annotation_constraint(
       "container_length",
       context,
     ),
+    standard_contains_values: if contains_fields.length() > 0 {
+      Some(contains_values)
+    } else {
+      None
+    },
   }
 }
 
@@ -915,6 +949,7 @@ fn parse_simple_annotation_constraint(
     standard_type_ref: None,
     standard_inline: false,
     standard_container_lengths: [],
+    standard_contains_values: None,
   }
 }
 

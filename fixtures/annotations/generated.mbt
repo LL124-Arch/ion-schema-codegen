@@ -39,7 +39,6 @@ fn ion_schema_codegen_actual_type(value : @ion_model.IonValue) -> String {
     (false, actual_kind) => ion_schema_codegen_kind_name(actual_kind)
   }
 }
-
 ///|
 fn ion_schema_codegen_matches_type(
   value : @ion_model.IonValue,
@@ -76,12 +75,9 @@ fn ion_schema_codegen_matches_type(
     "struct" => !is_null && kind == @ion_model.IonNull::Struct
     "$struct" => kind == @ion_model.IonNull::Struct
     "number" | "$number" =>
-      (
-        kind == @ion_model.IonNull::Int ||
+      (kind == @ion_model.IonNull::Int ||
         kind == @ion_model.IonNull::Float ||
-        kind == @ion_model.IonNull::Decimal
-      ) &&
-      (expected == "$number" || !is_null)
+        kind == @ion_model.IonNull::Decimal) && (expected == "$number" || !is_null)
     "text" | "$text" =>
       (kind == @ion_model.IonNull::String || kind == @ion_model.IonNull::Symbol) &&
       (expected == "$text" || !is_null)
@@ -93,7 +89,9 @@ fn ion_schema_codegen_matches_type(
 }
 
 ///|
-fn ion_schema_codegen_container_length(value : @ion_model.IonValue) -> Int? {
+fn ion_schema_codegen_container_length(
+  value : @ion_model.IonValue,
+) -> Int? {
   match value.without_annotations() {
     @ion_model.IonValue::List(elements) => Some(elements.length())
     @ion_model.IonValue::Sexp(elements) => Some(elements.length())
@@ -150,9 +148,7 @@ pub type Tagged = @ion_model.IonValue
 
 ///|
 /// Validate annotations for Tagged.
-pub fn validate_annotations_Tagged(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_annotations_Tagged(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "$any") {
     raise ConversionError::TypeMismatch(
       path="Tagged",
@@ -177,9 +173,7 @@ pub type OpenTagged = @ion_model.IonValue
 
 ///|
 /// Validate annotations for OpenTagged.
-pub fn validate_annotations_OpenTagged(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_annotations_OpenTagged(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "$any") {
     raise ConversionError::TypeMismatch(
       path="OpenTagged",
@@ -200,9 +194,7 @@ pub fn validate_annotations_OpenTagged(
 pub type TwoAnnotationSymbols = @ion_model.IonValue
 
 ///|
-fn ion_schema_codegen_matches_named_TwoAnnotationSymbols(
-  value : @ion_model.IonValue,
-) -> Bool {
+fn ion_schema_codegen_matches_named_TwoAnnotationSymbols(value : @ion_model.IonValue) -> Bool {
   try {
     if !ion_schema_codegen_matches_type(value, "$list") {
       raise ConversionError::TypeMismatch(
@@ -212,7 +204,7 @@ fn ion_schema_codegen_matches_named_TwoAnnotationSymbols(
       )
     }
     match ion_schema_codegen_container_length(value) {
-      Some(actual_length) =>
+      Some(actual_length) => {
         if actual_length < 2 || actual_length > 2 {
           raise ConversionError::InvalidValue(
             path="TwoAnnotationSymbols",
@@ -220,12 +212,12 @@ fn ion_schema_codegen_matches_named_TwoAnnotationSymbols(
             actual=actual_length.to_string(),
           )
         }
-      None =>
-        raise ConversionError::InvalidValue(
-          path="TwoAnnotationSymbols",
-          constraint="container_length",
-          actual=ion_schema_codegen_actual_type(value),
-        )
+      }
+      None => raise ConversionError::InvalidValue(
+        path="TwoAnnotationSymbols",
+        constraint="container_length",
+        actual=ion_schema_codegen_actual_type(value),
+      )
     }
     true
   } catch {
@@ -238,9 +230,7 @@ pub type ExactlyTwoTagged = @ion_model.IonValue
 
 ///|
 /// Validate annotations for ExactlyTwoTagged.
-pub fn validate_annotations_ExactlyTwoTagged(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_annotations_ExactlyTwoTagged(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "$any") {
     raise ConversionError::TypeMismatch(
       path="ExactlyTwoTagged",
@@ -248,19 +238,11 @@ pub fn validate_annotations_ExactlyTwoTagged(
       actual=ion_schema_codegen_actual_type(value),
     )
   }
-  let ion_schema_codegen_annotations_ExactlyTwoTagged_0 : Array[
-    @ion_model.IonValue,
-  ] = []
+  let ion_schema_codegen_annotations_ExactlyTwoTagged_0 : Array[@ion_model.IonValue] = []
   for annotation in value.annotations() {
-    ion_schema_codegen_annotations_ExactlyTwoTagged_0.push(
-      @ion_model.IonValue::Symbol(annotation),
-    )
+    ion_schema_codegen_annotations_ExactlyTwoTagged_0.push(@ion_model.IonValue::Symbol(annotation))
   }
-  if !ion_schema_codegen_matches_named_TwoAnnotationSymbols(
-      @ion_model.IonValue::List(
-        ion_schema_codegen_annotations_ExactlyTwoTagged_0,
-      ),
-    ) {
+  if !(ion_schema_codegen_matches_named_TwoAnnotationSymbols(@ion_model.IonValue::List(ion_schema_codegen_annotations_ExactlyTwoTagged_0))) {
     raise ConversionError::InvalidValue(
       path="ExactlyTwoTagged",
       constraint="annotations",
@@ -274,9 +256,7 @@ pub type OneOrTwoAnnotations = @ion_model.IonValue
 
 ///|
 /// Validate annotations for OneOrTwoAnnotations.
-pub fn validate_annotations_OneOrTwoAnnotations(
-  value : @ion_model.IonValue,
-) -> Unit raise ConversionError {
+pub fn validate_annotations_OneOrTwoAnnotations(value : @ion_model.IonValue) -> Unit raise ConversionError {
   if !ion_schema_codegen_matches_type(value, "$any") {
     raise ConversionError::TypeMismatch(
       path="OneOrTwoAnnotations",
@@ -284,17 +264,105 @@ pub fn validate_annotations_OneOrTwoAnnotations(
       actual=ion_schema_codegen_actual_type(value),
     )
   }
-  let ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0 = value
-    .annotations()
-    .length()
-  if ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0 < 1 ||
-    ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0 > 2 {
+  let ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0 = value.annotations().length()
+  if ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0 < 1 || ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0 > 2 {
     raise ConversionError::InvalidValue(
       path="OneOrTwoAnnotations",
       constraint="annotations",
       actual=ion_schema_codegen_annotation_count_OneOrTwoAnnotations_0.to_string(),
     )
   }
+}
+
+///|
+pub type ContainsRecordAndVersion = @ion_model.IonValue
+
+///|
+/// Validate annotations for ContainsRecordAndVersion.
+pub fn validate_annotations_ContainsRecordAndVersion(value : @ion_model.IonValue) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="ContainsRecordAndVersion",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_annotations_match(value, ["record", "v1"], false, true) {
+    raise ConversionError::InvalidValue(
+      path="ContainsRecordAndVersion",
+      constraint="annotations",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub(all) struct ContainsRecordField {
+  payload : ContainsRecordAndVersion
+}
+
+///|
+/// Convert an Ion struct to ContainsRecordField with field-level diagnostics.
+pub fn ContainsRecordField::from_ion(
+  value : @ion_model.IonValue,
+) -> ContainsRecordField raise ConversionError {
+  let type_path = "ContainsRecordField"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ => raise ConversionError::TypeMismatch(path=type_path, expected="struct", actual=ion_schema_codegen_actual_type(value))
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "payload" => input_field_0 = match input_field_0 {
+            Some(_) =>
+              raise ConversionError::DuplicateField(
+                path="ContainsRecordField.payload",
+              )
+            None => Some(field_value)
+          }
+          _ => raise ConversionError::UnknownField(path="ContainsRecordField." + field_name)
+        }
+      None => raise ConversionError::UnknownSymbol(path="ContainsRecordField.<field>", sid=field_symbol.sid_value().unwrap_or(0))
+    }
+  }
+  let ion_schema_codegen_value_0 : ContainsRecordAndVersion = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "ContainsRecordField.payload"
+      let field_item : ContainsRecordAndVersion = field_value
+      if !ion_schema_codegen_annotations_match(field_value, ["record", "v1"], false, true) {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="annotations",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      field_item
+    }
+    None => raise ConversionError::MissingRequiredField(path="ContainsRecordField.payload")
+  }
+  {
+    payload: ion_schema_codegen_value_0,
+  }
+}
+
+///|
+/// Convert ContainsRecordField into an Ion struct in schema field order.
+pub fn ContainsRecordField::to_ion(self : ContainsRecordField) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (@ion_model.IonSymbol::from_text("payload"),
+      self.payload),
+  )
+  @ion_model.IonValue::Struct(output_fields)
 }
 
 ///|
@@ -326,12 +394,7 @@ pub fn from_ion_TagList(
   for element in input_elements {
     let element_path = type_path + "[" + index.to_string() + "]"
     let item : TaggedAlias = element
-    if !ion_schema_codegen_annotations_match(
-        element,
-        ["record", "v1"],
-        true,
-        true,
-      ) {
+    if !ion_schema_codegen_annotations_match(element, ["record", "v1"], true, true) {
       raise ConversionError::InvalidValue(
         path=element_path,
         constraint="annotations",
@@ -373,44 +436,30 @@ pub fn TagRecord::from_ion(
   }
   let input_fields = match value.without_annotations() {
     @ion_model.IonValue::Struct(fields) => fields
-    _ =>
-      raise ConversionError::TypeMismatch(
-        path=type_path,
-        expected="struct",
-        actual=ion_schema_codegen_actual_type(value),
-      )
+    _ => raise ConversionError::TypeMismatch(path=type_path, expected="struct", actual=ion_schema_codegen_actual_type(value))
   }
   let mut input_field_0 : @ion_model.IonValue? = None
   for (field_symbol, field_value) in input_fields {
     match field_symbol.text_value() {
       Some(field_name) =>
         match field_name {
-          "payload" =>
-            input_field_0 = match input_field_0 {
-              Some(_) =>
-                raise ConversionError::DuplicateField(path="TagRecord.payload")
-              None => Some(field_value)
-            }
-          _ =>
-            raise ConversionError::UnknownField(path="TagRecord." + field_name)
+          "payload" => input_field_0 = match input_field_0 {
+            Some(_) =>
+              raise ConversionError::DuplicateField(
+                path="TagRecord.payload",
+              )
+            None => Some(field_value)
+          }
+          _ => raise ConversionError::UnknownField(path="TagRecord." + field_name)
         }
-      None =>
-        raise ConversionError::UnknownSymbol(
-          path="TagRecord.<field>",
-          sid=field_symbol.sid_value().unwrap_or(0),
-        )
+      None => raise ConversionError::UnknownSymbol(path="TagRecord.<field>", sid=field_symbol.sid_value().unwrap_or(0))
     }
   }
   let ion_schema_codegen_value_0 : TaggedAlias = match input_field_0 {
     Some(field_value) => {
       let field_path = "TagRecord.payload"
       let field_item : TaggedAlias = field_value
-      if !ion_schema_codegen_annotations_match(
-          field_value,
-          ["record", "v1"],
-          true,
-          true,
-        ) {
+      if !ion_schema_codegen_annotations_match(field_value, ["record", "v1"], true, true) {
         raise ConversionError::InvalidValue(
           path=field_path,
           constraint="annotations",
@@ -419,22 +468,27 @@ pub fn TagRecord::from_ion(
       }
       field_item
     }
-    None =>
-      raise ConversionError::MissingRequiredField(path="TagRecord.payload")
+    None => raise ConversionError::MissingRequiredField(path="TagRecord.payload")
   }
-  { payload: ion_schema_codegen_value_0, }
+  {
+    payload: ion_schema_codegen_value_0,
+  }
 }
 
 ///|
 /// Convert TagRecord into an Ion struct in schema field order.
 pub fn TagRecord::to_ion(self : TagRecord) -> @ion_model.IonValue {
   let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
-  output_fields.push((@ion_model.IonSymbol::from_text("payload"), self.payload))
+  output_fields.push(
+    (@ion_model.IonSymbol::from_text("payload"),
+      self.payload),
+  )
   @ion_model.IonValue::Struct(output_fields)
 }
 
 ///|
 pub type Stream = Array[@ion_model.IonValue]
+
 
 ///|
 /// Convert an Ion document stream to Stream.
@@ -452,6 +506,8 @@ pub fn from_ion_document_Stream(
 
 ///|
 /// Convert Stream to an Ion document stream.
-pub fn to_ion_document_Stream(values : Stream) -> Array[@ion_model.IonValue] {
+pub fn to_ion_document_Stream(
+  values : Stream
+) -> Array[@ion_model.IonValue] {
   values
 }

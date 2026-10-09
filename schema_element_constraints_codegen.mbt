@@ -37,6 +37,8 @@ fn has_named_contains_values(named_type : NamedType) -> Bool {
 }
 
 ///|
+
+///|
 fn write_symbol_equality_helper(output : StringBuilder) -> Unit {
   output.write_string(
     "///|\nfn ion_schema_codegen_symbols_equal(\n  left : @ion_model.IonSymbol,\n  right : @ion_model.IonSymbol,\n) -> Bool {\n  match (left.text_value(), right.text_value()) {\n    (Some(left_text), Some(right_text)) => left_text == right_text\n    (None, None) => left.sid_value() == right.sid_value()\n    _ => false\n  }\n}\n",
@@ -118,7 +120,7 @@ fn write_distinct_values_check(
 ///|
 fn write_contains_helper(output : StringBuilder) -> Unit {
   output.write_string(
-    "\n///|\nfn ion_schema_codegen_contains_missing(\n  values : Array[@ion_model.IonValue],\n  required : Array[@ion_model.IonValue],\n) -> @ion_model.IonValue? {\n  for expected in required {\n    let mut found = false\n    for value in values {\n      if ion_schema_codegen_values_equal(expected, value) {\n        found = true\n        break\n      }\n    }\n    if !found {\n      return Some(expected)\n    }\n  }\n  None\n}\n\n///|\nfn ion_schema_codegen_check_contains(\n  values : Array[@ion_model.IonValue],\n  encoded_required : String,\n  path : String,\n) -> Unit raise ConversionError {\n  let required = @ion.parse_text(encoded_required) catch {\n    _ => []\n  }\n  match ion_schema_codegen_contains_missing(values, required) {\n    Some(missing) =>\n      raise ConversionError::InvalidValue(\n        path=path,\n        constraint=\"contains\",\n        actual=@ion.encode_value_text(missing) catch {\n          _ => \"<unencodable Ion value>\"\n        },\n      )\n    None => ()\n  }\n}\n\n///|\nfn ion_schema_codegen_struct_field_values(\n  fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)],\n) -> Array[@ion_model.IonValue] {\n  let values : Array[@ion_model.IonValue] = []\n  for (_, value) in fields {\n    values.push(value)\n  }\n  values\n}\n",
+    "\n///|\nfn ion_schema_codegen_contains_missing(\n  values : Array[@ion_model.IonValue],\n  required : Array[@ion_model.IonValue],\n) -> @ion_model.IonValue? {\n  for expected in required {\n    let mut found = false\n    for value in values {\n      if ion_schema_codegen_values_equal(expected, value) {\n        found = true\n        break\n      }\n    }\n    if !found {\n      return Some(expected)\n    }\n  }\n  None\n}\n\n///|\nfn ion_schema_codegen_check_contains(\n  values : Array[@ion_model.IonValue],\n  encoded_required : String,\n  path : String,\n) -> Unit raise ConversionError {\n  let required = @ion.parse_text(encoded_required) catch {\n    _ => []\n  }\n  match ion_schema_codegen_contains_missing(values, required) {\n    Some(missing) =>\n      raise ConversionError::InvalidValue(\n        path=path,\n        constraint=\"contains\",\n        actual=@ion.encode_value_text(missing) catch {\n          _ => \"<unencodable Ion value>\"\n        },\n      )\n    None => ()\n  }\n}",
   )
 }
 

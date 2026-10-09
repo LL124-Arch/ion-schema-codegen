@@ -63,6 +63,7 @@ priv struct AnnotationConstraint {
   standard_type_ref : TypeRef?
   standard_inline : Bool
   standard_container_lengths : Array[IntegerRange]
+  standard_contains_values : Array[String]?
 }
 
 ///|

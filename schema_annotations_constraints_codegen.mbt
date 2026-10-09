@@ -73,26 +73,70 @@ fn write_named_annotation_checks(
         )
       }
       None if constraint.standard_inline => {
-        let annotation_count_name = "ion_schema_codegen_annotation_count_" +
-          moonbit_type_identifier(named_type.name) +
-          "_" +
-          constraint_index.to_string()
-        output.write_string(
-          indent +
-          "let " +
-          annotation_count_name +
-          " = " +
-          value_expression +
-          ".annotations().length()\n",
-        )
-        write_integer_range_checks(
-          output,
-          constraint.standard_container_lengths,
-          annotation_count_name,
-          path_expression,
-          "annotations",
-          indent,
-        )
+        if constraint.standard_container_lengths.length() > 0 {
+          let annotation_count_name = "ion_schema_codegen_annotation_count_" +
+            moonbit_type_identifier(named_type.name) +
+            "_" +
+            constraint_index.to_string()
+          output.write_string(
+            indent +
+            "let " +
+            annotation_count_name +
+            " = " +
+            value_expression +
+            ".annotations().length()\n",
+          )
+          write_integer_range_checks(
+            output,
+            constraint.standard_container_lengths,
+            annotation_count_name,
+            path_expression,
+            "annotations",
+            indent,
+          )
+        }
+        match constraint.standard_contains_values {
+          Some(required) if required.length() > 0 => {
+            let allowed = StringBuilder()
+            allowed.write_char('[')
+            let mut first = true
+            for expected in required {
+              if !first {
+                allowed.write_string(", ")
+              }
+              first = false
+              allowed.write_char('"')
+              allowed.write_string(moonbit_string_literal(expected))
+              allowed.write_char('"')
+            }
+            allowed.write_char(']')
+            output.write_string(
+              indent +
+              "if !ion_schema_codegen_annotations_match(" +
+              value_expression +
+              ", " +
+              allowed.to_string() +
+              ", false, true) {\n" +
+              indent +
+              "  raise ConversionError::InvalidValue(\n" +
+              indent +
+              "    path=" +
+              path_expression +
+              ",\n" +
+              indent +
+              "    constraint=\"annotations\",\n" +
+              indent +
+              "    actual=ion_schema_codegen_actual_type(" +
+              value_expression +
+              "),\n" +
+              indent +
+              "  )\n" +
+              indent +
+              "}\n",
+            )
+          }
+          _ => ()
+        }
       }
       None => {
         let allowed = StringBuilder()

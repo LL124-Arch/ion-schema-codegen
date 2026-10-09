@@ -107,6 +107,47 @@ test "standard annotations support exact and ranged container lengths" {
 }
 
 ///|
+test "standard annotations contains is unordered and deduplicated" {
+  let value = @ion_model.IonValue::String("hello").with_annotations([
+    @ion_model.IonSymbol::from_text("v1"),
+    @ion_model.IonSymbol::from_text("record"),
+  ])
+  @annotations.validate_annotations_ContainsRecordAndVersion(value)
+  assert_eq(
+    annotation_failure(
+      @annotations.validate_annotations_ContainsRecordAndVersion,
+      @ion_model.IonValue::String("hello").with_annotations([
+        @ion_model.IonSymbol::from_text("record"),
+      ]),
+    ),
+    ("ContainsRecordAndVersion", "annotations"),
+  )
+  try {
+    ignore(
+      @annotations.ContainsRecordField::from_ion(
+        @ion_model.IonValue::Struct([
+          (
+            @ion_model.IonSymbol::from_text("payload"),
+            @ion_model.IonValue::String("hello").with_annotations([
+              @ion_model.IonSymbol::from_text("record"),
+            ]),
+          ),
+        ]),
+      ),
+    )
+    assert_true(false)
+  } catch {
+    @annotations.ConversionError::InvalidValue(path~, constraint~, ..) => {
+      assert_eq(path, "ContainsRecordField.payload")
+      assert_eq(constraint, "annotations")
+    }
+    _ => assert_true(false)
+  } noraise {
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "annotation constraints propagate through aliases fields and lists" {
   try {
     ignore(
@@ -179,3 +220,5 @@ test "document values never satisfy annotation constraints" {
     _ => assert_true(false)
   }
 }
+
+///|
