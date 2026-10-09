@@ -13,3 +13,7 @@ type::{name: InlineIntList, all_of: [{type: list, element: {type: int, valid_val
 type::{name: InlineRecord, all_of: [{type: struct, fields: closed::{id: {type: int, valid_values: [7], occurs: required}, label: {type: string, regex: "^[a-z]+$", occurs: optional}}}]}
 type::{name: InlineAlias, all_of: [{type: Positive, valid_values: [2, 4]}]}
 type::{name: MaybeInlineIntList, all_of: [$null_or::{type: list, element: {type: int, valid_values: [2, 4]}}]}
+type::{name: InlineConstrainedList, all_of: [{type: list, element: distinct::int, contains: [2], container_length: range::[2, 3]}]}
+type::{name: InlineConstrainedRecord, all_of: [{type: struct, fields: {id: {type: int, occurs: required}}, element: distinct::int, field_names: distinct::symbol, contains: [2], container_length: range::[1, 3]}]}
+type::{name: InlineRecordEnvelope, type: struct, fields: closed::{payload: {type: InlineConstrainedRecord, occurs: required}}}
+type::{name: InlineOrderedList, all_of: [{type: list, ordered_elements: [{type: int, valid_values: [2, 4], occurs: required}, {type: string, regex: "^done$", occurs: optional}]}]}

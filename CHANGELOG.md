@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.44.0 — 2026-10-10
+
+- 类型代数 inline list 支持 `ordered_elements`，包括必选/可选 occurrence 与各元素自己的值约束。
+- Inline list/struct matcher 覆盖 `contains`、`distinct::T`、`field_names` 与长度边界，并在公开结构体字段失败时保留父字段路径。
+
 ## 0.43.0 — 2026-10-10
 
 - 类型代数 inline containers 可在 list 元素、struct 字段中继续使用 inline type definitions，并保留 required/optional occurrence。

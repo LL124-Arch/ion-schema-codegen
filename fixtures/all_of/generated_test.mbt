@@ -124,6 +124,113 @@ test "nullable inline containers accept plain null or nested matches" {
 }
 
 ///|
+test "inline list and struct constraints enforce collection semantics" {
+  @all_of.validate_type_InlineConstrainedList(
+    @ion_model.IonValue::List([integer(2), integer(4)]),
+  )
+  for
+    invalid in [
+      @ion_model.IonValue::List([integer(2), integer(2)]),
+      @ion_model.IonValue::List([integer(4), integer(5)]),
+      @ion_model.IonValue::List([integer(2)]),
+      @ion_model.IonValue::List([integer(2), @ion_model.IonValue::String("bad")]),
+    ] {
+    assert_eq(
+      all_of_error(@all_of.validate_type_InlineConstrainedList, invalid),
+      ("InlineConstrainedList", "all_of"),
+    )
+  }
+
+  @all_of.validate_type_InlineConstrainedRecord(
+    @ion_model.IonValue::Struct([
+      field("id", integer(2)),
+      field("score", integer(4)),
+    ]),
+  )
+  for
+    invalid in [
+      @ion_model.IonValue::Struct([field("id", integer(5))]),
+      @ion_model.IonValue::Struct([
+        field("id", integer(2)),
+        field("score", integer(2)),
+      ]),
+      @ion_model.IonValue::Struct([
+        field("id", integer(2)),
+        field("extra", integer(4)),
+        field("extra", integer(5)),
+      ]),
+      @ion_model.IonValue::Struct([
+        field("id", integer(2)),
+        field("a", integer(4)),
+        field("b", integer(6)),
+        field("c", integer(8)),
+      ]),
+    ] {
+    assert_eq(
+      all_of_error(@all_of.validate_type_InlineConstrainedRecord, invalid),
+      ("InlineConstrainedRecord", "all_of"),
+    )
+  }
+}
+
+///|
+test "inline ordered_elements validates nested constrained branches" {
+  @all_of.validate_type_InlineOrderedList(
+    @ion_model.IonValue::List([integer(2)]),
+  )
+  @all_of.validate_type_InlineOrderedList(
+    @ion_model.IonValue::List([integer(4), @ion_model.IonValue::String("done")]),
+  )
+  for
+    invalid in [
+      @ion_model.IonValue::List([]),
+      @ion_model.IonValue::List([
+        integer(2),
+        @ion_model.IonValue::String("pending"),
+      ]),
+      @ion_model.IonValue::List([
+        @ion_model.IonValue::String("done"),
+        integer(2),
+      ]),
+      @ion_model.IonValue::List([
+        integer(2),
+        @ion_model.IonValue::String("done"),
+        @ion_model.IonValue::String("extra"),
+      ]),
+    ] {
+    assert_eq(
+      all_of_error(@all_of.validate_type_InlineOrderedList, invalid),
+      ("InlineOrderedList", "all_of"),
+    )
+  }
+}
+
+///|
+test "inline container matcher keeps the parent field path" {
+  try {
+    ignore(
+      @all_of.InlineRecordEnvelope::from_ion(
+        @ion_model.IonValue::Struct([
+          field(
+            "payload",
+            @ion_model.IonValue::Struct([field("id", integer(5))]),
+          ),
+        ]),
+      ),
+    )
+    assert_true(false)
+  } catch {
+    @all_of.ConversionError::InvalidValue(path~, constraint~, ..) => {
+      assert_eq(path, "InlineRecordEnvelope.payload")
+      assert_eq(constraint, "all_of")
+    }
+    _ => assert_true(false)
+  } noraise {
+    _ => assert_true(false)
+  }
+}
+
+///|
 test "inline aliases intersect referenced type constraints" {
   @all_of.validate_type_InlineAlias(integer(2))
   @all_of.validate_type_InlineAlias(integer(4))

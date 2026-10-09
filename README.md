@@ -8,6 +8,7 @@
 - any_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、scalar/list/struct/命名类型 inline definition 及 `$null_or` 类型参数列表，至少一个分支须匹配；支持重叠分支并逐支独立验证。
 - one_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、scalar/list/struct/命名类型 inline definition 及 `$null_or` 类型参数列表，恰好一个分支须匹配；重叠类型和重复分支会分别计数。
 - not 支持单个 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、scalar/list/struct/命名类型 inline definition 及 `$null_or` 类型参数；分支匹配时拒绝当前值，分支转换或校验失败时通过。
+- 类型代数中的 inline list/struct 会执行 `container_length`、`contains`、`element`、`field_names`、`distinct` 和 `ordered_elements` 等当前已支持的容器约束；inline ordered elements 可带 occurrence 与嵌套类型约束。
 - `container_length` 支持 list、sexp、struct 和 document 的精确长度与整数范围；struct 按字段总出现次数计数，document 按顶层值数计数。
 - `codepoint_length` 与 `utf8_byte_length` 支持 string 和 symbol；`byte_length` 支持 blob 和 clob，均可使用精确值或整数范围。
 - 标量：`bool`、`int`、`float`、`decimal`、`string`、`symbol`、`timestamp`、`blob` 和 `clob`。

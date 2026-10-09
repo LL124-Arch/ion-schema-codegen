@@ -115,6 +115,226 @@ fn ion_schema_codegen_regex_matches(
 }
 
 ///|
+fn ion_schema_codegen_symbols_equal(
+  left : @ion_model.IonSymbol,
+  right : @ion_model.IonSymbol,
+) -> Bool {
+  match (left.text_value(), right.text_value()) {
+    (Some(left_text), Some(right_text)) => left_text == right_text
+    (None, None) => left.sid_value() == right.sid_value()
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_annotations_equal(
+  left : Array[@ion_model.IonSymbol],
+  right : Array[@ion_model.IonSymbol],
+) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  for index in 0..<left.length() {
+    if !ion_schema_codegen_symbols_equal(left[index], right[index]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn ion_schema_codegen_values_equal(
+  left : @ion_model.IonValue,
+  right : @ion_model.IonValue,
+) -> Bool {
+  match (left, right) {
+    (
+      @ion_model.IonValue::Annotated(left_annotations, left_value),
+      @ion_model.IonValue::Annotated(right_annotations, right_value),
+    ) =>
+      ion_schema_codegen_annotations_equal(left_annotations, right_annotations) &&
+      ion_schema_codegen_values_equal(left_value, right_value)
+    (@ion_model.IonValue::Annotated(_, _), _)
+    | (_, @ion_model.IonValue::Annotated(_, _)) => false
+    (@ion_model.IonValue::Null(left), @ion_model.IonValue::Null(right)) =>
+      left == right
+    (@ion_model.IonValue::Bool(left), @ion_model.IonValue::Bool(right)) =>
+      left == right
+    (@ion_model.IonValue::Int(left), @ion_model.IonValue::Int(right)) =>
+      left == right
+    (@ion_model.IonValue::Float(left), @ion_model.IonValue::Float(right)) =>
+      left == right || (left.is_nan() && right.is_nan())
+    (@ion_model.IonValue::Decimal(left), @ion_model.IonValue::Decimal(right)) =>
+      left.coefficient() == right.coefficient() &&
+      left.exponent() == right.exponent()
+    (@ion_model.IonValue::Timestamp(left), @ion_model.IonValue::Timestamp(right)
+    ) => left == right
+    (@ion_model.IonValue::Symbol(left), @ion_model.IonValue::Symbol(right)) =>
+      ion_schema_codegen_symbols_equal(left, right)
+    (@ion_model.IonValue::String(left), @ion_model.IonValue::String(right)) =>
+      left == right
+    (@ion_model.IonValue::Blob(left), @ion_model.IonValue::Blob(right)) =>
+      left == right
+    (@ion_model.IonValue::Clob(left), @ion_model.IonValue::Clob(right)) =>
+      left == right
+    (@ion_model.IonValue::List(left), @ion_model.IonValue::List(right))
+    | (@ion_model.IonValue::Sexp(left), @ion_model.IonValue::Sexp(right)) =>
+      ion_schema_codegen_sequences_equal(left, right)
+    (@ion_model.IonValue::Struct(left), @ion_model.IonValue::Struct(right)) =>
+      ion_schema_codegen_structs_equal(left, right)
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_sequences_equal(
+  left : Array[@ion_model.IonValue],
+  right : Array[@ion_model.IonValue],
+) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  for index in 0..<left.length() {
+    if !ion_schema_codegen_values_equal(left[index], right[index]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn ion_schema_codegen_structs_equal(
+  left : Array[(@ion_model.IonSymbol, @ion_model.IonValue)],
+  right : Array[(@ion_model.IonSymbol, @ion_model.IonValue)],
+) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  let matched : Array[Bool] = []
+  for _ in right {
+    matched.push(false)
+  }
+  for (left_symbol, left_value) in left {
+    let mut index = 0
+    let mut found = false
+    for (right_symbol, right_value) in right {
+      if !matched[index] &&
+        ion_schema_codegen_symbols_equal(left_symbol, right_symbol) &&
+        ion_schema_codegen_values_equal(left_value, right_value) {
+        matched[index] = true
+        found = true
+        break
+      }
+      index += 1
+    }
+    if !found {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn ion_schema_codegen_check_distinct(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let previous : Array[@ion_model.IonValue] = []
+  let mut index = 0
+  for value in values {
+    for prior in previous {
+      if ion_schema_codegen_values_equal(prior, value) {
+        raise ConversionError::InvalidValue(
+          path=path + "[" + index.to_string() + "]",
+          constraint="distinct::element",
+          actual=ion_schema_codegen_actual_type(value),
+        )
+      }
+    }
+    previous.push(value)
+    index += 1
+  }
+}
+
+///|
+fn ion_schema_codegen_check_distinct_symbols(
+  symbols : Array[@ion_model.IonSymbol],
+  path : String,
+) -> Unit raise ConversionError {
+  let previous : Array[@ion_model.IonSymbol] = []
+  let mut index = 0
+  for symbol in symbols {
+    for prior in previous {
+      if ion_schema_codegen_symbols_equal(prior, symbol) {
+        raise ConversionError::InvalidValue(
+          path=path +
+            "." +
+            symbol.text_value().unwrap_or("<field>") +
+            "[" +
+            index.to_string() +
+            "]",
+          constraint="distinct::field_names",
+          actual="symbol",
+        )
+      }
+    }
+    previous.push(symbol)
+    index += 1
+  }
+}
+
+///|
+fn ion_schema_codegen_contains_missing(
+  values : Array[@ion_model.IonValue],
+  required : Array[@ion_model.IonValue],
+) -> @ion_model.IonValue? {
+  for expected in required {
+    let mut found = false
+    for value in values {
+      if ion_schema_codegen_values_equal(expected, value) {
+        found = true
+        break
+      }
+    }
+    if !found {
+      return Some(expected)
+    }
+  }
+  None
+}
+
+///|
+fn ion_schema_codegen_check_contains(
+  values : Array[@ion_model.IonValue],
+  encoded_required : String,
+  path : String,
+) -> Unit raise ConversionError {
+  let required = @ion.parse_text(encoded_required) catch { _ => [] }
+  match ion_schema_codegen_contains_missing(values, required) {
+    Some(missing) =>
+      raise ConversionError::InvalidValue(
+        path~,
+        constraint="contains",
+        actual=@ion.encode_value_text(missing) catch {
+          _ => "<unencodable Ion value>"
+        },
+      )
+    None => ()
+  }
+}
+
+///|
+fn ion_schema_codegen_struct_field_values(
+  fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)],
+) -> Array[@ion_model.IonValue] {
+  let values : Array[@ion_model.IonValue] = []
+  for (_, value) in fields {
+    values.push(value)
+  }
+  values
+}
+
+///|
 fn ion_schema_codegen_valid_values_equal(
   left : @ion_model.IonValue,
   right : @ion_model.IonValue,
@@ -399,6 +619,165 @@ fn ion_schema_codegen_compare_timestamps(
   ion_schema_codegen_compare_decimal_parts(
     left_fraction, left_exponent, right_fraction, right_exponent,
   )
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_IonSchemaCodegenInternalInline29_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !is_valid_values_IonSchemaCodegenInternalInline30(value) {
+      raise ConversionError::InvalidValue(
+        path="ordered_elements",
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_ordered_matches_IonSchemaCodegenInternalInline29_1(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    if !ion_schema_codegen_matches_type(value, "string") {
+      raise ConversionError::TypeMismatch(
+        path="ordered_elements",
+        expected="string",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !ion_schema_codegen_regex_matches(value, "^done$") {
+      raise ConversionError::InvalidValue(
+        path="ordered_elements",
+        constraint="regex",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_IonSchemaCodegenInternalInline29(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 2 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[2][value_count] = true
+  let mut ordered_start_1 = 0
+  while ordered_start_1 <= value_count {
+    let mut ordered_count_1 = 0
+    let mut ordered_found_1 = false
+    let mut ordered_prefix_matches_1 = true
+    while ordered_count_1 <= value_count - ordered_start_1 &&
+          ordered_count_1 <= 1 &&
+          ordered_prefix_matches_1 {
+      if ordered_count_1 > 0 &&
+        !ion_schema_codegen_ordered_matches_IonSchemaCodegenInternalInline29_1(
+          values[ordered_start_1 + ordered_count_1 - 1],
+        ) {
+        ordered_prefix_matches_1 = false
+      }
+      if ordered_prefix_matches_1 &&
+        possible[2][ordered_start_1 + ordered_count_1] {
+        ordered_found_1 = true
+      }
+      ordered_count_1 += 1
+    }
+    possible[1][ordered_start_1] = ordered_found_1
+    ordered_start_1 += 1
+  }
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 1
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 1 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_IonSchemaCodegenInternalInline29_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_IonSchemaCodegenInternalInline29_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_IonSchemaCodegenInternalInline29_1(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
 }
 
 ///|
@@ -1368,6 +1747,497 @@ pub fn validate_type_MaybeInlineIntList(
     ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline21(value)) {
     raise ConversionError::InvalidValue(
       path="MaybeInlineIntList",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+type IonSchemaCodegenInternalInline24 = Array[@bigint.BigInt]
+
+///|
+/// Convert an Ion list to IonSchemaCodegenInternalInline24 with element-level diagnostics.
+fn from_ion_IonSchemaCodegenInternalInline24(
+  value : @ion_model.IonValue,
+) -> IonSchemaCodegenInternalInline24 raise ConversionError {
+  let type_path = "ion_schema_codegen_internal_inline_24"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  if input_elements.length() < 2 || input_elements.length() > 3 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=input_elements.length().to_string(),
+    )
+  }
+  ion_schema_codegen_check_contains(input_elements, "2", type_path)
+  ion_schema_codegen_check_distinct(input_elements, type_path)
+  let converted : IonSchemaCodegenInternalInline24 = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=element_path)
+    }
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : @bigint.BigInt = match element.without_annotations() {
+      @ion_model.IonValue::Int(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="int",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline24(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    ignore(from_ion_IonSchemaCodegenInternalInline24(value))
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineConstrainedList = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineConstrainedList.
+pub fn validate_type_InlineConstrainedList(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineConstrainedList",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline24(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineConstrainedList",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+priv struct IonSchemaCodegenInternalInline26 {
+  id : @bigint.BigInt
+  ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ]
+}
+
+///|
+/// Convert an Ion struct to IonSchemaCodegenInternalInline26 with field-level diagnostics.
+fn IonSchemaCodegenInternalInline26::from_ion(
+  value : @ion_model.IonValue,
+) -> IonSchemaCodegenInternalInline26 raise ConversionError {
+  let type_path = "ion_schema_codegen_internal_inline_26"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  ion_schema_codegen_check_contains(
+    ion_schema_codegen_struct_field_values(input_fields),
+    "2",
+    type_path,
+  )
+  let mut ion_schema_codegen_struct_element_index = 0
+  for
+    (
+      ion_schema_codegen_struct_element_symbol,
+      ion_schema_codegen_struct_element_value,
+    ) in input_fields {
+    let ion_schema_codegen_struct_element_path = type_path +
+      "." +
+      ion_schema_codegen_struct_element_symbol.text_value().unwrap_or("<field>") +
+      "[" +
+      ion_schema_codegen_struct_element_index.to_string() +
+      "]"
+    if ion_schema_codegen_struct_element_value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(
+        path=ion_schema_codegen_struct_element_path,
+      )
+    }
+    if ion_schema_codegen_struct_element_value.is_null() {
+      raise ConversionError::NullNotAllowed(
+        path=ion_schema_codegen_struct_element_path,
+      )
+    }
+    if !ion_schema_codegen_matches_type(
+        ion_schema_codegen_struct_element_value, "int",
+      ) {
+      raise ConversionError::TypeMismatch(
+        path=ion_schema_codegen_struct_element_path,
+        expected="int",
+        actual=ion_schema_codegen_actual_type(
+          ion_schema_codegen_struct_element_value,
+        ),
+      )
+    }
+    ion_schema_codegen_struct_element_index += 1
+  }
+  let mut ion_schema_codegen_field_name_index_IonSchemaCodegenInternalInline26 = 0
+  for
+    (ion_schema_codegen_field_name_symbol_IonSchemaCodegenInternalInline26, _) in input_fields {
+    let ion_schema_codegen_field_name_path_IonSchemaCodegenInternalInline26 = type_path +
+      "." +
+      ion_schema_codegen_field_name_symbol_IonSchemaCodegenInternalInline26
+      .text_value()
+      .unwrap_or("<field>") +
+      "[" +
+      ion_schema_codegen_field_name_index_IonSchemaCodegenInternalInline26.to_string() +
+      "]"
+    if @ion_model.IonValue::Symbol(
+        ion_schema_codegen_field_name_symbol_IonSchemaCodegenInternalInline26,
+      )
+      .annotations()
+      .length() >
+      0 {
+      raise ConversionError::AnnotatedValueNotSupported(
+        path=ion_schema_codegen_field_name_path_IonSchemaCodegenInternalInline26,
+      )
+    }
+    if @ion_model.IonValue::Symbol(
+        ion_schema_codegen_field_name_symbol_IonSchemaCodegenInternalInline26,
+      ).is_null() {
+      raise ConversionError::NullNotAllowed(
+        path=ion_schema_codegen_field_name_path_IonSchemaCodegenInternalInline26,
+      )
+    }
+    if !ion_schema_codegen_matches_type(
+        @ion_model.IonValue::Symbol(
+          ion_schema_codegen_field_name_symbol_IonSchemaCodegenInternalInline26,
+        ),
+        "symbol",
+      ) {
+      raise ConversionError::TypeMismatch(
+        path=ion_schema_codegen_field_name_path_IonSchemaCodegenInternalInline26,
+        expected="symbol",
+        actual=ion_schema_codegen_actual_type(
+          @ion_model.IonValue::Symbol(
+            ion_schema_codegen_field_name_symbol_IonSchemaCodegenInternalInline26,
+          ),
+        ),
+      )
+    }
+    ion_schema_codegen_field_name_index_IonSchemaCodegenInternalInline26 += 1
+  }
+  let ion_schema_codegen_field_names_IonSchemaCodegenInternalInline26 : Array[
+    @ion_model.IonSymbol,
+  ] = []
+  for (ion_schema_codegen_field_name, _) in input_fields {
+    ion_schema_codegen_field_names_IonSchemaCodegenInternalInline26.push(
+      ion_schema_codegen_field_name,
+    )
+  }
+  ion_schema_codegen_check_distinct_symbols(
+    ion_schema_codegen_field_names_IonSchemaCodegenInternalInline26, type_path,
+  )
+  let ion_schema_codegen_distinct_IonSchemaCodegenInternalInline26 : Array[
+    @ion_model.IonValue,
+  ] = []
+  for (_, ion_schema_codegen_distinct_value) in input_fields {
+    ion_schema_codegen_distinct_IonSchemaCodegenInternalInline26.push(
+      ion_schema_codegen_distinct_value,
+    )
+  }
+  ion_schema_codegen_check_distinct(
+    ion_schema_codegen_distinct_IonSchemaCodegenInternalInline26, type_path,
+  )
+  if input_fields.length() < 1 || input_fields.length() > 3 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=input_fields.length().to_string(),
+    )
+  }
+  let ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ] = []
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "id" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="ion_schema_codegen_internal_inline_26.id",
+                )
+              None => Some(field_value)
+            }
+          _ => ion_schema_codegen_open_content.push((field_symbol, field_value))
+        }
+      None => ion_schema_codegen_open_content.push((field_symbol, field_value))
+    }
+  }
+  let ion_schema_codegen_value_0 : @bigint.BigInt = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "ion_schema_codegen_internal_inline_26.id"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : @bigint.BigInt = match
+        field_value.without_annotations() {
+        @ion_model.IonValue::Int(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="int",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="ion_schema_codegen_internal_inline_26.id",
+      )
+  }
+  { id: ion_schema_codegen_value_0, ion_schema_codegen_open_content, }
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline26(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    let matched = IonSchemaCodegenInternalInline26::from_ion(value)
+    ignore(matched.id)
+    ignore(matched.ion_schema_codegen_open_content)
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineConstrainedRecord = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineConstrainedRecord.
+pub fn validate_type_InlineConstrainedRecord(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineConstrainedRecord",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline26(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineConstrainedRecord",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub(all) struct InlineRecordEnvelope {
+  payload : InlineConstrainedRecord
+}
+
+///|
+/// Convert an Ion struct to InlineRecordEnvelope with field-level diagnostics.
+pub fn InlineRecordEnvelope::from_ion(
+  value : @ion_model.IonValue,
+) -> InlineRecordEnvelope raise ConversionError {
+  let type_path = "InlineRecordEnvelope"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "payload" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="InlineRecordEnvelope.payload",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="InlineRecordEnvelope." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="InlineRecordEnvelope.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : InlineConstrainedRecord = match
+    input_field_0 {
+    Some(field_value) => {
+      let field_path = "InlineRecordEnvelope.payload"
+      let field_item : InlineConstrainedRecord = field_value
+      if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline26(
+          field_value,
+        ) {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="all_of",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="InlineRecordEnvelope.payload",
+      )
+  }
+  { payload: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert InlineRecordEnvelope into an Ion struct in schema field order.
+pub fn InlineRecordEnvelope::to_ion(
+  self : InlineRecordEnvelope,
+) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push((@ion_model.IonSymbol::from_text("payload"), self.payload))
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline30.
+fn is_valid_values_IonSchemaCodegenInternalInline30(
+  value : @ion_model.IonValue,
+) -> Bool {
+  let allowed_values = @ion.parse_text("2\n4") catch { _ => [] }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+type IonSchemaCodegenInternalInline29 = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion list to IonSchemaCodegenInternalInline29 while validating its ordered elements.
+fn from_ion_IonSchemaCodegenInternalInline29(
+  value : @ion_model.IonValue,
+) -> IonSchemaCodegenInternalInline29 raise ConversionError {
+  let type_path = "ion_schema_codegen_internal_inline_29"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  ion_schema_codegen_validate_ordered_IonSchemaCodegenInternalInline29(
+    input_elements, type_path,
+  )
+  input_elements
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline29(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    ignore(from_ion_IonSchemaCodegenInternalInline29(value))
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineOrderedList = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineOrderedList.
+pub fn validate_type_InlineOrderedList(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineOrderedList",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline29(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineOrderedList",
       constraint="all_of",
       actual=ion_schema_codegen_actual_type(value),
     )
