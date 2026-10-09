@@ -100,6 +100,7 @@ priv struct NamedType {
   all_of : Array[TypeRef]
   any_of : Array[Array[TypeRef]]
   one_of : Array[Array[TypeRef]]
+  not_constraints : Array[TypeRef]
 }
 
 ///|

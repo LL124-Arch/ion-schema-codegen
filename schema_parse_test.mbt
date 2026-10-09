@@ -10,13 +10,13 @@ fn expect_schema_error(source : String) -> @ion-schema-codegen.SchemaError {
 ///|
 test "parse type algebra and reject unsupported type argument forms" {
   @ion-schema-codegen.check_schema(
-    "$ion_schema_2_0 type::{name: Raw, all_of: [$any, $null_or::int]} type::{name: Alias, type: Raw} type::{name: Choice, any_of: [int, string]} type::{name: ExclusiveChoice, one_of: [int, string]}",
+    "$ion_schema_2_0 type::{name: Raw, all_of: [$any, $null_or::int]} type::{name: Alias, type: Raw} type::{name: Choice, any_of: [int, string]} type::{name: ExclusiveChoice, one_of: [int, string]} type::{name: Negated, not: $null_or::int}",
   )
   for
     invalid in [
       "type::{name: Empty, all_of: []}", "type::{name: Inline, all_of: [{type: int}]}",
       "type::{name: EmptyChoice, any_of: []}", "type::{name: EmptyExclusiveChoice, one_of: []}",
-      "type::{name: Container, element: int}",
+      "type::{name: ArrayNegation, not: [int]}", "type::{name: Container, element: int}",
     ] {
     let error = expect_schema_error("$ion_schema_2_0 \{invalid}")
     assert_true(
@@ -32,6 +32,15 @@ test "parse type algebra and reject unsupported type argument forms" {
   )
   assert_true(
     match document_argument {
+      @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
+      _ => false
+    },
+  )
+  let document_not = expect_schema_error(
+    "$ion_schema_2_0 type::{name: NotStream, not: document}",
+  )
+  assert_true(
+    match document_not {
       @ion-schema-codegen.SchemaError::UnsupportedFeature(_) => true
       _ => false
     },
@@ -53,7 +62,7 @@ test "parse type algebra and reject unsupported type argument forms" {
   let indirect_cycle_found = try {
     ignore(
       @ion-schema-codegen.generate_code(
-        "$ion_schema_2_0 type::{name: First, all_of: [Second]} type::{name: Second, any_of: [First]}",
+        "$ion_schema_2_0 type::{name: First, all_of: [Second]} type::{name: Second, not: First}",
       ),
     )
     false

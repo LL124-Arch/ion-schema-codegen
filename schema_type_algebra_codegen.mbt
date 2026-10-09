@@ -3,7 +3,8 @@ fn has_type_algebra_constraints(types : Array[NamedType]) -> Bool {
   for named_type in types {
     if named_type.all_of.length() > 0 ||
       named_type.any_of.length() > 0 ||
-      named_type.one_of.length() > 0 {
+      named_type.one_of.length() > 0 ||
+      named_type.not_constraints.length() > 0 {
       return true
     }
   }
@@ -33,6 +34,11 @@ fn named_type_needs_algebra_matcher(
         if type_reference_names_target(type_ref, name) {
           return true
         }
+      }
+    }
+    for type_ref in named_type.not_constraints {
+      if type_reference_names_target(type_ref, name) {
+        return true
       }
     }
   }
@@ -166,6 +172,33 @@ fn write_named_type_algebra_checks(
     )
     one_of_index += 1
   }
+  for type_ref in named_type.not_constraints {
+    let expression = type_reference_match_expression(
+      type_ref, value_expression, types,
+    )
+    output.write_string(
+      indent +
+      "if " +
+      expression +
+      " {\n" +
+      indent +
+      "  raise ConversionError::InvalidValue(\n" +
+      indent +
+      "    path=" +
+      path_expression +
+      ",\n" +
+      indent +
+      "    constraint=\"not\",\n" +
+      indent +
+      "    actual=ion_schema_codegen_actual_type(" +
+      value_expression +
+      "),\n" +
+      indent +
+      "  )\n" +
+      indent +
+      "}\n",
+    )
+  }
 }
 
 ///|
@@ -275,7 +308,8 @@ fn write_named_type_algebra_validator(
 ) -> Unit raise SchemaError {
   if named_type.all_of.length() == 0 &&
     named_type.any_of.length() == 0 &&
-    named_type.one_of.length() == 0 {
+    named_type.one_of.length() == 0 &&
+    named_type.not_constraints.length() == 0 {
     return
   }
   let generated_name = moonbit_type_identifier(named_type.name)

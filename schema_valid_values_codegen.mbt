@@ -294,7 +294,8 @@ fn named_type_has_valid_values(
         named_type.annotation_constraints.length() > 0 ||
         named_type.all_of.length() > 0 ||
         named_type.any_of.length() > 0 ||
-        named_type.one_of.length() > 0 {
+        named_type.one_of.length() > 0 ||
+        named_type.not_constraints.length() > 0 {
         true
       } else {
         match named_type.body {

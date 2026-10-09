@@ -8,3 +8,4 @@ type::{name: ImportedExample, type: struct, fields: closed::{
   extra: {type: Extra, occurs: required},
   envelope: {type: ImportedEnvelope, occurs: required}
 }}
+type::{name: NotShared, not: Shared}

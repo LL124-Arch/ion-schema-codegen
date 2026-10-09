@@ -41,6 +41,58 @@ fn ion_schema_codegen_actual_type(value : @ion_model.IonValue) -> String {
 }
 
 ///|
+fn ion_schema_codegen_matches_type(
+  value : @ion_model.IonValue,
+  expected : String,
+) -> Bool {
+  let kind = value.kind()
+  let is_null = value.is_null()
+  match expected {
+    "any" => !is_null
+    "$any" => true
+    "$null" => is_null && kind == @ion_model.IonNull::Null
+    "bool" => !is_null && kind == @ion_model.IonNull::Bool
+    "$bool" => kind == @ion_model.IonNull::Bool
+    "int" => !is_null && kind == @ion_model.IonNull::Int
+    "$int" => kind == @ion_model.IonNull::Int
+    "float" => !is_null && kind == @ion_model.IonNull::Float
+    "$float" => kind == @ion_model.IonNull::Float
+    "decimal" => !is_null && kind == @ion_model.IonNull::Decimal
+    "$decimal" => kind == @ion_model.IonNull::Decimal
+    "string" => !is_null && kind == @ion_model.IonNull::String
+    "$string" => kind == @ion_model.IonNull::String
+    "symbol" => !is_null && kind == @ion_model.IonNull::Symbol
+    "$symbol" => kind == @ion_model.IonNull::Symbol
+    "timestamp" => !is_null && kind == @ion_model.IonNull::Timestamp
+    "$timestamp" => kind == @ion_model.IonNull::Timestamp
+    "blob" => !is_null && kind == @ion_model.IonNull::Blob
+    "$blob" => kind == @ion_model.IonNull::Blob
+    "clob" => !is_null && kind == @ion_model.IonNull::Clob
+    "$clob" => kind == @ion_model.IonNull::Clob
+    "list" => !is_null && kind == @ion_model.IonNull::List
+    "$list" => kind == @ion_model.IonNull::List
+    "sexp" => !is_null && kind == @ion_model.IonNull::Sexp
+    "$sexp" => kind == @ion_model.IonNull::Sexp
+    "struct" => !is_null && kind == @ion_model.IonNull::Struct
+    "$struct" => kind == @ion_model.IonNull::Struct
+    "number" | "$number" =>
+      (
+        kind == @ion_model.IonNull::Int ||
+        kind == @ion_model.IonNull::Float ||
+        kind == @ion_model.IonNull::Decimal
+      ) &&
+      (expected == "$number" || !is_null)
+    "text" | "$text" =>
+      (kind == @ion_model.IonNull::String || kind == @ion_model.IonNull::Symbol) &&
+      (expected == "$text" || !is_null)
+    "lob" | "$lob" =>
+      (kind == @ion_model.IonNull::Blob || kind == @ion_model.IonNull::Clob) &&
+      (expected == "$lob" || !is_null)
+    _ => false
+  }
+}
+
+///|
 fn ion_schema_codegen_prefix_error(
   error : ConversionError,
   prefix : String,
@@ -174,6 +226,22 @@ pub fn Imported2Envelope::to_ion(
 
 ///|
 pub type Shared = Imported1Shared
+
+///|
+fn ion_schema_codegen_matches_named_Shared(value : @ion_model.IonValue) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="Shared",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
 
 ///|
 pub type Extra = Imported1Extra
@@ -351,4 +419,28 @@ pub fn ImportedExample::to_ion(self : ImportedExample) -> @ion_model.IonValue {
     ),
   )
   @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type NotShared = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for NotShared.
+pub fn validate_type_NotShared(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="NotShared",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if ion_schema_codegen_matches_named_Shared(value) {
+    raise ConversionError::InvalidValue(
+      path="NotShared",
+      constraint="not",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
 }
