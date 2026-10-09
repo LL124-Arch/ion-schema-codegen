@@ -1,7 +1,9 @@
 ///|
 fn has_type_algebra_constraints(types : Array[NamedType]) -> Bool {
   for named_type in types {
-    if named_type.all_of.length() > 0 || named_type.any_of.length() > 0 {
+    if named_type.all_of.length() > 0 ||
+      named_type.any_of.length() > 0 ||
+      named_type.one_of.length() > 0 {
       return true
     }
   }
@@ -20,6 +22,13 @@ fn named_type_needs_algebra_matcher(
       }
     }
     for branches in named_type.any_of {
+      for type_ref in branches {
+        if type_reference_names_target(type_ref, name) {
+          return true
+        }
+      }
+    }
+    for branches in named_type.one_of {
       for type_ref in branches {
         if type_reference_names_target(type_ref, name) {
           return true
@@ -108,6 +117,54 @@ fn write_named_type_algebra_checks(
       indent +
       "}\n",
     )
+  }
+  let mut one_of_index = 0
+  for branches in named_type.one_of {
+    let matches_name = "ion_schema_codegen_one_of_match_count_" +
+      moonbit_type_identifier(named_type.name) +
+      "_" +
+      one_of_index.to_string()
+    output.write_string(indent + "let mut " + matches_name + " = 0\n")
+    for type_ref in branches {
+      let expression = type_reference_match_expression(
+        type_ref, value_expression, types,
+      )
+      output.write_string(
+        indent +
+        "if " +
+        expression +
+        " {\n" +
+        indent +
+        "  " +
+        matches_name +
+        " += 1\n" +
+        indent +
+        "}\n",
+      )
+    }
+    output.write_string(
+      indent +
+      "if " +
+      matches_name +
+      " != 1 {\n" +
+      indent +
+      "  raise ConversionError::InvalidValue(\n" +
+      indent +
+      "    path=" +
+      path_expression +
+      ",\n" +
+      indent +
+      "    constraint=\"one_of\",\n" +
+      indent +
+      "    actual=ion_schema_codegen_actual_type(" +
+      value_expression +
+      "),\n" +
+      indent +
+      "  )\n" +
+      indent +
+      "}\n",
+    )
+    one_of_index += 1
   }
 }
 
@@ -216,7 +273,9 @@ fn write_named_type_algebra_validator(
   named_type : NamedType,
   types : Array[NamedType],
 ) -> Unit raise SchemaError {
-  if named_type.all_of.length() == 0 && named_type.any_of.length() == 0 {
+  if named_type.all_of.length() == 0 &&
+    named_type.any_of.length() == 0 &&
+    named_type.one_of.length() == 0 {
     return
   }
   let generated_name = moonbit_type_identifier(named_type.name)

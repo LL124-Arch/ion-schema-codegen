@@ -148,6 +148,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let byte_length_fields = value.get_fields("byte_length")
   let all_of_fields = value.get_fields("all_of")
   let any_of_fields = value.get_fields("any_of")
+  let one_of_fields = value.get_fields("one_of")
   if type_value is None &&
     (
       fields.length() > 0 ||
@@ -253,6 +254,10 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   for constraint in any_of_fields {
     any_of.push(parse_type_reference_list(constraint, "any_of at type " + name))
   }
+  let one_of : Array[Array[TypeRef]] = []
+  for constraint in one_of_fields {
+    one_of.push(parse_type_reference_list(constraint, "one_of at type " + name))
+  }
   let precision_ranges = parse_decimal_constraint_fields(
     precision_fields, "precision", name,
   )
@@ -353,6 +358,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     annotation_constraints,
     all_of,
     any_of,
+    one_of,
     container_lengths,
     codepoint_lengths,
     utf8_byte_lengths,
@@ -1674,7 +1680,7 @@ fn validate_type_definition_fields(
       "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
       "contains", "precision", "exponent", "timestamp_precision", "timestamp_offset",
       "ieee754_float", "regex", "container_length", "codepoint_length", "utf8_byte_length",
-      "byte_length", "annotations", "all_of", "any_of",
+      "byte_length", "annotations", "all_of", "any_of", "one_of",
     ],
     "type \{type_name}",
   )
@@ -2123,7 +2129,9 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
         named_type.name,
       )
     }
-    if named_type.all_of.length() > 0 || named_type.any_of.length() > 0 {
+    if named_type.all_of.length() > 0 ||
+      named_type.any_of.length() > 0 ||
+      named_type.one_of.length() > 0 {
       match named_type.body {
         TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
           if is_document_reference(types, type_ref) {
@@ -2153,6 +2161,21 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
             types,
             type_ref,
             "any_of of " + named_type.name,
+          )
+          if is_document_reference(types, type_ref) {
+            raise SchemaError::UnsupportedFeature(
+              "document stream type arguments are not supported in type algebra at type " +
+              named_type.name,
+            )
+          }
+        }
+      }
+      for branches in named_type.one_of {
+        for type_ref in branches {
+          validate_type_algebra_reference(
+            types,
+            type_ref,
+            "one_of of " + named_type.name,
           )
           if is_document_reference(types, type_ref) {
             raise SchemaError::UnsupportedFeature(

@@ -99,6 +99,7 @@ priv struct NamedType {
   byte_lengths : Array[IntegerRange]
   all_of : Array[TypeRef]
   any_of : Array[Array[TypeRef]]
+  one_of : Array[Array[TypeRef]]
 }
 
 ///|

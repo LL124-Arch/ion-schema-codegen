@@ -20,6 +20,7 @@ jobs:
       - run: moon test --deny-warn --target all ./fixtures/annotations
       - run: moon test --deny-warn --target all ./fixtures/all_of
       - run: moon test --deny-warn --target all ./fixtures/any_of
+      - run: moon test --deny-warn --target all ./fixtures/one_of
       - run: moon run --target native ./cli fixtures/precision/precision.isl fixtures/precision/generated.mbt
       - run: moon run --target native ./cli fixtures/timestamps/timestamps.isl fixtures/timestamps/generated.mbt
       - run: moon run --target native ./cli fixtures/ieee754/ieee754.isl fixtures/ieee754/generated.mbt
@@ -27,10 +28,11 @@ jobs:
       - run: moon run --target native ./cli fixtures/annotations/annotations.isl fixtures/annotations/generated.mbt
       - run: moon run --target native ./cli fixtures/all_of/all_of.isl fixtures/all_of/generated.mbt
       - run: moon run --target native ./cli fixtures/any_of/any_of.isl fixtures/any_of/generated.mbt
+      - run: moon run --target native ./cli fixtures/one_of/one_of.isl fixtures/one_of/generated.mbt
       - run: moon run --target native ./cli fixtures/contains/contains.isl fixtures/contains/generated.mbt
       - run: moon run --target native ./cli fixtures/constraints/constraints.isl fixtures/constraints/generated.mbt
       - run: moon run --target native ./cli fixtures/references/references.isl fixtures/references/generated.mbt
       - run: moon run --target native ./cli examples/person/person.isl examples/person/generated.mbt
       - run: moon fmt
-      - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt fixtures/constraints/generated.mbt fixtures/contains/generated.mbt fixtures/precision/generated.mbt fixtures/timestamps/generated.mbt fixtures/ieee754/generated.mbt fixtures/regex/generated.mbt fixtures/annotations/generated.mbt fixtures/all_of/generated.mbt fixtures/any_of/generated.mbt
+      - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt fixtures/constraints/generated.mbt fixtures/contains/generated.mbt fixtures/precision/generated.mbt fixtures/timestamps/generated.mbt fixtures/ieee754/generated.mbt fixtures/regex/generated.mbt fixtures/annotations/generated.mbt fixtures/all_of/generated.mbt fixtures/any_of/generated.mbt fixtures/one_of/generated.mbt
       - run: moon run --target native ./examples/person
