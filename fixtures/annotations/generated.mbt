@@ -366,6 +366,97 @@ pub fn ContainsRecordField::to_ion(self : ContainsRecordField) -> @ion_model.Ion
 }
 
 ///|
+pub type AllowedAnnotationTokens = @ion_model.IonValue
+
+///|
+/// Validate annotations for AllowedAnnotationTokens.
+pub fn validate_annotations_AllowedAnnotationTokens(value : @ion_model.IonValue) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="AllowedAnnotationTokens",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_annotations_match(value, ["record", "v1"], true, false) {
+    raise ConversionError::InvalidValue(
+      path="AllowedAnnotationTokens",
+      constraint="annotations",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub(all) struct AllowedAnnotationField {
+  payload : AllowedAnnotationTokens
+}
+
+///|
+/// Convert an Ion struct to AllowedAnnotationField with field-level diagnostics.
+pub fn AllowedAnnotationField::from_ion(
+  value : @ion_model.IonValue,
+) -> AllowedAnnotationField raise ConversionError {
+  let type_path = "AllowedAnnotationField"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ => raise ConversionError::TypeMismatch(path=type_path, expected="struct", actual=ion_schema_codegen_actual_type(value))
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "payload" => input_field_0 = match input_field_0 {
+            Some(_) =>
+              raise ConversionError::DuplicateField(
+                path="AllowedAnnotationField.payload",
+              )
+            None => Some(field_value)
+          }
+          _ => raise ConversionError::UnknownField(path="AllowedAnnotationField." + field_name)
+        }
+      None => raise ConversionError::UnknownSymbol(path="AllowedAnnotationField.<field>", sid=field_symbol.sid_value().unwrap_or(0))
+    }
+  }
+  let ion_schema_codegen_value_0 : AllowedAnnotationTokens = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "AllowedAnnotationField.payload"
+      let field_item : AllowedAnnotationTokens = field_value
+      if !ion_schema_codegen_annotations_match(field_value, ["record", "v1"], true, false) {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="annotations",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      field_item
+    }
+    None => raise ConversionError::MissingRequiredField(path="AllowedAnnotationField.payload")
+  }
+  {
+    payload: ion_schema_codegen_value_0,
+  }
+}
+
+///|
+/// Convert AllowedAnnotationField into an Ion struct in schema field order.
+pub fn AllowedAnnotationField::to_ion(self : AllowedAnnotationField) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (@ion_model.IonSymbol::from_text("payload"),
+      self.payload),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
 pub type TagList = Array[TaggedAlias]
 
 ///|

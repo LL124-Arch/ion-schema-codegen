@@ -64,6 +64,7 @@ priv struct AnnotationConstraint {
   standard_inline : Bool
   standard_container_lengths : Array[IntegerRange]
   standard_contains_values : Array[String]?
+  standard_element_valid_values : Array[String]?
 }
 
 ///|

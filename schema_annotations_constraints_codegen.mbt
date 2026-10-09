@@ -137,6 +137,48 @@ fn write_named_annotation_checks(
           }
           _ => ()
         }
+        match constraint.standard_element_valid_values {
+          Some(allowed_values) => {
+            let allowed = StringBuilder()
+            allowed.write_char('[')
+            let mut first = true
+            for expected in allowed_values {
+              if !first {
+                allowed.write_string(", ")
+              }
+              first = false
+              allowed.write_char('"')
+              allowed.write_string(moonbit_string_literal(expected))
+              allowed.write_char('"')
+            }
+            allowed.write_char(']')
+            output.write_string(
+              indent +
+              "if !ion_schema_codegen_annotations_match(" +
+              value_expression +
+              ", " +
+              allowed.to_string() +
+              ", true, false) {\n" +
+              indent +
+              "  raise ConversionError::InvalidValue(\n" +
+              indent +
+              "    path=" +
+              path_expression +
+              ",\n" +
+              indent +
+              "    constraint=\"annotations\",\n" +
+              indent +
+              "    actual=ion_schema_codegen_actual_type(" +
+              value_expression +
+              "),\n" +
+              indent +
+              "  )\n" +
+              indent +
+              "}\n",
+            )
+          }
+          None => ()
+        }
       }
       None => {
         let allowed = StringBuilder()

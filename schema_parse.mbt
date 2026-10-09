@@ -813,6 +813,7 @@ fn parse_annotation_fields(
             standard_inline: false,
             standard_container_lengths: [],
             standard_contains_values: None,
+            standard_element_valid_values: None,
           })
         }
       }
@@ -832,7 +833,11 @@ fn parse_standard_annotation_constraint(
       context,
     )
   }
-  validate_allowed_fields(value, ["container_length", "contains"], context)
+  validate_allowed_fields(
+    value,
+    ["container_length", "contains", "element"],
+    context,
+  )
   let contains_values : Array[String] = []
   let contains_fields = value.get_fields("contains")
   for contains_value in contains_fields {
@@ -861,6 +866,52 @@ fn parse_standard_annotation_constraint(
       }
     }
   }
+  let element_values : Array[String] = []
+  let element_fields = value.get_fields("element")
+  for element_value in element_fields {
+    if element_value.annotations().length() > 0 {
+      raise SchemaError::UnsupportedFeature(
+        "annotated annotations element expressions are not supported at " +
+        context,
+      )
+    }
+    validate_allowed_fields(element_value, ["valid_values"], context)
+    let valid_values_fields = element_value.get_fields("valid_values")
+    if valid_values_fields.length() == 0 {
+      raise SchemaError::InvalidSchema(
+        "annotations element requires valid_values at " + context,
+      )
+    }
+    for valid_values_field in valid_values_fields {
+      for valid_value in parse_valid_values(valid_values_field, context) {
+        if valid_value.annotations().length() > 0 {
+          raise SchemaError::InvalidSchema(
+            "annotations element valid_values must be unannotated symbols at " +
+            context,
+          )
+        }
+        match valid_value.without_annotations() {
+          @model.IonValue::Symbol(symbol) =>
+            match symbol.text_value() {
+              Some(text) =>
+                if !element_values.contains(text) {
+                  element_values.push(text)
+                }
+              None =>
+                raise SchemaError::UnsupportedFeature(
+                  "unresolved symbols in annotations element valid_values are not supported at " +
+                  context,
+                )
+            }
+          _ =>
+            raise SchemaError::InvalidSchema(
+              "annotations element valid_values must contain only symbols at " +
+              context,
+            )
+        }
+      }
+    }
+  }
   {
     allowed: [],
     closed: false,
@@ -874,6 +925,11 @@ fn parse_standard_annotation_constraint(
     ),
     standard_contains_values: if contains_fields.length() > 0 {
       Some(contains_values)
+    } else {
+      None
+    },
+    standard_element_valid_values: if element_fields.length() > 0 {
+      Some(element_values)
     } else {
       None
     },
@@ -950,6 +1006,7 @@ fn parse_simple_annotation_constraint(
     standard_inline: false,
     standard_container_lengths: [],
     standard_contains_values: None,
+    standard_element_valid_values: None,
   }
 }
 

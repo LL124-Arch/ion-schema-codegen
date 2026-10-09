@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.34.0 — 2026-10-09
+
+- `annotations` 标准 inline 表达式支持 `element: {valid_values: [...]}`，逐个限制注解 symbol token。
+- 有限集合按文本 symbol 解释并去重；空注解序列通过逐项约束，非法 token 报 `annotations` 错误并保留路径。
+
 ## 0.33.0 — 2026-10-09
 
 - `annotations` 标准 inline type argument 支持 `contains` 符号集合；按无序包含语义检查，重复期望符号不增加要求。
