@@ -204,7 +204,7 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
           write_ordered_list_conversions(output, named_type, schema.types)
         }
     }
-    if named_type.all_of.length() > 0 {
+    if named_type.all_of.length() > 0 || named_type.any_of.length() > 0 {
       output.write_string("\n")
       write_named_type_algebra_validator(output, named_type, schema.types)
     }
@@ -2923,6 +2923,14 @@ fn referenced_type_names(named_type : NamedType) -> Array[String] {
       TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
     }
   }
+  for branches in named_type.any_of {
+    for type_ref in branches {
+      match type_ref {
+        TypeRef::Named(name) | TypeRef::NullOrNamed(name) => names.push(name)
+        TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+      }
+    }
+  }
   names
 }
 
@@ -3036,6 +3044,7 @@ fn has_conversion_types(types : Array[NamedType]) -> Bool {
       named_type.regex_constraints.length() > 0 ||
       named_type.annotation_constraints.length() > 0 ||
       named_type.all_of.length() > 0 ||
+      named_type.any_of.length() > 0 ||
       named_type.container_lengths.length() > 0 ||
       named_type.element_type is Some(_) ||
       has_named_contains_values(named_type) ||

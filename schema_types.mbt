@@ -98,6 +98,7 @@ priv struct NamedType {
   utf8_byte_lengths : Array[IntegerRange]
   byte_lengths : Array[IntegerRange]
   all_of : Array[TypeRef]
+  any_of : Array[Array[TypeRef]]
 }
 
 ///|

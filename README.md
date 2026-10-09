@@ -5,6 +5,7 @@
 ## 支持范围
 
 - all_of 支持非空 built-in、同 Schema 命名类型及 $null_or 类型参数列表，所有分支均须匹配；命名类型省略 type 时按 $any 表示并保留原始 IonValue。inline 类型定义/导入和 document 类型参数不支持；需要容器结构的约束仍须显式声明 type: struct 或 type: list。
+- any_of 支持非空 built-in、同 Schema 命名类型及 $null_or 类型参数列表，至少一个分支须匹配；支持重叠分支并逐支独立验证。
 - `container_length` 支持 list、sexp、struct 和 document 的精确长度与整数范围；struct 按字段总出现次数计数，document 按顶层值数计数。
 - `codepoint_length` 与 `utf8_byte_length` 支持 string 和 symbol；`byte_length` 支持 blob 和 clob，均可使用精确值或整数范围。
 - 标量：`bool`、`int`、`float`、`decimal`、`string`、`symbol`、`timestamp`、`blob` 和 `clob`。
@@ -32,7 +33,7 @@
 - 无循环的同 Schema 命名类型引用；生成声明按依赖顺序排列。
 - 结构体与列表的 `from_ion` / `to_ion` 转换。转换会报告字段路径、列表下标和具体 Ion 类型。
 
-项目不实现完整的 Ion Schema 校验器。程序化库 API 仍只接收单个 Schema；包含 imports 的文件请使用 native CLI。递归类型、any_of/one_of/not 类型代数及 `annotations` 标准语法等仍显式报错；inline type definition 仍不支持。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；对其支持的简化 `annotations` 约束会检查并保留注解。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
+项目不实现完整的 Ion Schema 校验器。程序化库 API 仍只接收单个 Schema；包含 imports 的文件请使用 native CLI。递归类型、one_of/not 类型代数及 `annotations` 标准语法等仍显式报错；inline type definition 仍不支持。`valid_values` 范围目前限于 `int` / `float` / `decimal` / `number` 及对应 nullable 数值类型，以及 `timestamp` / `$timestamp`。`$null_or` type argument 不能同时声明显式 `occurs`，遵循 ISL 2.0 规定。`any`/`$any` 接受注解值；对其支持的简化 `annotations` 约束会检查并保留注解。`document` 只能作为顶层命名类型或别名使用，不能嵌入结构体字段或列表元素；`$any` 表示单个 `IonValue`，document 流由独立类型表示。
 
 ## 安装与检查
 

@@ -147,6 +147,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
   let utf8_byte_length_fields = value.get_fields("utf8_byte_length")
   let byte_length_fields = value.get_fields("byte_length")
   let all_of_fields = value.get_fields("all_of")
+  let any_of_fields = value.get_fields("any_of")
   if type_value is None &&
     (
       fields.length() > 0 ||
@@ -248,6 +249,10 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       all_of.push(type_ref)
     }
   }
+  let any_of : Array[Array[TypeRef]] = []
+  for constraint in any_of_fields {
+    any_of.push(parse_type_reference_list(constraint, "any_of at type " + name))
+  }
   let precision_ranges = parse_decimal_constraint_fields(
     precision_fields, "precision", name,
   )
@@ -347,6 +352,7 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     regex_constraints,
     annotation_constraints,
     all_of,
+    any_of,
     container_lengths,
     codepoint_lengths,
     utf8_byte_lengths,
@@ -1284,8 +1290,10 @@ fn parse_logical_type_argument(
       match value.without_annotations() {
         @model.IonValue::Symbol(symbol) =>
           match symbol.text_value() {
-            Some(name) if name == "struct" || name == "list" =>
-              TypeRef::Builtin(name)
+            Some(name) if name == "struct" ||
+              name == "list" ||
+              name == "text" ||
+              name == "lob" => TypeRef::Builtin(name)
             Some(_) => parse_type_reference(value, context)
             None =>
               raise SchemaError::UnsupportedFeature(
@@ -1666,7 +1674,7 @@ fn validate_type_definition_fields(
       "name", "type", "fields", "element", "field_names", "ordered_elements", "valid_values",
       "contains", "precision", "exponent", "timestamp_precision", "timestamp_offset",
       "ieee754_float", "regex", "container_length", "codepoint_length", "utf8_byte_length",
-      "byte_length", "annotations", "all_of",
+      "byte_length", "annotations", "all_of", "any_of",
     ],
     "type \{type_name}",
   )
@@ -2115,7 +2123,7 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
         named_type.name,
       )
     }
-    if named_type.all_of.length() > 0 {
+    if named_type.all_of.length() > 0 || named_type.any_of.length() > 0 {
       match named_type.body {
         TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
           if is_document_reference(types, type_ref) {
@@ -2127,12 +2135,31 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
         TypeBody::Struct(_, _) | TypeBody::List(_) => ()
       }
       for type_ref in named_type.all_of {
-        validate_type_reference(types, type_ref, "all_of of " + named_type.name)
+        validate_type_algebra_reference(
+          types,
+          type_ref,
+          "all_of of " + named_type.name,
+        )
         if is_document_reference(types, type_ref) {
           raise SchemaError::UnsupportedFeature(
             "document stream type arguments are not supported in type algebra at type " +
             named_type.name,
           )
+        }
+      }
+      for branches in named_type.any_of {
+        for type_ref in branches {
+          validate_type_algebra_reference(
+            types,
+            type_ref,
+            "any_of of " + named_type.name,
+          )
+          if is_document_reference(types, type_ref) {
+            raise SchemaError::UnsupportedFeature(
+              "document stream type arguments are not supported in type algebra at type " +
+              named_type.name,
+            )
+          }
         }
       }
     }
@@ -2411,6 +2438,19 @@ fn is_document_reference(
   match resolve_type_ref(types, type_ref) {
     ResolvedType::Scalar("document") => true
     _ => false
+  }
+}
+
+///|
+fn validate_type_algebra_reference(
+  types : Array[NamedType],
+  type_ref : TypeRef,
+  context : String,
+) -> Unit raise SchemaError {
+  match type_ref {
+    TypeRef::Builtin("text" | "lob") | TypeRef::NullOrBuiltin("text" | "lob") =>
+      ()
+    _ => validate_type_reference(types, type_ref, context)
   }
 }
 

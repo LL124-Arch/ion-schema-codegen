@@ -8,14 +8,14 @@ fn expect_schema_error(source : String) -> @ion-schema-codegen.SchemaError {
 }
 
 ///|
-test "parse all_of and reject unsupported type argument forms" {
+test "parse type algebra and reject unsupported type argument forms" {
   @ion-schema-codegen.check_schema(
-    "$ion_schema_2_0 type::{name: Raw, all_of: [$any, $null_or::int]} type::{name: Alias, type: Raw}",
+    "$ion_schema_2_0 type::{name: Raw, all_of: [$any, $null_or::int]} type::{name: Alias, type: Raw} type::{name: Choice, any_of: [int, string]}",
   )
   for
     invalid in [
       "type::{name: Empty, all_of: []}", "type::{name: Inline, all_of: [{type: int}]}",
-      "type::{name: Container, element: int}",
+      "type::{name: EmptyChoice, any_of: []}", "type::{name: Container, element: int}",
     ] {
     let error = expect_schema_error("$ion_schema_2_0 \{invalid}")
     assert_true(
@@ -49,6 +49,20 @@ test "parse all_of and reject unsupported type argument forms" {
     _ => false
   }
   assert_true(cycle_found)
+  let indirect_cycle_found = try {
+    ignore(
+      @ion-schema-codegen.generate_code(
+        "$ion_schema_2_0 type::{name: First, all_of: [Second]} type::{name: Second, any_of: [First]}",
+      ),
+    )
+    false
+  } catch {
+    @ion-schema-codegen.SchemaError::CyclicTypeReference(_) => true
+    _ => false
+  } noraise {
+    _ => false
+  }
+  assert_true(indirect_cycle_found)
 }
 
 ///|
