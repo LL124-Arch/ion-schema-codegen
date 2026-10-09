@@ -88,7 +88,12 @@ fn parse_schema_values(
     } else if has_annotation(value, "type") {
       saw_type = true
       validate_type_annotations(value)
-      let named_type = parse_named_type(value)
+      let named_type = parse_named_type(value, types, false)
+      if named_type.name.has_prefix("ion_schema_codegen_internal_inline_") {
+        raise SchemaError::InvalidSchema(
+          "type names beginning with ion_schema_codegen_internal_inline_ are reserved",
+        )
+      }
       if is_known_builtin(named_type.name) {
         raise SchemaError::InvalidSchema(
           "type name conflicts with a built-in type: \{named_type.name}",
@@ -109,7 +114,11 @@ fn parse_schema_values(
 }
 
 ///|
-fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
+fn parse_named_type(
+  value : @model.IonValue,
+  types : Array[NamedType],
+  is_inline : Bool,
+) -> NamedType raise SchemaError {
   let name_value = required_single_field(value, "name", "type definition")
   let name = symbol_text(name_value, "type name")
   if name == "" {
@@ -247,22 +256,27 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       type_ref in parse_type_reference_list(
         constraint,
         "all_of at type " + name,
+        types,
       ) {
       all_of.push(type_ref)
     }
   }
   let any_of : Array[Array[TypeRef]] = []
   for constraint in any_of_fields {
-    any_of.push(parse_type_reference_list(constraint, "any_of at type " + name))
+    any_of.push(
+      parse_type_reference_list(constraint, "any_of at type " + name, types),
+    )
   }
   let one_of : Array[Array[TypeRef]] = []
   for constraint in one_of_fields {
-    one_of.push(parse_type_reference_list(constraint, "one_of at type " + name))
+    one_of.push(
+      parse_type_reference_list(constraint, "one_of at type " + name, types),
+    )
   }
   let not_constraints : Array[TypeRef] = []
   for constraint in not_fields {
     not_constraints.push(
-      parse_logical_type_argument(constraint, "not at type " + name),
+      parse_logical_type_argument(constraint, "not at type " + name, types),
     )
   }
   let precision_ranges = parse_decimal_constraint_fields(
@@ -281,7 +295,9 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     ieee754_float_fields, name,
   )
   let regex_constraints = parse_regex_fields(regex_fields, name)
-  let annotation_constraints = parse_annotation_fields(annotation_fields, name)
+  let annotation_constraints = parse_annotation_fields(
+    annotation_fields, name, types,
+  )
 
   let body = match base_name {
     "struct" => {
@@ -346,8 +362,20 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
       }
     }
   }
+  if is_inline &&
+    !inline_type_definition_supported(
+      value, element_type, field_names_type, ordered_elements, contains_values, precision_ranges,
+      exponent_ranges, timestamp_precision_ranges, timestamp_offsets, ieee754_float_formats,
+      regex_constraints, annotation_constraints, container_lengths, codepoint_lengths,
+      utf8_byte_lengths, byte_lengths, all_of, any_of, one_of, not_constraints,
+    ) {
+    raise SchemaError::UnsupportedFeature(
+      "inline type definitions currently support scalar type and valid_values constraints at {name}",
+    )
+  }
   {
     name,
+    is_inline,
     body,
     element_type,
     element_distinct,
@@ -372,6 +400,57 @@ fn parse_named_type(value : @model.IonValue) -> NamedType raise SchemaError {
     utf8_byte_lengths,
     byte_lengths,
   }
+}
+
+///|
+fn inline_type_definition_supported(
+  value : @model.IonValue,
+  element_type : TypeRef?,
+  field_names_type : TypeRef?,
+  ordered_elements : Array[OrderedElementSpec]?,
+  contains_values : Array[@model.IonValue]?,
+  precision_ranges : Array[IntegerRange],
+  exponent_ranges : Array[IntegerRange],
+  timestamp_precision_ranges : Array[IntegerRange],
+  timestamp_offsets : Array[Array[Int?]],
+  ieee754_float_formats : Array[String],
+  regex_constraints : Array[RegexConstraint],
+  annotation_constraints : Array[AnnotationConstraint],
+  container_lengths : Array[IntegerRange],
+  codepoint_lengths : Array[IntegerRange],
+  utf8_byte_lengths : Array[IntegerRange],
+  byte_lengths : Array[IntegerRange],
+  all_of : Array[TypeRef],
+  any_of : Array[Array[TypeRef]],
+  one_of : Array[Array[TypeRef]],
+  not_constraints : Array[TypeRef],
+) -> Bool {
+  let fields = value.fields()
+  for (symbol, _) in fields {
+    match symbol.text_value() {
+      Some("name" | "type" | "valid_values") => ()
+      _ => return false
+    }
+  }
+  element_type is None &&
+  field_names_type is None &&
+  ordered_elements is None &&
+  contains_values is None &&
+  precision_ranges.length() == 0 &&
+  exponent_ranges.length() == 0 &&
+  timestamp_precision_ranges.length() == 0 &&
+  timestamp_offsets.length() == 0 &&
+  ieee754_float_formats.length() == 0 &&
+  regex_constraints.length() == 0 &&
+  annotation_constraints.length() == 0 &&
+  container_lengths.length() == 0 &&
+  codepoint_lengths.length() == 0 &&
+  utf8_byte_lengths.length() == 0 &&
+  byte_lengths.length() == 0 &&
+  all_of.length() == 0 &&
+  any_of.length() == 0 &&
+  one_of.length() == 0 &&
+  not_constraints.length() == 0
 }
 
 ///|
@@ -793,6 +872,7 @@ fn parse_regex_fields(
 fn parse_annotation_fields(
   values : Array[@model.IonValue],
   type_name : String,
+  types : Array[NamedType],
 ) -> Array[AnnotationConstraint] raise SchemaError {
   let constraints : Array[AnnotationConstraint] = []
   for value in values {
@@ -804,7 +884,7 @@ fn parse_annotation_fields(
         @model.IonValue::Struct(_) =>
           constraints.push(parse_standard_annotation_constraint(value, context))
         _ => {
-          let type_ref = parse_logical_type_argument(value, context)
+          let type_ref = parse_logical_type_argument(value, context, types)
           constraints.push({
             allowed: [],
             closed: false,
@@ -1472,6 +1552,7 @@ fn parse_type_argument_reference(
 fn parse_type_reference_list(
   value : @model.IonValue,
   context : String,
+  types : Array[NamedType],
 ) -> Array[TypeRef] raise SchemaError {
   let values = match value.annotations() {
     [] =>
@@ -1490,7 +1571,9 @@ fn parse_type_reference_list(
   let result : Array[TypeRef] = []
   let mut index = 0
   for item in values {
-    result.push(parse_logical_type_argument(item, "\{context}[\{index}]"))
+    result.push(
+      parse_logical_type_argument(item, "\{context}[\{index}]", types),
+    )
     index += 1
   }
   result
@@ -1500,6 +1583,7 @@ fn parse_type_reference_list(
 fn parse_logical_type_argument(
   value : @model.IonValue,
   context : String,
+  types : Array[NamedType],
 ) -> TypeRef raise SchemaError {
   match value.annotations() {
     [] =>
@@ -1516,10 +1600,39 @@ fn parse_logical_type_argument(
                 "unresolved type argument at \{context}",
               )
           }
-        @model.IonValue::Struct(_) =>
-          raise SchemaError::UnsupportedFeature(
-            "inline type definitions and inline imports are not supported at \{context}",
+        @model.IonValue::Struct(fields) => {
+          if value.get_fields("id").length() > 0 {
+            raise SchemaError::UnsupportedFeature(
+              "inline imports require CLI file resolution at {context}",
+            )
+          }
+          if value.get_fields("name").length() > 0 {
+            raise SchemaError::InvalidSchema(
+              "inline type definitions cannot declare name at {context}",
+            )
+          }
+          let mut inline_name = "ion_schema_codegen_internal_inline_" +
+            types.length().to_string()
+          while contains_type(types, inline_name) {
+            inline_name = inline_name + "_"
+          }
+          let inline_fields : Array[(@model.IonSymbol, @model.IonValue)] = [
+            (
+              @model.IonSymbol::from_text("name"),
+              @model.IonValue::Symbol(@model.IonSymbol::from_text(inline_name)),
+            ),
+          ]
+          for (symbol, field_value) in fields {
+            inline_fields.push((symbol, field_value))
+          }
+          let inline_value = @model.IonValue::Struct(inline_fields).with_annotations([
+              @model.IonSymbol::from_text("type"),
+            ],
           )
+          let inline_type = parse_named_type(inline_value, types, true)
+          types.push(inline_type)
+          TypeRef::Named(inline_name)
+        }
         _ =>
           raise SchemaError::InvalidSchema(
             "expected a type symbol at \{context}",
@@ -1529,6 +1642,7 @@ fn parse_logical_type_argument(
       let inner = parse_logical_type_argument(
         value.without_annotations(),
         context,
+        types,
       )
       nullable_type_reference(inner)
     }

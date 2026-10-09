@@ -87,6 +87,7 @@ priv struct FieldSpec {
 ///|
 priv struct NamedType {
   name : String
+  is_inline : Bool
   body : TypeBody
   element_type : TypeRef?
   element_distinct : Bool

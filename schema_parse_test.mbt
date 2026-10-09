@@ -10,11 +10,11 @@ fn expect_schema_error(source : String) -> @ion-schema-codegen.SchemaError {
 ///|
 test "parse type algebra and reject unsupported type argument forms" {
   @ion-schema-codegen.check_schema(
-    "$ion_schema_2_0 type::{name: Raw, all_of: [$any, $null_or::int]} type::{name: Alias, type: Raw} type::{name: Choice, any_of: [int, string]} type::{name: ExclusiveChoice, one_of: [int, string]} type::{name: Negated, not: $null_or::int}",
+    "$ion_schema_2_0 type::{name: Raw, all_of: [$any, $null_or::int]} type::{name: Alias, type: Raw} type::{name: Choice, any_of: [int, string]} type::{name: ExclusiveChoice, one_of: [int, string]} type::{name: Negated, not: $null_or::int} type::{name: Inline, all_of: [{type: int, valid_values: [1, 2]}]}",
   )
   for
     invalid in [
-      "type::{name: Empty, all_of: []}", "type::{name: Inline, all_of: [{type: int}]}",
+      "type::{name: Empty, all_of: []}", "type::{name: UnsupportedInline, all_of: [{container_length: 1}]}",
       "type::{name: EmptyChoice, any_of: []}", "type::{name: EmptyExclusiveChoice, one_of: []}",
       "type::{name: ArrayNegation, not: [int]}", "type::{name: Container, element: int}",
     ] {

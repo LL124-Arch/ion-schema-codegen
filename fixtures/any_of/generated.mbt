@@ -736,3 +736,67 @@ pub fn ChoiceRecord::to_ion(self : ChoiceRecord) -> @ion_model.IonValue {
   output_fields.push((@ion_model.IonSymbol::from_text("value"), self.value))
   @ion_model.IonValue::Struct(output_fields)
 }
+
+///|
+/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline9.
+fn is_valid_values_IonSchemaCodegenInternalInline9(
+  value : @ion_model.IonValue,
+) -> Bool {
+  let allowed_values = @ion.parse_text("2\n4") catch { _ => [] }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline9(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_9",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !is_valid_values_IonSchemaCodegenInternalInline9(value) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_9",
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineNumberOrText = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineNumberOrText.
+pub fn validate_type_InlineNumberOrText(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineNumberOrText",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !(ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline9(value) ||
+    ion_schema_codegen_matches_type(value, "string")) {
+    raise ConversionError::InvalidValue(
+      path="InlineNumberOrText",
+      constraint="any_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}

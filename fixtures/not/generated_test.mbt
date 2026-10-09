@@ -33,6 +33,21 @@ test "not rejects matching built-in and named types" {
 }
 
 ///|
+test "not negates an inline scalar definition" {
+  @not.validate_type_NotInlineSmall(@ion_model.IonValue::String("ion"))
+  @not.validate_type_NotInlineSmall(
+    @ion_model.IonValue::Int(@bigint.BigInt::from_int(3)),
+  )
+  assert_eq(
+    not_error(
+      @not.validate_type_NotInlineSmall,
+      @ion_model.IonValue::Int(@bigint.BigInt::from_int(2)),
+    ),
+    ("NotInlineSmall", "not"),
+  )
+}
+
+///|
 test "not nullable argument includes plain null" {
   @not.validate_type_NotNullableInt(@ion_model.IonValue::String("ion"))
   @not.validate_type_NotNullableInt(

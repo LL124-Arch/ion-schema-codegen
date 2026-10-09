@@ -1,3 +1,5 @@
 import {
   "LL124-Arch/amazon-ion-moonbit-core/format_model" @ion_model,
+  "LL124-Arch/amazon-ion-moonbit-core" @ion,
+  "moonbitlang/core/bigint",
 }

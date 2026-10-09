@@ -69,11 +69,14 @@ fn write_named_valid_values(
       )
   }
   let expected_type = expected_ion_type(type_ref, types)
+  let visibility = if named_type.is_inline { "fn " } else { "pub fn " }
   output.write_string(
     "///|\n/// Test whether an Ion value satisfies valid_values for ",
   )
   output.write_string(name)
-  output.write_string(".\npub fn is_valid_values_")
+  output.write_string(".\n")
+  output.write_string(visibility)
+  output.write_string("is_valid_values_")
   output.write_string(name)
   output.write_string(
     "(value : @ion_model.IonValue) -> Bool {\n  let allowed_values = @ion.parse_text(\"",
@@ -82,11 +85,16 @@ fn write_named_valid_values(
   output.write_string(
     "\") catch {\n    _ => []\n  }\n  for candidate in allowed_values {\n    if ion_schema_codegen_valid_values_match(value, candidate) {\n      return true\n    }\n  }\n  false\n}\n\n",
   )
+  if named_type.is_inline {
+    return
+  }
   output.write_string(
     "///|\n/// Validate the Ion type and valid_values set for ",
   )
   output.write_string(name)
-  output.write_string(".\npub fn validate_")
+  output.write_string(".\n")
+  output.write_string(visibility)
+  output.write_string("validate_")
   output.write_string(name)
   output.write_string(
     "(value : @ion_model.IonValue) -> Unit raise ConversionError {\n  if !ion_schema_codegen_matches_type(value, \"",

@@ -4,6 +4,11 @@ fn floating(value : Float) -> @ion_model.IonValue {
 }
 
 ///|
+fn integer(value : Int) -> @ion_model.IonValue {
+  @ion_model.IonValue::Int(@bigint.BigInt::from_int(value))
+}
+
+///|
 fn one_of_error(
   validate : (@ion_model.IonValue) -> Unit raise @one_of.ConversionError,
   value : @ion_model.IonValue,
@@ -45,6 +50,15 @@ test "one_of requires exactly one matching branch" {
   assert_eq(
     one_of_error(@one_of.validate_type_RepeatedFloat, floating(1.5)),
     ("RepeatedFloat", "one_of"),
+  )
+}
+
+///|
+test "one_of counts matches from inline definitions once per branch" {
+  @one_of.validate_type_InlineIntegerOrText(integer(2))
+  assert_eq(
+    one_of_error(@one_of.validate_type_InlineIntegerOrText, integer(3)),
+    ("InlineIntegerOrText", "one_of"),
   )
 }
 

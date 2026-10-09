@@ -144,83 +144,103 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
   }
   let mut first_type = true
   for named_type in ordered_types {
-    if !first_type {
-      output.write_string("\n")
-    }
-    first_type = false
-    write_named_type(output, named_type, schema.types)
-    if named_type.valid_values is Some(_) {
-      output.write_string("\n")
-      write_named_valid_values(output, named_type, schema.types)
-    }
-    if named_type.precision_ranges.length() > 0 ||
-      named_type.exponent_ranges.length() > 0 {
-      output.write_string("\n")
-      write_named_decimal_constraint_validator(output, named_type, schema.types)
-    }
-    if named_type.timestamp_precision_ranges.length() > 0 {
-      output.write_string("\n")
-      write_named_timestamp_precision_validator(
-        output,
-        named_type,
-        schema.types,
-      )
-    }
-    if named_type.timestamp_offsets.length() > 0 {
-      output.write_string("\n")
-      write_named_timestamp_offset_validator(output, named_type, schema.types)
-    }
-    if named_type.ieee754_float_formats.length() > 0 {
-      output.write_string("\n")
-      write_named_ieee754_float_validator(output, named_type, schema.types)
-    }
-    if named_type.regex_constraints.length() > 0 {
-      output.write_string("\n")
-      write_named_regex_validator(output, named_type, schema.types)
-    }
-    if named_type.annotation_constraints.length() > 0 {
-      output.write_string("\n")
-      write_named_annotations_validator(output, named_type, schema.types)
-    }
-    match named_type.body {
-      TypeBody::Struct(fields, is_open) => {
+    if named_type.is_inline {
+      if named_type.valid_values is Some(_) {
+        write_named_valid_values(output, named_type, schema.types)
         output.write_string("\n")
-        write_struct_conversions(
+      }
+      if named_type_needs_algebra_matcher(named_type.name, schema.types) {
+        write_named_type_matcher(output, named_type, schema.types)
+        output.write_string("\n")
+      }
+    } else {
+      if !first_type {
+        output.write_string("\n")
+      }
+      first_type = false
+      write_named_type(output, named_type, schema.types)
+      if named_type.valid_values is Some(_) {
+        output.write_string("\n")
+        write_named_valid_values(output, named_type, schema.types)
+      }
+      if named_type.precision_ranges.length() > 0 ||
+        named_type.exponent_ranges.length() > 0 {
+        output.write_string("\n")
+        write_named_decimal_constraint_validator(
           output,
           named_type,
-          fields,
-          is_open,
           schema.types,
         )
       }
-      TypeBody::List(element_type) => {
+      if named_type.timestamp_precision_ranges.length() > 0 {
         output.write_string("\n")
-        if named_type.ordered_elements is Some(_) {
-          write_ordered_list_conversions(output, named_type, schema.types)
-        } else {
-          write_list_conversions(output, named_type, element_type, schema.types)
-        }
+        write_named_timestamp_precision_validator(
+          output,
+          named_type,
+          schema.types,
+        )
       }
-      TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
-        if is_document_type(resolve_type_ref(schema.types, type_ref)) {
+      if named_type.timestamp_offsets.length() > 0 {
+        output.write_string("\n")
+        write_named_timestamp_offset_validator(output, named_type, schema.types)
+      }
+      if named_type.ieee754_float_formats.length() > 0 {
+        output.write_string("\n")
+        write_named_ieee754_float_validator(output, named_type, schema.types)
+      }
+      if named_type.regex_constraints.length() > 0 {
+        output.write_string("\n")
+        write_named_regex_validator(output, named_type, schema.types)
+      }
+      if named_type.annotation_constraints.length() > 0 {
+        output.write_string("\n")
+        write_named_annotations_validator(output, named_type, schema.types)
+      }
+      match named_type.body {
+        TypeBody::Struct(fields, is_open) => {
           output.write_string("\n")
-          write_document_conversions(output, named_type, schema.types)
-        } else if named_type.ordered_elements is Some(_) &&
-          is_list_type(resolve_type_ref(schema.types, type_ref)) {
-          output.write_string("\n")
-          write_ordered_list_conversions(output, named_type, schema.types)
+          write_struct_conversions(
+            output,
+            named_type,
+            fields,
+            is_open,
+            schema.types,
+          )
         }
-    }
-    if named_type.all_of.length() > 0 ||
-      named_type.any_of.length() > 0 ||
-      named_type.one_of.length() > 0 ||
-      named_type.not_constraints.length() > 0 {
-      output.write_string("\n")
-      write_named_type_algebra_validator(output, named_type, schema.types)
-    }
-    if named_type_needs_algebra_matcher(named_type.name, schema.types) {
-      output.write_string("\n")
-      write_named_type_matcher(output, named_type, schema.types)
+        TypeBody::List(element_type) => {
+          output.write_string("\n")
+          if named_type.ordered_elements is Some(_) {
+            write_ordered_list_conversions(output, named_type, schema.types)
+          } else {
+            write_list_conversions(
+              output,
+              named_type,
+              element_type,
+              schema.types,
+            )
+          }
+        }
+        TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+          if is_document_type(resolve_type_ref(schema.types, type_ref)) {
+            output.write_string("\n")
+            write_document_conversions(output, named_type, schema.types)
+          } else if named_type.ordered_elements is Some(_) &&
+            is_list_type(resolve_type_ref(schema.types, type_ref)) {
+            output.write_string("\n")
+            write_ordered_list_conversions(output, named_type, schema.types)
+          }
+      }
+      if named_type.all_of.length() > 0 ||
+        named_type.any_of.length() > 0 ||
+        named_type.one_of.length() > 0 ||
+        named_type.not_constraints.length() > 0 {
+        output.write_string("\n")
+        write_named_type_algebra_validator(output, named_type, schema.types)
+      }
+      if named_type_needs_algebra_matcher(named_type.name, schema.types) {
+        output.write_string("\n")
+        write_named_type_matcher(output, named_type, schema.types)
+      }
     }
   }
   { source: output.to_string(), package_imports, }

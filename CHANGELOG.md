@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.36.0 — 2026-10-09
+
+- `all_of`、`any_of`、`one_of` 和 `not` 类型参数接受标量 `type` 与 `valid_values` 组成的 inline type definition；匿名 matcher 为内部实现，不生成公开类型声明。
+- Inline type definition 中未实现的容器及其他约束组合仍在 Schema 检查阶段明确拒绝。
+
 ## 0.35.0 — 2026-10-09
 
 - `annotations` 标准 inline `element` 支持 `regex`、`codepoint_length` 和 `utf8_byte_length`，按每个 symbol token 的文本校验。

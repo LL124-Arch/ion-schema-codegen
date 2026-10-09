@@ -7,3 +7,4 @@ type::{name: NullableTypedInt, one_of: [$null_or::$int, string]}
 type::{name: IntegerOrTextAlias, type: IntegerOrText}
 type::{name: ChoiceList, type: list, element: IntegerOrTextAlias}
 type::{name: ChoiceRecord, type: struct, fields: closed::{value: {type: IntegerOrTextAlias, occurs: required}}}
+type::{name: InlineIntegerOrText, one_of: [{type: int, valid_values: [2, 4]}, string]}

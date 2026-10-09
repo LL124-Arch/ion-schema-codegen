@@ -49,6 +49,16 @@ test "any_of accepts the first matching branch and handles overlaps" {
 }
 
 ///|
+test "any_of matches inline scalar definitions" {
+  @any_of.validate_type_InlineNumberOrText(integer(2))
+  @any_of.validate_type_InlineNumberOrText(@ion_model.IonValue::String("ion"))
+  assert_eq(
+    any_of_error(@any_of.validate_type_InlineNumberOrText, integer(3)),
+    ("InlineNumberOrText", "any_of"),
+  )
+}
+
+///|
 test "any_of nullable branch admits plain null and rejects typed null" {
   @any_of.validate_type_MaybeInt(
     @ion_model.IonValue::null(kind=@ion_model.IonNull::Null),

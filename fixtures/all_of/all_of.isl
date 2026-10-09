@@ -7,3 +7,4 @@ type::{name: PositiveBelowTenList, type: list, element: PositiveBelowTenAlias}
 type::{name: PositiveBelowTenRecord, type: struct, fields: closed::{value: {type: PositiveBelowTenAlias, occurs: required}}}
 type::{name: MaybeInt, all_of: [$any, $null_or::int]}
 type::{name: MaybeTypedInt, all_of: [$any, $null_or::$int]}
+type::{name: InlineEven, all_of: [{type: int, valid_values: [2, 4]}]}

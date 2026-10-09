@@ -7,3 +7,4 @@ type::{name: NotNamedChoiceAlias, type: NotNamedChoice}
 type::{name: NotNullableInt, not: $null_or::int}
 type::{name: NotNumberList, type: list, element: NotNumberAlias}
 type::{name: NotNumberRecord, type: struct, fields: closed::{value: {type: NotNumberAlias, occurs: required}}}
+type::{name: NotInlineSmall, not: {type: int, valid_values: [2, 4]}}

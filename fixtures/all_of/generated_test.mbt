@@ -46,6 +46,16 @@ test "all_of intersects named types and defaults to raw IonValue" {
 }
 
 ///|
+test "all_of accepts anonymous scalar definitions without exposing a type" {
+  @all_of.validate_type_InlineEven(integer(2))
+  @all_of.validate_type_InlineEven(integer(4))
+  assert_eq(
+    all_of_error(@all_of.validate_type_InlineEven, integer(3)),
+    ("InlineEven", "all_of"),
+  )
+}
+
+///|
 test "all_of propagates through aliases fields and list elements" {
   try {
     ignore(
