@@ -394,6 +394,17 @@ test "allow recursive list and struct references with a finite list base case" {
 }
 
 ///|
+test "recursive type component generation is stable under schema reordering" {
+  let first = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: Branch, type: struct, fields: closed::{name: {type: string, occurs: required}, leaves: {type: BranchLeaves, occurs: required}}} type::{name: BranchLeaves, type: list, element: BranchLeaf} type::{name: BranchLeaf, type: struct, fields: closed::{name: {type: string, occurs: required}, parent: Branch}}",
+  )
+  let reordered = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: BranchLeaf, type: struct, fields: closed::{name: {type: string, occurs: required}, parent: Branch}} type::{name: BranchLeaves, type: list, element: BranchLeaf} type::{name: Branch, type: struct, fields: closed::{name: {type: string, occurs: required}, leaves: {type: BranchLeaves, occurs: required}}}",
+  )
+  assert_eq(first.source, reordered.source)
+}
+
+///|
 test "reject unknown references nested in inline not constraints" {
   let error = expect_codegen_error(
     "$ion_schema_2_0 type::{name: UnknownInlineNegative, all_of: [{not: MissingType}]}",

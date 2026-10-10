@@ -41,6 +41,30 @@ fn nullable_node_value(next : @ion_model.IonValue?) -> @ion_model.IonValue {
 }
 
 ///|
+fn branch_value(
+  name : String,
+  leaves : Array[@ion_model.IonValue],
+) -> @ion_model.IonValue {
+  @ion_model.IonValue::Struct([
+    recursion_field("name", @ion_model.IonValue::String(name)),
+    recursion_field("leaves", @ion_model.IonValue::List(leaves)),
+  ])
+}
+
+///|
+fn branch_leaf_value(
+  name : String,
+  parent : @ion_model.IonValue?,
+) -> @ion_model.IonValue {
+  let fields = [recursion_field("name", @ion_model.IonValue::String(name))]
+  match parent {
+    Some(value) => fields.push(recursion_field("parent", value))
+    None => ()
+  }
+  @ion_model.IonValue::Struct(fields)
+}
+
+///|
 test "recursive tree values convert to MoonBit and round trip" {
   let source = tree_value("root", [tree_value("leaf", [])])
   let tree = @recursion.TreeNode::from_ion(source)
@@ -76,4 +100,22 @@ test "optional and nullable recursive fields terminate finite values" {
   )
   let nullable_node = @recursion.NullableNode::from_ion(nested)
   assert_eq(nullable_node.to_ion(), nested)
+}
+
+///|
+test "mutually recursive structs and lists convert finite nested values" {
+  let source = branch_value("root", [
+    branch_leaf_value("leaf", Some(branch_value("nested", []))),
+  ])
+  let branch = @recursion.Branch::from_ion(source)
+  assert_eq(branch.name, "root")
+  assert_eq(branch.leaves.length(), 1)
+  match branch.leaves[0].parent {
+    Some(parent) => {
+      assert_eq(parent.name, "nested")
+      assert_eq(parent.leaves.length(), 0)
+    }
+    None => assert_true(false)
+  }
+  assert_eq(branch.to_ion(), source)
 }

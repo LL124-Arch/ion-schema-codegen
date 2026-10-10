@@ -530,3 +530,286 @@ pub fn NullableNode::to_ion(self : NullableNode) -> @ion_model.IonValue {
   }
   @ion_model.IonValue::Struct(output_fields)
 }
+
+///|
+pub(all) struct BranchLeaf {
+  name : String
+  parent : Branch?
+}
+
+///|
+/// Convert an Ion struct to BranchLeaf with field-level diagnostics.
+pub fn BranchLeaf::from_ion(
+  value : @ion_model.IonValue,
+) -> BranchLeaf raise ConversionError {
+  let type_path = "BranchLeaf"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  let mut input_field_1 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "name" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="BranchLeaf.name")
+              None => Some(field_value)
+            }
+          "parent" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="BranchLeaf.parent")
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(path="BranchLeaf." + field_name)
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="BranchLeaf.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : String = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "BranchLeaf.name"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="string",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None => raise ConversionError::MissingRequiredField(path="BranchLeaf.name")
+  }
+  let ion_schema_codegen_value_1 : Branch? = match input_field_1 {
+    Some(field_value) => {
+      let field_path = "BranchLeaf.parent"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : Branch = Branch::from_ion(field_value) catch {
+        error => raise ion_schema_codegen_prefix_error(error, field_path + ".")
+      }
+      Some(field_item)
+    }
+    None => None
+  }
+  { name: ion_schema_codegen_value_0, parent: ion_schema_codegen_value_1, }
+}
+
+///|
+/// Convert BranchLeaf into an Ion struct in schema field order.
+pub fn BranchLeaf::to_ion(self : BranchLeaf) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("name"),
+      @ion_model.IonValue::String(self.name),
+    ),
+  )
+  match self.parent {
+    Some(field_value) =>
+      output_fields.push(
+        (@ion_model.IonSymbol::from_text("parent"), Branch::to_ion(field_value)),
+      )
+    None => ()
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type BranchLeaves = Array[BranchLeaf]
+
+///|
+/// Convert an Ion list to BranchLeaves with element-level diagnostics.
+pub fn from_ion_BranchLeaves(
+  value : @ion_model.IonValue,
+) -> BranchLeaves raise ConversionError {
+  let type_path = "BranchLeaves"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let converted : BranchLeaves = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path=element_path)
+    }
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : BranchLeaf = BranchLeaf::from_ion(element) catch {
+      error => raise ion_schema_codegen_prefix_error(error, element_path + ".")
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+/// Convert BranchLeaves into an Ion list.
+pub fn to_ion_BranchLeaves(items : BranchLeaves) -> @ion_model.IonValue {
+  let output_elements : Array[@ion_model.IonValue] = []
+  for element in items {
+    output_elements.push(BranchLeaf::to_ion(element))
+  }
+  @ion_model.IonValue::List(output_elements)
+}
+
+///|
+pub(all) struct Branch {
+  name : String
+  leaves : BranchLeaves
+}
+
+///|
+/// Convert an Ion struct to Branch with field-level diagnostics.
+pub fn Branch::from_ion(
+  value : @ion_model.IonValue,
+) -> Branch raise ConversionError {
+  let type_path = "Branch"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  let mut input_field_1 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "name" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="Branch.name")
+              None => Some(field_value)
+            }
+          "leaves" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="Branch.leaves")
+              None => Some(field_value)
+            }
+          _ => raise ConversionError::UnknownField(path="Branch." + field_name)
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="Branch.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : String = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "Branch.name"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="string",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None => raise ConversionError::MissingRequiredField(path="Branch.name")
+  }
+  let ion_schema_codegen_value_1 : BranchLeaves = match input_field_1 {
+    Some(field_value) => {
+      let field_path = "Branch.leaves"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : BranchLeaves = from_ion_BranchLeaves(field_value) catch {
+        error => raise ion_schema_codegen_prefix_error(error, field_path + ".")
+      }
+      field_item
+    }
+    None => raise ConversionError::MissingRequiredField(path="Branch.leaves")
+  }
+  { name: ion_schema_codegen_value_0, leaves: ion_schema_codegen_value_1, }
+}
+
+///|
+/// Convert Branch into an Ion struct in schema field order.
+pub fn Branch::to_ion(self : Branch) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("name"),
+      @ion_model.IonValue::String(self.name),
+    ),
+  )
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("leaves"),
+      to_ion_BranchLeaves(self.leaves),
+    ),
+  )
+  @ion_model.IonValue::Struct(output_fields)
+}

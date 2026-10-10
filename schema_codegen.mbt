@@ -2972,6 +2972,11 @@ fn visit_named_type(
   if contains_string(path, name) {
     return
   }
+  match canonical_recursive_type_name(name, types) {
+    Some(canonical) if canonical != name && !contains_string(path, canonical) =>
+      return visit_named_type(canonical, types, path, visited, ordered)
+    _ => ()
+  }
   let named_type = match find_named_type(types, name) {
     Some(found) => found
     None => raise SchemaError::UnknownType("unknown type \{name}")
@@ -2986,6 +2991,58 @@ fn visit_named_type(
   }
   visited.push(name)
   ordered.push(named_type)
+}
+
+///|
+fn canonical_recursive_type_name(
+  name : String,
+  types : Array[NamedType],
+) -> String? {
+  let mut smallest : String? = None
+  let mut has_cycle = false
+  for candidate in types {
+    let is_same_node_cycle = candidate.name == name &&
+      named_type_can_reach(name, name, types, [])
+    let is_mutual_cycle = candidate.name != name &&
+      named_type_can_reach(name, candidate.name, types, []) &&
+      named_type_can_reach(candidate.name, name, types, [])
+    if is_same_node_cycle || is_mutual_cycle {
+      has_cycle = true
+      smallest = match smallest {
+        Some(current) if current < candidate.name => Some(current)
+        _ => Some(candidate.name)
+      }
+    }
+  }
+  if has_cycle {
+    smallest
+  } else {
+    None
+  }
+}
+
+///|
+fn named_type_can_reach(
+  start : String,
+  target : String,
+  types : Array[NamedType],
+  visited : Array[String],
+) -> Bool {
+  if contains_string(visited, start) {
+    return false
+  }
+  visited.push(start)
+  let named_type = match find_named_type(types, start) {
+    Some(found) => found
+    None => return false
+  }
+  for dependency in referenced_type_names(named_type, true) {
+    if dependency == target ||
+      named_type_can_reach(dependency, target, types, visited) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
