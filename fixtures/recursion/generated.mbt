@@ -329,3 +329,204 @@ pub fn TreeNode::to_ion(self : TreeNode) -> @ion_model.IonValue {
   )
   @ion_model.IonValue::Struct(output_fields)
 }
+
+///|
+pub(all) struct LinkNode {
+  label : String
+  next : LinkNode?
+}
+
+///|
+/// Convert an Ion struct to LinkNode with field-level diagnostics.
+pub fn LinkNode::from_ion(
+  value : @ion_model.IonValue,
+) -> LinkNode raise ConversionError {
+  let type_path = "LinkNode"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  let mut input_field_1 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "label" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="LinkNode.label")
+              None => Some(field_value)
+            }
+          "next" =>
+            input_field_1 = match input_field_1 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="LinkNode.next")
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(path="LinkNode." + field_name)
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="LinkNode.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : String = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "LinkNode.label"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : String = match field_value.without_annotations() {
+        @ion_model.IonValue::String(converted_value) => converted_value
+        _ =>
+          raise ConversionError::TypeMismatch(
+            path=field_path,
+            expected="string",
+            actual=ion_schema_codegen_actual_type(field_value),
+          )
+      }
+      field_item
+    }
+    None => raise ConversionError::MissingRequiredField(path="LinkNode.label")
+  }
+  let ion_schema_codegen_value_1 : LinkNode? = match input_field_1 {
+    Some(field_value) => {
+      let field_path = "LinkNode.next"
+      if field_value.annotations().length() > 0 {
+        raise ConversionError::AnnotatedValueNotSupported(path=field_path)
+      }
+      if field_value.is_null() {
+        raise ConversionError::NullNotAllowed(path=field_path)
+      }
+      let field_item : LinkNode = LinkNode::from_ion(field_value) catch {
+        error => raise ion_schema_codegen_prefix_error(error, field_path + ".")
+      }
+      Some(field_item)
+    }
+    None => None
+  }
+  { label: ion_schema_codegen_value_0, next: ion_schema_codegen_value_1, }
+}
+
+///|
+/// Convert LinkNode into an Ion struct in schema field order.
+pub fn LinkNode::to_ion(self : LinkNode) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push(
+    (
+      @ion_model.IonSymbol::from_text("label"),
+      @ion_model.IonValue::String(self.label),
+    ),
+  )
+  match self.next {
+    Some(field_value) =>
+      output_fields.push(
+        (@ion_model.IonSymbol::from_text("next"), LinkNode::to_ion(field_value)),
+      )
+    None => ()
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub(all) struct NullableNode {
+  next : @ion_model.IonValue?
+}
+
+///|
+/// Convert an Ion struct to NullableNode with field-level diagnostics.
+pub fn NullableNode::from_ion(
+  value : @ion_model.IonValue,
+) -> NullableNode raise ConversionError {
+  let type_path = "NullableNode"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "next" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(path="NullableNode.next")
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="NullableNode." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="NullableNode.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : @ion_model.IonValue? = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "NullableNode.next"
+      let field_item : @ion_model.IonValue = if ion_schema_codegen_matches_type(
+          field_value, "$null",
+        ) {
+        field_value
+      } else {
+        let _ = NullableNode::from_ion(field_value) catch {
+          error =>
+            raise ion_schema_codegen_prefix_error(error, field_path + ".")
+        }
+        field_value
+      }
+      if !ion_schema_codegen_matches_type(field_value, "$null") {
+
+      }
+      Some(field_item)
+    }
+    None => None
+  }
+  { next: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert NullableNode into an Ion struct in schema field order.
+pub fn NullableNode::to_ion(self : NullableNode) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  match self.next {
+    Some(field_value) =>
+      output_fields.push((@ion_model.IonSymbol::from_text("next"), field_value))
+    None => ()
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}

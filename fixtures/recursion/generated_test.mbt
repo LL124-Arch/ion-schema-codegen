@@ -18,6 +18,29 @@ fn tree_value(
 }
 
 ///|
+fn linked_value(
+  label : String,
+  next : @ion_model.IonValue?,
+) -> @ion_model.IonValue {
+  let fields = [recursion_field("label", @ion_model.IonValue::String(label))]
+  match next {
+    Some(value) => fields.push(recursion_field("next", value))
+    None => ()
+  }
+  @ion_model.IonValue::Struct(fields)
+}
+
+///|
+fn nullable_node_value(next : @ion_model.IonValue?) -> @ion_model.IonValue {
+  let fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  match next {
+    Some(value) => fields.push(recursion_field("next", value))
+    None => ()
+  }
+  @ion_model.IonValue::Struct(fields)
+}
+
+///|
 test "recursive tree values convert to MoonBit and round trip" {
   let source = tree_value("root", [tree_value("leaf", [])])
   let tree = @recursion.TreeNode::from_ion(source)
@@ -26,4 +49,31 @@ test "recursive tree values convert to MoonBit and round trip" {
   assert_eq(tree.children[0].value, "leaf")
   assert_eq(tree.children[0].children.length(), 0)
   assert_eq(tree.to_ion(), source)
+}
+
+///|
+test "optional and nullable recursive fields terminate finite values" {
+  let source = linked_value("first", Some(linked_value("last", None)))
+  let link = @recursion.LinkNode::from_ion(source)
+  match link.next {
+    Some(next) => {
+      assert_eq(next.label, "last")
+      match next.next {
+        None => ()
+        Some(_) => assert_true(false)
+      }
+    }
+    None => assert_true(false)
+  }
+  assert_eq(link.to_ion(), source)
+
+  let nested = nullable_node_value(
+    Some(
+      nullable_node_value(
+        Some(@ion_model.IonValue::null(kind=@ion_model.IonNull::Null)),
+      ),
+    ),
+  )
+  let nullable_node = @recursion.NullableNode::from_ion(nested)
+  assert_eq(nullable_node.to_ion(), nested)
 }
