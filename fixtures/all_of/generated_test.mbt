@@ -56,6 +56,17 @@ test "all_of accepts anonymous scalar definitions without exposing a type" {
 }
 
 ///|
+test "inline all_of intersects named scalar types" {
+  @all_of.validate_type_InlinePositiveBelowTen(integer(7))
+  for invalid in [integer(0), integer(12), @ion_model.IonValue::String("x")] {
+    assert_eq(
+      all_of_error(@all_of.validate_type_InlinePositiveBelowTen, invalid),
+      ("InlinePositiveBelowTen", "all_of"),
+    )
+  }
+}
+
+///|
 test "all_of validates inline list definitions" {
   @all_of.validate_type_InlineIntList(
     @ion_model.IonValue::List([integer(2), integer(4)]),

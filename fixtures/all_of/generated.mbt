@@ -2243,3 +2243,59 @@ pub fn validate_type_InlineOrderedList(
     )
   }
 }
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline33(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_33",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !ion_schema_codegen_matches_named_Positive(value) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_33",
+        constraint="all_of",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !ion_schema_codegen_matches_named_BelowTen(value) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_33",
+        constraint="all_of",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlinePositiveBelowTen = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlinePositiveBelowTen.
+pub fn validate_type_InlinePositiveBelowTen(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlinePositiveBelowTen",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline33(value) {
+    raise ConversionError::InvalidValue(
+      path="InlinePositiveBelowTen",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}

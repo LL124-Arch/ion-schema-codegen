@@ -17,3 +17,4 @@ type::{name: InlineConstrainedList, all_of: [{type: list, element: distinct::int
 type::{name: InlineConstrainedRecord, all_of: [{type: struct, fields: {id: {type: int, occurs: required}}, element: distinct::int, field_names: distinct::symbol, contains: [2], container_length: range::[1, 3]}]}
 type::{name: InlineRecordEnvelope, type: struct, fields: closed::{payload: {type: InlineConstrainedRecord, occurs: required}}}
 type::{name: InlineOrderedList, all_of: [{type: list, ordered_elements: [{type: int, valid_values: [2, 4], occurs: required}, {type: string, regex: "^done$", occurs: optional}]}]}
+type::{name: InlinePositiveBelowTen, all_of: [{type: int, all_of: [Positive, BelowTen]}]}

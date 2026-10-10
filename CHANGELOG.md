@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.45.0 — 2026-10-10
+
+- Inline scalar、list、struct 和 alias definitions 支持 `all_of`，并复用现有命名类型 matcher 与错误分类。
+- Inline `all_of` 在字段、列表元素及逻辑分支中运行，非法分支仍报告外层转换路径。
+
 ## 0.44.0 — 2026-10-10
 
 - 类型代数 inline list 支持 `ordered_elements`，包括必选/可选 occurrence 与各元素自己的值约束。

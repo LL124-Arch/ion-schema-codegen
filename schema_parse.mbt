@@ -374,8 +374,7 @@ fn parse_named_type(
       value, body, element_type, field_names_type, ordered_elements, contains_values,
       precision_ranges, exponent_ranges, timestamp_precision_ranges, timestamp_offsets,
       ieee754_float_formats, regex_constraints, annotation_constraints, container_lengths,
-      codepoint_lengths, utf8_byte_lengths, byte_lengths, all_of, any_of, one_of,
-      not_constraints,
+      codepoint_lengths, utf8_byte_lengths, byte_lengths, any_of, one_of, not_constraints,
     ) {
     raise SchemaError::UnsupportedFeature(
       "inline type definitions currently support scalar types and their implemented value constraints at \{name}",
@@ -429,7 +428,6 @@ fn inline_type_definition_supported(
   codepoint_lengths : Array[IntegerRange],
   utf8_byte_lengths : Array[IntegerRange],
   byte_lengths : Array[IntegerRange],
-  all_of : Array[TypeRef],
   any_of : Array[Array[TypeRef]],
   one_of : Array[Array[TypeRef]],
   not_constraints : Array[TypeRef],
@@ -457,6 +455,7 @@ fn inline_type_definition_supported(
         | "contains"
         | "ordered_elements"
         | "container_length"
+        | "all_of"
       ) => ()
       _ => return false
     }
@@ -472,26 +471,33 @@ fn inline_type_definition_supported(
     utf8_byte_lengths.length() > 0 ||
     byte_lengths.length() > 0 ||
     value.get_fields("valid_values").length() > 0
-  let has_type_algebra = all_of.length() > 0 ||
-    any_of.length() > 0 ||
-    one_of.length() > 0 ||
-    not_constraints.length() > 0
+  let has_any_of = any_of.length() > 0
+  let has_one_of = one_of.length() > 0
+  let has_not = not_constraints.length() > 0
   match body {
     TypeBody::Scalar(_) =>
-      !has_type_algebra &&
+      !has_any_of &&
+      !has_one_of &&
+      !has_not &&
       element_type is None &&
       field_names_type is None &&
       ordered_elements is None &&
       contains_values is None &&
       container_lengths.length() == 0
     TypeBody::List(_) =>
-      !has_type_algebra &&
+      !has_any_of &&
+      !has_one_of &&
+      !has_not &&
       !has_scalar_constraints &&
       value.get_fields("fields").length() == 0 &&
       field_names_type is None
     TypeBody::Struct(_, _) =>
-      !has_type_algebra && !has_scalar_constraints && ordered_elements is None
-    TypeBody::Alias(_) => !has_type_algebra
+      !has_any_of &&
+      !has_one_of &&
+      !has_not &&
+      !has_scalar_constraints &&
+      ordered_elements is None
+    TypeBody::Alias(_) => !has_any_of && !has_one_of && !has_not
   }
 }
 
