@@ -135,3 +135,23 @@ test "recursive container element constraints consume nested values" {
   let sequence = @recursion.from_ion_RecursiveSequence(nested_sequence)
   assert_eq(@recursion.to_ion_RecursiveSequence(sequence), nested_sequence)
 }
+
+///|
+test "recursive conversion errors retain every nested field and list index" {
+  let invalid_leaf = @ion_model.IonValue::Struct([
+    recursion_field("value", @ion_model.IonValue::Bool(false)),
+    recursion_field("children", @ion_model.IonValue::List([])),
+  ])
+  let invalid_tree = tree_value("root", [invalid_leaf])
+  try {
+    ignore(@recursion.TreeNode::from_ion(invalid_tree))
+    assert_true(false)
+  } catch {
+    @recursion.ConversionError::TypeMismatch(path~, expected~, actual~) => {
+      assert_eq(path, "TreeNode.children.TreeNodeList[0].TreeNode.value")
+      assert_eq(expected, "string")
+      assert_eq(actual, "bool")
+    }
+    _ => assert_true(false)
+  }
+}

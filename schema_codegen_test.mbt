@@ -352,7 +352,8 @@ test "reject unknown and cyclic named references with a cycle chain" {
   assert_true(
     match cycle {
       @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
-        message.contains("First -> Second -> First")
+        message.contains("First -> Second -> First") &&
+        message.contains("no finite base case")
       _ => false
     },
   )
@@ -363,7 +364,8 @@ test "reject unknown and cyclic named references with a cycle chain" {
   assert_true(
     match alias_cycle {
       @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
-        message.contains("AliasFirst -> AliasSecond -> AliasFirst")
+        message.contains("AliasFirst -> AliasSecond -> AliasFirst") &&
+        message.contains("recursive type aliases cannot be represented")
       _ => false
     },
   )
@@ -374,7 +376,8 @@ test "reject unknown and cyclic named references with a cycle chain" {
   assert_true(
     match recursive_list_alias {
       @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
-        message.contains("RecursiveAliasList -> RecursiveAliasList")
+        message.contains("RecursiveAliasList -> RecursiveAliasList") &&
+        message.contains("recursive type aliases cannot be represented")
       _ => false
     },
   )
@@ -426,7 +429,9 @@ test "detect cycles crossing inline type algebra definitions" {
   assert_true(
     match error {
       @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
-        message.contains("InlineCycleA") && message.contains("InlineCycleB")
+        message.contains("InlineCycleA") &&
+        message.contains("InlineCycleB") &&
+        message.contains("no finite base case")
       _ => false
     },
   )
@@ -442,7 +447,8 @@ test "reject required recursive ordered elements without an empty base case" {
       @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
         message.contains(
           "RequiredRecursiveSequence -> RequiredRecursiveSequence",
-        )
+        ) &&
+        message.contains("no finite base case")
       _ => false
     },
   )

@@ -3077,7 +3077,8 @@ fn visit_recursive_alias_reference(
   }
   if contains_string(path, name) {
     raise SchemaError::CyclicTypeReference(
-      type_reference_cycle_chain(path, name),
+      type_reference_cycle_chain(path, name) +
+      " (recursive type aliases cannot be represented by MoonBit)",
     )
   }
   let named_type = match find_named_type(types, name) {
@@ -3123,7 +3124,8 @@ fn visit_unguarded_type_reference(
   }
   if contains_string(path, name) {
     raise SchemaError::CyclicTypeReference(
-      type_reference_cycle_chain(path, name),
+      type_reference_cycle_chain(path, name) +
+      " (no finite base case: use an optional, nullable, or collection edge)",
     )
   }
   let named_type = match find_named_type(types, name) {
