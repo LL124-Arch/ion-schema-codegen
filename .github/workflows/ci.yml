@@ -24,6 +24,7 @@ jobs:
       - run: moon test --deny-warn --target all ./fixtures/not
       - run: moon test --deny-warn --target all ./fixtures/imports
       - run: moon test --deny-warn --target all ./fixtures/inline_imports
+      - run: moon test --deny-warn --target all ./fixtures/recursion
       - run: moon run --target native ./cli fixtures/precision/precision.isl fixtures/precision/generated.mbt
       - run: moon run --target native ./cli fixtures/timestamps/timestamps.isl fixtures/timestamps/generated.mbt
       - run: moon run --target native ./cli fixtures/ieee754/ieee754.isl fixtures/ieee754/generated.mbt
@@ -35,10 +36,11 @@ jobs:
       - run: moon run --target native ./cli fixtures/not/not.isl fixtures/not/generated.mbt
       - run: moon run --target native ./cli fixtures/imports/root.isl fixtures/imports/generated.mbt
       - run: moon run --target native ./cli fixtures/inline_imports/root.isl fixtures/inline_imports/generated.mbt
+      - run: moon run --target native ./cli fixtures/recursion/recursion.isl fixtures/recursion/generated.mbt
       - run: moon run --target native ./cli fixtures/contains/contains.isl fixtures/contains/generated.mbt
       - run: moon run --target native ./cli fixtures/constraints/constraints.isl fixtures/constraints/generated.mbt
       - run: moon run --target native ./cli fixtures/references/references.isl fixtures/references/generated.mbt
       - run: moon run --target native ./cli examples/person/person.isl examples/person/generated.mbt
       - run: moon fmt
-      - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt fixtures/constraints/generated.mbt fixtures/contains/generated.mbt fixtures/precision/generated.mbt fixtures/timestamps/generated.mbt fixtures/ieee754/generated.mbt fixtures/regex/generated.mbt fixtures/annotations/generated.mbt fixtures/all_of/generated.mbt fixtures/any_of/generated.mbt fixtures/one_of/generated.mbt fixtures/not/generated.mbt fixtures/imports/generated.mbt fixtures/inline_imports/generated.mbt
+      - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt fixtures/constraints/generated.mbt fixtures/contains/generated.mbt fixtures/precision/generated.mbt fixtures/timestamps/generated.mbt fixtures/ieee754/generated.mbt fixtures/regex/generated.mbt fixtures/annotations/generated.mbt fixtures/all_of/generated.mbt fixtures/any_of/generated.mbt fixtures/one_of/generated.mbt fixtures/not/generated.mbt fixtures/imports/generated.mbt fixtures/inline_imports/generated.mbt fixtures/recursion/generated.mbt
       - run: moon run --target native ./examples/person

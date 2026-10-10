@@ -27,6 +27,8 @@ pub fn generate_code_from_ion_values(
 ///|
 fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError {
   validate_type_references(schema.types)
+  validate_recursive_alias_cycles(schema.types)
+  validate_unguarded_type_cycles(schema.types)
   validate_codegen_subset(schema.types)
   let ordered_types = order_named_types(schema.types)
 
@@ -2968,29 +2970,7 @@ fn visit_named_type(
     return
   }
   if contains_string(path, name) {
-    let mut start = 0
-    let mut index = 0
-    for item in path {
-      if item == name {
-        start = index
-        break
-      }
-      index += 1
-    }
-    let chain = StringBuilder()
-    index = 0
-    for item in path {
-      if index >= start {
-        if chain.to_string() != "" {
-          chain.write_string(" -> ")
-        }
-        chain.write_string(item)
-      }
-      index += 1
-    }
-    chain.write_string(" -> ")
-    chain.write_string(name)
-    raise SchemaError::CyclicTypeReference(chain.to_string())
+    return
   }
   let named_type = match find_named_type(types, name) {
     Some(found) => found
@@ -3001,7 +2981,7 @@ fn visit_named_type(
     next_path.push(item)
   }
   next_path.push(name)
-  for dependency in referenced_type_names(named_type) {
+  for dependency in referenced_type_names(named_type, true) {
     visit_named_type(dependency, types, next_path, visited, ordered)
   }
   visited.push(name)
@@ -3009,33 +2989,163 @@ fn visit_named_type(
 }
 
 ///|
-fn referenced_type_names(named_type : NamedType) -> Array[String] {
+fn validate_unguarded_type_cycles(
+  types : Array[NamedType],
+) -> Unit raise SchemaError {
+  let visited : Array[String] = []
+  for named_type in types {
+    visit_unguarded_type_reference(named_type.name, types, [], visited)
+  }
+}
+
+///|
+fn validate_recursive_alias_cycles(
+  types : Array[NamedType],
+) -> Unit raise SchemaError {
+  let visited : Array[String] = []
+  for named_type in types {
+    visit_recursive_alias_reference(named_type.name, types, [], visited)
+  }
+}
+
+///|
+fn visit_recursive_alias_reference(
+  name : String,
+  types : Array[NamedType],
+  path : Array[String],
+  visited : Array[String],
+) -> Unit raise SchemaError {
+  if contains_string(visited, name) {
+    return
+  }
+  if contains_string(path, name) {
+    raise SchemaError::CyclicTypeReference(
+      type_reference_cycle_chain(path, name),
+    )
+  }
+  let named_type = match find_named_type(types, name) {
+    Some(found) => found
+    None => raise SchemaError::UnknownType("unknown type \{name}")
+  }
+  let next_path : Array[String] = []
+  for item in path {
+    next_path.push(item)
+  }
+  next_path.push(name)
+  let dependency = match named_type.body {
+    TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
+      match type_ref {
+        TypeRef::Named(target) => Some(target)
+        TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => None
+        TypeRef::NullOrNamed(target) => Some(target)
+      }
+    TypeBody::List(type_ref) =>
+      match type_ref {
+        TypeRef::Named(target) | TypeRef::NullOrNamed(target) => Some(target)
+        TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => None
+      }
+    TypeBody::Struct(_, _) => None
+  }
+  match dependency {
+    Some(target) =>
+      visit_recursive_alias_reference(target, types, next_path, visited)
+    None => ()
+  }
+  visited.push(name)
+}
+
+///|
+fn visit_unguarded_type_reference(
+  name : String,
+  types : Array[NamedType],
+  path : Array[String],
+  visited : Array[String],
+) -> Unit raise SchemaError {
+  if contains_string(visited, name) {
+    return
+  }
+  if contains_string(path, name) {
+    raise SchemaError::CyclicTypeReference(
+      type_reference_cycle_chain(path, name),
+    )
+  }
+  let named_type = match find_named_type(types, name) {
+    Some(found) => found
+    None => raise SchemaError::UnknownType("unknown type \{name}")
+  }
+  let next_path : Array[String] = []
+  for item in path {
+    next_path.push(item)
+  }
+  next_path.push(name)
+  for dependency in referenced_type_names(named_type, false) {
+    visit_unguarded_type_reference(dependency, types, next_path, visited)
+  }
+  visited.push(name)
+}
+
+///|
+fn type_reference_cycle_chain(path : Array[String], name : String) -> String {
+  let mut start = 0
+  let mut index = 0
+  for item in path {
+    if item == name {
+      start = index
+      break
+    }
+    index += 1
+  }
+  let chain = StringBuilder()
+  index = 0
+  for item in path {
+    if index >= start {
+      if chain.to_string() != "" {
+        chain.write_string(" -> ")
+      }
+      chain.write_string(item)
+    }
+    index += 1
+  }
+  chain.write_string(" -> ")
+  chain.write_string(name)
+  chain.to_string()
+}
+
+///|
+fn referenced_type_names(
+  named_type : NamedType,
+  include_guarded_body_edges : Bool,
+) -> Array[String] {
   let names : Array[String] = []
   match named_type.body {
     TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
       match type_ref {
         TypeRef::Named(name) => names.push(name)
         TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
-        TypeRef::NullOrNamed(name) => names.push(name)
+        TypeRef::NullOrNamed(name) =>
+          if include_guarded_body_edges {
+            names.push(name)
+          }
       }
     TypeBody::List(type_ref) =>
-      match type_ref {
-        TypeRef::Named(name) => names.push(name)
-        TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
-        TypeRef::NullOrNamed(name) => names.push(name)
+      if include_guarded_body_edges {
+        push_named_type_reference(names, type_ref)
       }
     TypeBody::Struct(fields, _) =>
       for field in fields {
-        match field.type_ref {
-          TypeRef::Named(name) => names.push(name)
-          TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
-          TypeRef::NullOrNamed(name) => names.push(name)
+        if include_guarded_body_edges ||
+          (
+            field.occurrence.min_count > 0 &&
+            !is_nullable_type_reference(field.type_ref)
+          ) {
+          push_named_type_reference(names, field.type_ref)
         }
       }
   }
   match named_type.element_type {
-    Some(TypeRef::Named(name) | TypeRef::NullOrNamed(name)) => names.push(name)
-    Some(TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_)) | None => ()
+    Some(type_ref) if !is_list_body(named_type.body) =>
+      push_named_type_reference(names, type_ref)
+    Some(_) | None => ()
   }
   match named_type.field_names_type {
     Some(TypeRef::Named(name) | TypeRef::NullOrNamed(name)) => names.push(name)
@@ -3098,6 +3208,30 @@ fn referenced_type_names(named_type : NamedType) -> Array[String] {
     }
   }
   names
+}
+
+///|
+fn push_named_type_reference(names : Array[String], type_ref : TypeRef) -> Unit {
+  match type_ref {
+    TypeRef::Named(name) | TypeRef::NullOrNamed(name) => names.push(name)
+    TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+  }
+}
+
+///|
+fn is_nullable_type_reference(type_ref : TypeRef) -> Bool {
+  match type_ref {
+    TypeRef::NullOrBuiltin(_) | TypeRef::NullOrNamed(_) => true
+    TypeRef::Builtin(_) | TypeRef::Named(_) => false
+  }
+}
+
+///|
+fn is_list_body(body : TypeBody) -> Bool {
+  match body {
+    TypeBody::List(_) => true
+    TypeBody::Scalar(_) | TypeBody::Alias(_) | TypeBody::Struct(_, _) => false
+  }
 }
 
 ///|

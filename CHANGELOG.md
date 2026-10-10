@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.50.0 — 2026-10-10
+
+- 支持经 list 元素引用形成的有限递归类型，list 可为空并作为递归叶节点。
+- 保留无基例的必选 struct、alias 与逻辑约束循环诊断；新增递归树类型生成及往返 fixture。
+
 ## 0.49.0 — 2026-10-10
 
 - `all_of`、`any_of`、`one_of` 和 `not` 可在 inline scalar、list、struct 与 alias definitions 内继续组合。

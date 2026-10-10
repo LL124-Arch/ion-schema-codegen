@@ -347,7 +347,7 @@ test "reject unknown and cyclic named references with a cycle chain" {
   )
 
   let cycle = expect_codegen_error(
-    "$ion_schema_2_0 type::{name: First, type: struct, fields: closed::{second: Second}} type::{name: Second, type: struct, fields: closed::{first: First}}",
+    "$ion_schema_2_0 type::{name: First, type: struct, fields: closed::{second: {type: Second, occurs: required}}} type::{name: Second, type: struct, fields: closed::{first: {type: First, occurs: required}}}",
   )
   assert_true(
     match cycle {
@@ -356,6 +356,41 @@ test "reject unknown and cyclic named references with a cycle chain" {
       _ => false
     },
   )
+
+  let alias_cycle = expect_codegen_error(
+    "$ion_schema_2_0 type::{name: AliasFirst, type: AliasSecond} type::{name: AliasSecond, type: AliasFirst}",
+  )
+  assert_true(
+    match alias_cycle {
+      @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
+        message.contains("AliasFirst -> AliasSecond -> AliasFirst")
+      _ => false
+    },
+  )
+
+  let recursive_list_alias = expect_codegen_error(
+    "$ion_schema_2_0 type::{name: RecursiveAliasList, type: list, element: RecursiveAliasList}",
+  )
+  assert_true(
+    match recursive_list_alias {
+      @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
+        message.contains("RecursiveAliasList -> RecursiveAliasList")
+      _ => false
+    },
+  )
+}
+
+///|
+test "allow recursive list and struct references with a finite list base case" {
+  let generated = @ion-schema-codegen.generate_code(
+    "$ion_schema_2_0 type::{name: TreeNodeList, type: list, element: TreeNode} type::{name: TreeNode, type: struct, fields: closed::{children: {type: TreeNodeList, occurs: required}}}",
+  )
+  assert_true(
+    generated.source.contains("pub type TreeNodeList = Array[TreeNode]"),
+  )
+  assert_true(generated.source.contains("pub(all) struct TreeNode {"))
+  assert_true(generated.source.contains("pub fn TreeNode::from_ion"))
+  assert_true(generated.source.contains("pub fn from_ion_TreeNodeList"))
 }
 
 ///|
