@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.48.0 — 2026-10-10
+
+- Inline type definitions 支持 `not`，可否定 built-in、named 或另一条 inline definition。
+- 值不匹配可使 `not` 通过；未知类型仍作为 Schema 错误报告，不会被当作“不匹配”吞掉。
+
 ## 0.47.0 — 2026-10-10
 
 - Inline type definitions 支持 `one_of`，按各分支独立计数并要求恰好一个匹配。

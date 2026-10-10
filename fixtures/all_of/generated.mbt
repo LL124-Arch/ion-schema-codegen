@@ -2467,3 +2467,140 @@ pub fn validate_type_InlineOneOfOverlap(
     )
   }
 }
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline41(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "$any") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_41",
+        expected="$any",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if ion_schema_codegen_matches_named_Positive(value) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_41",
+        constraint="not",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineNotPositive = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineNotPositive.
+pub fn validate_type_InlineNotPositive(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineNotPositive",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline41(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineNotPositive",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+/// Test whether an Ion value satisfies valid_values for IonSchemaCodegenInternalInline44.
+fn is_valid_values_IonSchemaCodegenInternalInline44(
+  value : @ion_model.IonValue,
+) -> Bool {
+  let allowed_values = @ion.parse_text("2") catch { _ => [] }
+  for candidate in allowed_values {
+    if ion_schema_codegen_valid_values_match(value, candidate) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline44(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "int") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_44",
+        expected="int",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !is_valid_values_IonSchemaCodegenInternalInline44(value) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_44",
+        constraint="valid_values",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline43(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "$any") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_43",
+        expected="$any",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline44(value) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_43",
+        constraint="not",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineNotExactTwo = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineNotExactTwo.
+pub fn validate_type_InlineNotExactTwo(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineNotExactTwo",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline43(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineNotExactTwo",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}

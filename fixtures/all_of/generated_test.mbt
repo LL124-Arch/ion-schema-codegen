@@ -98,6 +98,27 @@ test "inline one_of counts matching branches exactly once" {
 }
 
 ///|
+test "inline not negates named and anonymous type arguments" {
+  @all_of.validate_type_InlineNotPositive(integer(0))
+  @all_of.validate_type_InlineNotPositive(
+    @ion_model.IonValue::String("not an int"),
+  )
+  assert_eq(
+    all_of_error(@all_of.validate_type_InlineNotPositive, integer(2)),
+    ("InlineNotPositive", "all_of"),
+  )
+
+  @all_of.validate_type_InlineNotExactTwo(integer(3))
+  @all_of.validate_type_InlineNotExactTwo(
+    @ion_model.IonValue::String("outside the inline type"),
+  )
+  assert_eq(
+    all_of_error(@all_of.validate_type_InlineNotExactTwo, integer(2)),
+    ("InlineNotExactTwo", "all_of"),
+  )
+}
+
+///|
 test "all_of validates inline list definitions" {
   @all_of.validate_type_InlineIntList(
     @ion_model.IonValue::List([integer(2), integer(4)]),

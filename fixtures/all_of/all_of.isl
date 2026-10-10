@@ -21,3 +21,5 @@ type::{name: InlinePositiveBelowTen, all_of: [{type: int, all_of: [Positive, Bel
 type::{name: InlineAnyPositiveOrString, all_of: [{any_of: [Positive, string]}]}
 type::{name: InlineOneOf, all_of: [{one_of: [int, string]}]}
 type::{name: InlineOneOfOverlap, all_of: [{one_of: [Positive, BelowTen]}]}
+type::{name: InlineNotPositive, all_of: [{not: Positive}]}
+type::{name: InlineNotExactTwo, all_of: [{not: {type: int, valid_values: [2]}}]}
