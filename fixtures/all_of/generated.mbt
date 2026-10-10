@@ -2349,3 +2349,121 @@ pub fn validate_type_InlineAnyPositiveOrString(
     )
   }
 }
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline37(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "$any") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_37",
+        expected="$any",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    let mut ion_schema_codegen_one_of_match_count_IonSchemaCodegenInternalInline37_0 = 0
+    if ion_schema_codegen_matches_type(value, "int") {
+      ion_schema_codegen_one_of_match_count_IonSchemaCodegenInternalInline37_0
+      += 1
+    }
+    if ion_schema_codegen_matches_type(value, "string") {
+      ion_schema_codegen_one_of_match_count_IonSchemaCodegenInternalInline37_0
+      += 1
+    }
+    if ion_schema_codegen_one_of_match_count_IonSchemaCodegenInternalInline37_0 !=
+      1 {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_37",
+        constraint="one_of",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineOneOf = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineOneOf.
+pub fn validate_type_InlineOneOf(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineOneOf",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline37(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineOneOf",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline39(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "$any") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_39",
+        expected="$any",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    let mut ion_schema_codegen_one_of_match_count_IonSchemaCodegenInternalInline39_0 = 0
+    if ion_schema_codegen_matches_named_Positive(value) {
+      ion_schema_codegen_one_of_match_count_IonSchemaCodegenInternalInline39_0
+      += 1
+    }
+    if ion_schema_codegen_matches_named_BelowTen(value) {
+      ion_schema_codegen_one_of_match_count_IonSchemaCodegenInternalInline39_0
+      += 1
+    }
+    if ion_schema_codegen_one_of_match_count_IonSchemaCodegenInternalInline39_0 !=
+      1 {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_39",
+        constraint="one_of",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineOneOfOverlap = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineOneOfOverlap.
+pub fn validate_type_InlineOneOfOverlap(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineOneOfOverlap",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline39(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineOneOfOverlap",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}

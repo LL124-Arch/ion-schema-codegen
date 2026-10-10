@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.47.0 — 2026-10-10
+
+- Inline type definitions 支持 `one_of`，按各分支独立计数并要求恰好一个匹配。
+- 重叠的命名类型仍按多次命中计算；inline `one_of` 与其他已支持逻辑组合共用路径诊断。
+
 ## 0.46.0 — 2026-10-10
 
 - Inline type definitions 支持 `any_of`，对同一原始 Ion 值逐分支判定，至少一支匹配即通过。

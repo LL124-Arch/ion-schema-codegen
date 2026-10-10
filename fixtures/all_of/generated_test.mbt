@@ -81,6 +81,23 @@ test "inline any_of accepts one matching scalar branch" {
 }
 
 ///|
+test "inline one_of counts matching branches exactly once" {
+  @all_of.validate_type_InlineOneOf(integer(7))
+  @all_of.validate_type_InlineOneOf(@ion_model.IonValue::String("text"))
+  assert_eq(
+    all_of_error(
+      @all_of.validate_type_InlineOneOf,
+      @ion_model.IonValue::Float(1.5),
+    ),
+    ("InlineOneOf", "all_of"),
+  )
+  assert_eq(
+    all_of_error(@all_of.validate_type_InlineOneOfOverlap, integer(7)),
+    ("InlineOneOfOverlap", "all_of"),
+  )
+}
+
+///|
 test "all_of validates inline list definitions" {
   @all_of.validate_type_InlineIntList(
     @ion_model.IonValue::List([integer(2), integer(4)]),
