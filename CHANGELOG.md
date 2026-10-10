@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.46.0 — 2026-10-10
+
+- Inline type definitions 支持 `any_of`，对同一原始 Ion 值逐分支判定，至少一支匹配即通过。
+- Inline `any_of` 与 `all_of` 可组合使用，保持重叠分支的独立验证和外层错误分类。
+
 ## 0.45.0 — 2026-10-10
 
 - Inline scalar、list、struct 和 alias definitions 支持 `all_of`，并复用现有命名类型 matcher 与错误分类。

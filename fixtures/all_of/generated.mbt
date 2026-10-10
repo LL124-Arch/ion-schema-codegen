@@ -2299,3 +2299,53 @@ pub fn validate_type_InlinePositiveBelowTen(
     )
   }
 }
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline35(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "$any") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_35",
+        expected="$any",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !(ion_schema_codegen_matches_named_Positive(value) ||
+      ion_schema_codegen_matches_type(value, "string")) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_35",
+        constraint="any_of",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineAnyPositiveOrString = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineAnyPositiveOrString.
+pub fn validate_type_InlineAnyPositiveOrString(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineAnyPositiveOrString",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline35(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineAnyPositiveOrString",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}

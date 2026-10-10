@@ -67,6 +67,20 @@ test "inline all_of intersects named scalar types" {
 }
 
 ///|
+test "inline any_of accepts one matching scalar branch" {
+  @all_of.validate_type_InlineAnyPositiveOrString(integer(7))
+  @all_of.validate_type_InlineAnyPositiveOrString(
+    @ion_model.IonValue::String("accepted"),
+  )
+  for invalid in [integer(0), @ion_model.IonValue::Float(1.5)] {
+    assert_eq(
+      all_of_error(@all_of.validate_type_InlineAnyPositiveOrString, invalid),
+      ("InlineAnyPositiveOrString", "all_of"),
+    )
+  }
+}
+
+///|
 test "all_of validates inline list definitions" {
   @all_of.validate_type_InlineIntList(
     @ion_model.IonValue::List([integer(2), integer(4)]),
