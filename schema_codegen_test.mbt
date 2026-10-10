@@ -373,6 +373,20 @@ test "reject unknown references nested in inline not constraints" {
 }
 
 ///|
+test "detect cycles crossing inline type algebra definitions" {
+  let error = expect_codegen_error(
+    "$ion_schema_2_0 type::{name: InlineCycleA, all_of: [{all_of: [InlineCycleB]}]} type::{name: InlineCycleB, all_of: [{all_of: [InlineCycleA]}]}",
+  )
+  assert_true(
+    match error {
+      @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
+        message.contains("InlineCycleA") && message.contains("InlineCycleB")
+      _ => false
+    },
+  )
+}
+
+///|
 test "generate S-expression aliases fields and list elements" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: Expression, type: sexp} type::{name: Expressions, type: list, element: Expression} type::{name: ExpressionRecord, type: struct, fields: closed::{expression: {type: Expression, occurs: required}}}",

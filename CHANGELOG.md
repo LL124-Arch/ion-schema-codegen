@@ -1,5 +1,10 @@
 # 变更记录
 
+## 0.49.0 — 2026-10-10
+
+- `all_of`、`any_of`、`one_of` 和 `not` 可在 inline scalar、list、struct 与 alias definitions 内继续组合。
+- 组合约束在内联容器的字段与元素上复用既有校验和路径语义；新增 nullable、父字段错误路径及跨匿名定义循环回归。
+
 ## 0.48.0 — 2026-10-10
 
 - Inline type definitions 支持 `not`，可否定 built-in、named 或另一条 inline definition。

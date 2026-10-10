@@ -2604,3 +2604,359 @@ pub fn validate_type_InlineNotExactTwo(
     )
   }
 }
+
+///|
+type IonSchemaCodegenInternalInline47 = @bigint.BigInt
+
+///|
+type IonSchemaCodegenInternalInline46 = Array[IonSchemaCodegenInternalInline47]
+
+///|
+/// Convert an Ion list to IonSchemaCodegenInternalInline46 with element-level diagnostics.
+fn from_ion_IonSchemaCodegenInternalInline46(
+  value : @ion_model.IonValue,
+) -> IonSchemaCodegenInternalInline46 raise ConversionError {
+  let type_path = "ion_schema_codegen_internal_inline_46"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  if input_elements.length() < 1 || input_elements.length() > 2 {
+    raise ConversionError::InvalidValue(
+      path=type_path,
+      constraint="container_length",
+      actual=input_elements.length().to_string(),
+    )
+  }
+  let converted : IonSchemaCodegenInternalInline46 = []
+  let mut index = 0
+  for element in input_elements {
+    let element_path = type_path + "[" + index.to_string() + "]"
+    if element.is_null() {
+      raise ConversionError::NullNotAllowed(path=element_path)
+    }
+    let item : IonSchemaCodegenInternalInline47 = match
+      element.without_annotations() {
+      @ion_model.IonValue::Int(item) => item
+      _ =>
+        raise ConversionError::TypeMismatch(
+          path=element_path,
+          expected="int",
+          actual=ion_schema_codegen_actual_type(element),
+        )
+    }
+    if !ion_schema_codegen_matches_named_Positive(element) {
+      raise ConversionError::InvalidValue(
+        path=element_path,
+        constraint="all_of",
+        actual=ion_schema_codegen_actual_type(element),
+      )
+    }
+    if !ion_schema_codegen_matches_named_BelowTen(element) {
+      raise ConversionError::InvalidValue(
+        path=element_path,
+        constraint="all_of",
+        actual=ion_schema_codegen_actual_type(element),
+      )
+    }
+    converted.push(item)
+    index += 1
+  }
+  converted
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline46(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    ignore(from_ion_IonSchemaCodegenInternalInline46(value))
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineLogicalList = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineLogicalList.
+pub fn validate_type_InlineLogicalList(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineLogicalList",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline46(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineLogicalList",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+type IonSchemaCodegenInternalInline50 = @ion_model.IonValue
+
+///|
+priv struct IonSchemaCodegenInternalInline49 {
+  choice : IonSchemaCodegenInternalInline50
+}
+
+///|
+/// Convert an Ion struct to IonSchemaCodegenInternalInline49 with field-level diagnostics.
+fn IonSchemaCodegenInternalInline49::from_ion(
+  value : @ion_model.IonValue,
+) -> IonSchemaCodegenInternalInline49 raise ConversionError {
+  let type_path = "ion_schema_codegen_internal_inline_49"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "choice" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="ion_schema_codegen_internal_inline_49.choice",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="ion_schema_codegen_internal_inline_49." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="ion_schema_codegen_internal_inline_49.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : IonSchemaCodegenInternalInline50 = match
+    input_field_0 {
+    Some(field_value) => {
+      let field_path = "ion_schema_codegen_internal_inline_49.choice"
+      let field_item : IonSchemaCodegenInternalInline50 = field_value
+      if !(ion_schema_codegen_matches_named_Positive(field_value) ||
+        ion_schema_codegen_matches_type(field_value, "string")) {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="any_of",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="ion_schema_codegen_internal_inline_49.choice",
+      )
+  }
+  { choice: ion_schema_codegen_value_0, }
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline49(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    let matched = IonSchemaCodegenInternalInline49::from_ion(value)
+    ignore(matched.choice)
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineLogicalRecord = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineLogicalRecord.
+pub fn validate_type_InlineLogicalRecord(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineLogicalRecord",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline49(value) {
+    raise ConversionError::InvalidValue(
+      path="InlineLogicalRecord",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+fn ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline52(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if !ion_schema_codegen_matches_type(value, "$any") {
+      raise ConversionError::TypeMismatch(
+        path="ion_schema_codegen_internal_inline_52",
+        expected="$any",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    if !(ion_schema_codegen_matches_named_Positive(value) ||
+      ion_schema_codegen_matches_type(value, "string")) {
+      raise ConversionError::InvalidValue(
+        path="ion_schema_codegen_internal_inline_52",
+        constraint="any_of",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+pub type InlineNullableLogical = @ion_model.IonValue
+
+///|
+/// Validate the type algebra constraints for InlineNullableLogical.
+pub fn validate_type_InlineNullableLogical(
+  value : @ion_model.IonValue,
+) -> Unit raise ConversionError {
+  if !ion_schema_codegen_matches_type(value, "$any") {
+    raise ConversionError::TypeMismatch(
+      path="InlineNullableLogical",
+      expected="$any",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+  if !(ion_schema_codegen_matches_type(value, "$null") ||
+    ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline52(value)) {
+    raise ConversionError::InvalidValue(
+      path="InlineNullableLogical",
+      constraint="all_of",
+      actual=ion_schema_codegen_actual_type(value),
+    )
+  }
+}
+
+///|
+pub(all) struct InlineLogicalEnvelope {
+  payload : InlineLogicalList
+}
+
+///|
+/// Convert an Ion struct to InlineLogicalEnvelope with field-level diagnostics.
+pub fn InlineLogicalEnvelope::from_ion(
+  value : @ion_model.IonValue,
+) -> InlineLogicalEnvelope raise ConversionError {
+  let type_path = "InlineLogicalEnvelope"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut input_field_0 : @ion_model.IonValue? = None
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          "payload" =>
+            input_field_0 = match input_field_0 {
+              Some(_) =>
+                raise ConversionError::DuplicateField(
+                  path="InlineLogicalEnvelope.payload",
+                )
+              None => Some(field_value)
+            }
+          _ =>
+            raise ConversionError::UnknownField(
+              path="InlineLogicalEnvelope." + field_name,
+            )
+        }
+      None =>
+        raise ConversionError::UnknownSymbol(
+          path="InlineLogicalEnvelope.<field>",
+          sid=field_symbol.sid_value().unwrap_or(0),
+        )
+    }
+  }
+  let ion_schema_codegen_value_0 : InlineLogicalList = match input_field_0 {
+    Some(field_value) => {
+      let field_path = "InlineLogicalEnvelope.payload"
+      let field_item : InlineLogicalList = field_value
+      if !ion_schema_codegen_matches_named_IonSchemaCodegenInternalInline46(
+          field_value,
+        ) {
+        raise ConversionError::InvalidValue(
+          path=field_path,
+          constraint="all_of",
+          actual=ion_schema_codegen_actual_type(field_value),
+        )
+      }
+      field_item
+    }
+    None =>
+      raise ConversionError::MissingRequiredField(
+        path="InlineLogicalEnvelope.payload",
+      )
+  }
+  { payload: ion_schema_codegen_value_0, }
+}
+
+///|
+/// Convert InlineLogicalEnvelope into an Ion struct in schema field order.
+pub fn InlineLogicalEnvelope::to_ion(
+  self : InlineLogicalEnvelope,
+) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  output_fields.push((@ion_model.IonSymbol::from_text("payload"), self.payload))
+  @ion_model.IonValue::Struct(output_fields)
+}

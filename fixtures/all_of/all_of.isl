@@ -23,3 +23,7 @@ type::{name: InlineOneOf, all_of: [{one_of: [int, string]}]}
 type::{name: InlineOneOfOverlap, all_of: [{one_of: [Positive, BelowTen]}]}
 type::{name: InlineNotPositive, all_of: [{not: Positive}]}
 type::{name: InlineNotExactTwo, all_of: [{not: {type: int, valid_values: [2]}}]}
+type::{name: InlineLogicalList, all_of: [{type: list, element: {type: int, all_of: [Positive, BelowTen]}, container_length: range::[1, 2]}]}
+type::{name: InlineLogicalRecord, all_of: [{type: struct, fields: closed::{choice: {any_of: [Positive, string], occurs: required}}}]}
+type::{name: InlineNullableLogical, all_of: [$null_or::{any_of: [Positive, string]}]}
+type::{name: InlineLogicalEnvelope, type: struct, fields: closed::{payload: {type: InlineLogicalList, occurs: required}}}

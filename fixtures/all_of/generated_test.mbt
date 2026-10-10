@@ -119,6 +119,70 @@ test "inline not negates named and anonymous type arguments" {
 }
 
 ///|
+test "logical constraints compose inside inline containers" {
+  @all_of.validate_type_InlineLogicalList(
+    @ion_model.IonValue::List([integer(1), integer(9)]),
+  )
+  assert_eq(
+    all_of_error(
+      @all_of.validate_type_InlineLogicalList,
+      @ion_model.IonValue::List([integer(0)]),
+    ),
+    ("InlineLogicalList", "all_of"),
+  )
+
+  @all_of.validate_type_InlineLogicalRecord(
+    @ion_model.IonValue::Struct([field("choice", integer(3))]),
+  )
+  @all_of.validate_type_InlineLogicalRecord(
+    @ion_model.IonValue::Struct([
+      field("choice", @ion_model.IonValue::String("accepted")),
+    ]),
+  )
+  assert_eq(
+    all_of_error(
+      @all_of.validate_type_InlineLogicalRecord,
+      @ion_model.IonValue::Struct([
+        field("choice", @ion_model.IonValue::Float(1.5)),
+      ]),
+    ),
+    ("InlineLogicalRecord", "all_of"),
+  )
+
+  @all_of.validate_type_InlineNullableLogical(
+    @ion_model.IonValue::null(kind=@ion_model.IonNull::Null),
+  )
+  @all_of.validate_type_InlineNullableLogical(
+    @ion_model.IonValue::String("accepted"),
+  )
+  assert_eq(
+    all_of_error(@all_of.validate_type_InlineNullableLogical, integer(0)),
+    ("InlineNullableLogical", "all_of"),
+  )
+}
+
+///|
+test "inline logical constraints preserve parent field paths" {
+  let error = try {
+    ignore(
+      @all_of.InlineLogicalEnvelope::from_ion(
+        @ion_model.IonValue::Struct([
+          field("payload", @ion_model.IonValue::List([integer(0)])),
+        ]),
+      ),
+    )
+    ("", "")
+  } catch {
+    @all_of.ConversionError::InvalidValue(path~, constraint~, ..) =>
+      (path, constraint)
+    _ => ("unexpected", "unexpected")
+  } noraise {
+    _ => ("unexpected", "unexpected")
+  }
+  assert_eq(error, ("InlineLogicalEnvelope.payload", "all_of"))
+}
+
+///|
 test "all_of validates inline list definitions" {
   @all_of.validate_type_InlineIntList(
     @ion_model.IonValue::List([integer(2), integer(4)]),
