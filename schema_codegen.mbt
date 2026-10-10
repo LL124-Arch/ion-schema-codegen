@@ -3200,7 +3200,8 @@ fn referenced_type_names(
       }
   }
   match named_type.element_type {
-    Some(type_ref) if !is_list_body(named_type.body) =>
+    Some(type_ref) if include_guarded_body_edges ||
+      !is_container_body(named_type.body) =>
       push_named_type_reference(names, type_ref)
     Some(_) | None => ()
   }
@@ -3211,9 +3212,9 @@ fn referenced_type_names(
   match named_type.ordered_elements {
     Some(ordered_elements) =>
       for ordered_element in ordered_elements {
-        match ordered_element.type_ref {
-          TypeRef::Named(name) | TypeRef::NullOrNamed(name) => names.push(name)
-          TypeRef::Builtin(_) | TypeRef::NullOrBuiltin(_) => ()
+        if include_guarded_body_edges ||
+          ordered_element.occurrence.min_count > 0 {
+          push_named_type_reference(names, ordered_element.type_ref)
         }
       }
     None => ()
@@ -3284,10 +3285,10 @@ fn is_nullable_type_reference(type_ref : TypeRef) -> Bool {
 }
 
 ///|
-fn is_list_body(body : TypeBody) -> Bool {
+fn is_container_body(body : TypeBody) -> Bool {
   match body {
-    TypeBody::List(_) => true
-    TypeBody::Scalar(_) | TypeBody::Alias(_) | TypeBody::Struct(_, _) => false
+    TypeBody::Struct(_, _) | TypeBody::List(_) => true
+    TypeBody::Scalar(_) | TypeBody::Alias(_) => false
   }
 }
 

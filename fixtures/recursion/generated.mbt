@@ -124,6 +124,98 @@ fn ion_schema_codegen_prefix_error(
 }
 
 ///|
+fn ion_schema_codegen_ordered_matches_RecursiveSequence_0(
+  value : @ion_model.IonValue,
+) -> Bool {
+  try {
+    if value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(path="ordered_elements")
+    }
+    if value.is_null() {
+      raise ConversionError::NullNotAllowed(path="ordered_elements")
+    }
+    let _ = from_ion_RecursiveSequence(value) catch {
+      error =>
+        raise ion_schema_codegen_prefix_error(error, "ordered_elements" + ".")
+    }
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
+fn ion_schema_codegen_validate_ordered_RecursiveSequence(
+  values : Array[@ion_model.IonValue],
+  path : String,
+) -> Unit raise ConversionError {
+  let value_count = values.length()
+  let possible : Array[Array[Bool]] = []
+  let mut row_index = 0
+  while row_index <= 1 {
+    let row : Array[Bool] = []
+    let mut column_index = 0
+    while column_index <= value_count {
+      row.push(false)
+      column_index += 1
+    }
+    possible.push(row)
+    row_index += 1
+  }
+  possible[1][value_count] = true
+  let mut ordered_start_0 = 0
+  while ordered_start_0 <= value_count {
+    let mut ordered_count_0 = 0
+    let mut ordered_found_0 = false
+    let mut ordered_prefix_matches_0 = true
+    while ordered_count_0 <= value_count - ordered_start_0 &&
+          ordered_count_0 <= 1 &&
+          ordered_prefix_matches_0 {
+      if ordered_count_0 > 0 &&
+        !ion_schema_codegen_ordered_matches_RecursiveSequence_0(
+          values[ordered_start_0 + ordered_count_0 - 1],
+        ) {
+        ordered_prefix_matches_0 = false
+      }
+      if ordered_prefix_matches_0 &&
+        possible[1][ordered_start_0 + ordered_count_0] {
+        ordered_found_0 = true
+      }
+      ordered_count_0 += 1
+    }
+    possible[0][ordered_start_0] = ordered_found_0
+    ordered_start_0 += 1
+  }
+  if !possible[0][0] {
+    let mut failure_index = value_count
+    let mut probe_index = 0
+    while probe_index < value_count {
+      let mut recognized = false
+      if !recognized &&
+        ion_schema_codegen_ordered_matches_RecursiveSequence_0(
+          values[probe_index],
+        ) {
+        recognized = true
+      }
+      if !recognized && failure_index == value_count {
+        failure_index = probe_index
+      }
+      probe_index += 1
+    }
+    let actual = if failure_index < value_count {
+      ion_schema_codegen_actual_type(values[failure_index])
+    } else {
+      "sequence length " + value_count.to_string()
+    }
+    raise ConversionError::InvalidValue(
+      path=path + "[" + failure_index.to_string() + "]",
+      constraint="ordered_elements",
+      actual~,
+    )
+  }
+}
+
+///|
 pub type TreeNodeList = Array[TreeNode]
 
 ///|
@@ -177,10 +269,13 @@ pub fn to_ion_TreeNodeList(items : TreeNodeList) -> @ion_model.IonValue {
 }
 
 ///|
+pub type TreeNodeListAlias = TreeNodeList
+
+///|
 pub(all) struct TreeNode {
   value : String
   note : @ion_model.IonValue?
-  children : TreeNodeList
+  children : TreeNodeListAlias
 }
 
 ///|
@@ -282,7 +377,7 @@ pub fn TreeNode::from_ion(
     }
     None => None
   }
-  let ion_schema_codegen_value_2 : TreeNodeList = match input_field_2 {
+  let ion_schema_codegen_value_2 : TreeNodeListAlias = match input_field_2 {
     Some(field_value) => {
       let field_path = "TreeNode.children"
       if field_value.annotations().length() > 0 {
@@ -291,7 +386,7 @@ pub fn TreeNode::from_ion(
       if field_value.is_null() {
         raise ConversionError::NullNotAllowed(path=field_path)
       }
-      let field_item : TreeNodeList = from_ion_TreeNodeList(field_value) catch {
+      let field_item : TreeNodeListAlias = from_ion_TreeNodeList(field_value) catch {
         error => raise ion_schema_codegen_prefix_error(error, field_path + ".")
       }
       field_item
@@ -812,4 +907,130 @@ pub fn Branch::to_ion(self : Branch) -> @ion_model.IonValue {
     ),
   )
   @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub(all) struct RecursiveStructElement {
+  ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ]
+}
+
+///|
+/// Convert an Ion struct to RecursiveStructElement with field-level diagnostics.
+pub fn RecursiveStructElement::from_ion(
+  value : @ion_model.IonValue,
+) -> RecursiveStructElement raise ConversionError {
+  let type_path = "RecursiveStructElement"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_fields = match value.without_annotations() {
+    @ion_model.IonValue::Struct(fields) => fields
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="struct",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  let mut ion_schema_codegen_struct_element_index = 0
+  for
+    (
+      ion_schema_codegen_struct_element_symbol,
+      ion_schema_codegen_struct_element_value,
+    ) in input_fields {
+    let ion_schema_codegen_struct_element_path = type_path +
+      "." +
+      ion_schema_codegen_struct_element_symbol.text_value().unwrap_or("<field>") +
+      "[" +
+      ion_schema_codegen_struct_element_index.to_string() +
+      "]"
+    if ion_schema_codegen_struct_element_value.annotations().length() > 0 {
+      raise ConversionError::AnnotatedValueNotSupported(
+        path=ion_schema_codegen_struct_element_path,
+      )
+    }
+    if ion_schema_codegen_struct_element_value.is_null() {
+      raise ConversionError::NullNotAllowed(
+        path=ion_schema_codegen_struct_element_path,
+      )
+    }
+    let _ = RecursiveStructElement::from_ion(
+      ion_schema_codegen_struct_element_value,
+    ) catch {
+      error =>
+        raise ion_schema_codegen_prefix_error(
+          error,
+          ion_schema_codegen_struct_element_path + ".",
+        )
+    }
+    ion_schema_codegen_struct_element_index += 1
+  }
+  let ion_schema_codegen_open_content : Array[
+    (@ion_model.IonSymbol, @ion_model.IonValue),
+  ] = []
+  for (field_symbol, field_value) in input_fields {
+    match field_symbol.text_value() {
+      Some(field_name) =>
+        match field_name {
+          _ => ion_schema_codegen_open_content.push((field_symbol, field_value))
+        }
+      None => ion_schema_codegen_open_content.push((field_symbol, field_value))
+    }
+  }
+  { ion_schema_codegen_open_content, }
+}
+
+///|
+/// Convert RecursiveStructElement into an Ion struct in schema field order.
+pub fn RecursiveStructElement::to_ion(
+  self : RecursiveStructElement,
+) -> @ion_model.IonValue {
+  let output_fields : Array[(@ion_model.IonSymbol, @ion_model.IonValue)] = []
+  for (field_symbol, field_value) in self.ion_schema_codegen_open_content {
+    output_fields.push((field_symbol, field_value))
+  }
+  @ion_model.IonValue::Struct(output_fields)
+}
+
+///|
+pub type RecursiveSequence = Array[@ion_model.IonValue]
+
+///|
+/// Convert an Ion list to RecursiveSequence while validating its ordered elements.
+pub fn from_ion_RecursiveSequence(
+  value : @ion_model.IonValue,
+) -> RecursiveSequence raise ConversionError {
+  let type_path = "RecursiveSequence"
+  if value.is_null() {
+    raise ConversionError::NullNotAllowed(path=type_path)
+  }
+  if value.annotations().length() > 0 {
+    raise ConversionError::AnnotatedValueNotSupported(path=type_path)
+  }
+  let input_elements = match value.without_annotations() {
+    @ion_model.IonValue::List(elements) => elements
+    _ =>
+      raise ConversionError::TypeMismatch(
+        path=type_path,
+        expected="list",
+        actual=ion_schema_codegen_actual_type(value),
+      )
+  }
+  ion_schema_codegen_validate_ordered_RecursiveSequence(
+    input_elements, type_path,
+  )
+  input_elements
+}
+
+///|
+/// Convert RecursiveSequence into an Ion list.
+pub fn to_ion_RecursiveSequence(
+  items : RecursiveSequence,
+) -> @ion_model.IonValue {
+  @ion_model.IonValue::List(items)
 }

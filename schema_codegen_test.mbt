@@ -433,6 +433,22 @@ test "detect cycles crossing inline type algebra definitions" {
 }
 
 ///|
+test "reject required recursive ordered elements without an empty base case" {
+  let error = expect_codegen_error(
+    "$ion_schema_2_0 type::{name: RequiredRecursiveSequence, type: list, ordered_elements: [{type: RequiredRecursiveSequence, occurs: required}]}",
+  )
+  assert_true(
+    match error {
+      @ion-schema-codegen.SchemaError::CyclicTypeReference(message) =>
+        message.contains(
+          "RequiredRecursiveSequence -> RequiredRecursiveSequence",
+        )
+      _ => false
+    },
+  )
+}
+
+///|
 test "generate S-expression aliases fields and list elements" {
   let generated = @ion-schema-codegen.generate_code(
     "$ion_schema_2_0 type::{name: Expression, type: sexp} type::{name: Expressions, type: list, element: Expression} type::{name: ExpressionRecord, type: struct, fields: closed::{expression: {type: Expression, occurs: required}}}",

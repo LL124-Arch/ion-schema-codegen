@@ -119,3 +119,19 @@ test "mutually recursive structs and lists convert finite nested values" {
   }
   assert_eq(branch.to_ion(), source)
 }
+
+///|
+test "recursive container element constraints consume nested values" {
+  let child = @ion_model.IonValue::Struct([
+    recursion_field("grandchild", @ion_model.IonValue::Struct([])),
+  ])
+  let source = @ion_model.IonValue::Struct([recursion_field("child", child)])
+  let parsed = @recursion.RecursiveStructElement::from_ion(source)
+  assert_eq(parsed.to_ion(), source)
+
+  let nested_sequence = @ion_model.IonValue::List([
+    @ion_model.IonValue::List([@ion_model.IonValue::List([])]),
+  ])
+  let sequence = @recursion.from_ion_RecursiveSequence(nested_sequence)
+  assert_eq(@recursion.to_ion_RecursiveSequence(sequence), nested_sequence)
+}
