@@ -126,6 +126,8 @@ fn parse_named_type(
     raise SchemaError::InvalidSchema("type name must not be empty")
   }
 
+  let (value, repeated_constraints) = separate_repeated_constraints(value)
+
   let type_fields = value.get_fields("type")
   if type_fields.length() > 1 {
     raise SchemaError::InvalidSchema("duplicate type field at type \{name}")
@@ -267,6 +269,18 @@ fn parse_named_type(
       ) {
       all_of.push(type_ref)
     }
+  }
+  for (keyword, argument) in repeated_constraints {
+    if keyword == "type" &&
+      base_name == "document" &&
+      argument.annotations().length() == 0 &&
+      argument.without_annotations() is @model.IonValue::Symbol(symbol) &&
+      symbol.text_value() == Some("document") {
+      continue
+    }
+    all_of.push(
+      parse_repeated_constraint(keyword, argument, base_name, types, name),
+    )
   }
   let any_of : Array[Array[TypeRef]] = []
   for constraint in any_of_fields {
@@ -2615,7 +2629,15 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
       named_type.not_constraints.length() > 0 {
       match named_type.body {
         TypeBody::Scalar(type_ref) | TypeBody::Alias(type_ref) =>
-          if is_document_reference(types, type_ref) {
+          if is_document_reference(types, type_ref) &&
+            (
+              named_type.any_of.length() > 0 ||
+              named_type.one_of.length() > 0 ||
+              named_type.not_constraints.length() > 0 ||
+              !named_type.all_of.all(reference => {
+                is_internal_document_conjunction(reference, types)
+              })
+            ) {
             raise SchemaError::UnsupportedFeature(
               "type algebra on document streams is not supported at type " +
               named_type.name,
@@ -2629,7 +2651,9 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
           type_ref,
           "all_of of " + named_type.name,
         )
-        if is_document_reference(types, type_ref) {
+        if is_document_reference(types, type_ref) &&
+          !(named_type_is_document(named_type, types) &&
+          is_internal_document_conjunction(type_ref, types)) {
           raise SchemaError::UnsupportedFeature(
             "document stream type arguments are not supported in type algebra at type " +
             named_type.name,

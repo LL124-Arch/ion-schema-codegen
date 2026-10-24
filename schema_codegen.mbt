@@ -183,7 +183,8 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
         write_named_valid_values(output, named_type, schema.types)
         output.write_string("\n")
       }
-      if named_type_needs_algebra_matcher(named_type.name, schema.types) {
+      if named_type_needs_algebra_matcher(named_type.name, schema.types) &&
+        !named_type_is_document(named_type, schema.types) {
         write_named_type_matcher(output, named_type, schema.types)
         output.write_string("\n")
       }
@@ -264,10 +265,13 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
             write_ordered_list_conversions(output, named_type, schema.types)
           }
       }
-      if named_type.all_of.length() > 0 ||
-        named_type.any_of.length() > 0 ||
-        named_type.one_of.length() > 0 ||
-        named_type.not_constraints.length() > 0 {
+      if !named_type_is_document(named_type, schema.types) &&
+        (
+          named_type.all_of.length() > 0 ||
+          named_type.any_of.length() > 0 ||
+          named_type.one_of.length() > 0 ||
+          named_type.not_constraints.length() > 0
+        ) {
         output.write_string("\n")
         write_named_type_algebra_validator(output, named_type, schema.types)
       }
@@ -588,6 +592,7 @@ fn write_document_conversions(
   output.write_string("(\n  values : Array[@ion_model.IonValue],\n) -> ")
   output.write_string(generated_name)
   if named_type.container_lengths.length() > 0 ||
+    named_type.all_of.length() > 0 ||
     named_type.element_type is Some(_) ||
     named_type.annotation_constraints.length() > 0 ||
     has_named_contains_values(named_type) ||
@@ -632,6 +637,7 @@ fn has_document_alias_constraints(
       match find_named_type(types, next) {
         Some(target) =>
           target.container_lengths.length() > 0 ||
+          target.all_of.length() > 0 ||
           target.annotation_constraints.length() > 0 ||
           target.element_type is Some(_) ||
           has_named_contains_values(target) ||
@@ -656,6 +662,25 @@ fn write_document_constraint_chain(
 ) -> Unit raise SchemaError {
   if remaining <= 0 {
     return
+  }
+  for reference in named_type.all_of {
+    match reference {
+      TypeRef::Named(name) =>
+        match find_named_type(types, name) {
+          Some(branch) =>
+            write_document_constraint_chain(
+              output,
+              branch,
+              types,
+              values_expression,
+              path_expression,
+              indent,
+              remaining - 1,
+            )
+          None => ()
+        }
+      _ => ()
+    }
   }
   write_integer_range_checks(
     output,

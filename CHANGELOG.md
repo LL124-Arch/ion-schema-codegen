@@ -1,5 +1,12 @@
 # 变更记录
 
+## 0.56.0 — 2026-10-24
+
+- 重复 `type`、`valid_values`、`fields`、`element`、`field_names` 和 `ordered_elements` 作为独立约束共同生效；第一项决定已有 MoonBit 类型表示，后续项校验原始 Ion 值。
+- `fields` 保留每一组开放/封闭与 occurs 规则，`valid_values` 保留集合或范围的交集语义；不覆盖字段或拼接成允许值并集。
+- 文档流的重复 element/ordered_elements 在流校验链内执行，别名继续继承；通用 document 类型代数仍不支持。
+- 重复类型名、同一 fields 内的重复字段名、重复 occurs 及不支持的单项约束仍明确报错。
+
 ## 0.55.0 — 2026-10-24
 
 - 新增 ISL 文档整理入口 `prepare_schema_document`，检查版本、header/type/footer 顺序及开放内容的保留字规则。
