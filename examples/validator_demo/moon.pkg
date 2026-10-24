@@ -1,0 +1,6 @@
+import {
+  "LL124-Arch/ion-schema-codegen" @codegen,
+  "LL124-Arch/amazon-ion-moonbit-core/format_model" @model,
+}
+
+pkgtype(kind: "executable")

@@ -12,7 +12,10 @@ fn validator_prepare(schema : Schema) -> SchemaValidator raise SchemaError {
 pub fn SchemaValidator::new(
   source : String,
 ) -> SchemaValidator raise SchemaError {
-  validator_prepare(parse_schema(source))
+  let values = @ion.parse_text(source) catch {
+    error => raise SchemaError::IonParse(error.summary())
+  }
+  SchemaValidator::from_ion_values(values)
 }
 
 ///|

@@ -2,6 +2,19 @@
 
 `ion-schema-codegen` 根据受支持的 Ion Schema 2.0 文档生成 MoonBit 类型和双向 Ion 转换函数。它依赖 [amazon-ion-moonbit-core](https://github.com/LL124-Arch/amazon-ion-moonbit-core) 解析 Ion 文本并表示 Ion 值。
 
+## 直接校验 Ion 数据
+
+`SchemaValidator` 可解析一次 Schema 并重复检查原始 Ion 值、文本或 document 流，
+无需先生成业务类型。报告区分 `valid` / `invalid` / `incomplete`，路径保留重复字段的
+出现序号及 SID；支持已解析模型的约束、有限递归与命名原生类型的注解。
+`check_schema` 负责 Schema 检查，`validate*` 才检查数据。支持范围及限制见
+[运行时校验说明](docs/RUNTIME_VALIDATION.md) 和 [可运行示例](examples/validator_demo/README.md)。
+
+```sh
+moon run --target native ./cli validate examples/schema_compat/order.isl Order examples/validator_demo/order.ion
+moon run --target native ./cli validate-document examples/schema_compat/order.isl StreamAlias examples/validator_demo/stream.ion
+```
+
 ## 支持范围
 
 - ISL 2.0 开放内容：允许版本前、header/type 之间与 footer 后的普通用户内容；支持 schema_header/type/schema_footer 的元数据与 `user_reserved_fields` 声明。已声明的保留字段名按文件和位置隔离，非保留字段名可直接使用；ISL 关键字不能被声明为元数据。嵌套类型参数同样适用，`contains` / `valid_values` 中的 Ion 字面值不作为 Schema 重写。
