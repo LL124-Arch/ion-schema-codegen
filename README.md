@@ -4,6 +4,8 @@
 
 ## 支持范围
 
+- ISL 2.0 开放内容：允许版本前、header/type 之间与 footer 后的普通用户内容；支持 schema_header/type/schema_footer 的元数据与 `user_reserved_fields` 声明。已声明的保留字段名按文件和位置隔离，非保留字段名可直接使用；ISL 关键字不能被声明为元数据。嵌套类型参数同样适用，`contains` / `valid_values` 中的 Ion 字面值不作为 Schema 重写。
+- 重复约束：`type`、`valid_values`、`fields`、`element`、`field_names`、`ordered_elements` 的多次声明分别执行并共同成立，数值范围/长度/逻辑约束等原有多项检查继续保留。第一项决定 MoonBit 类型表示，其余项校验原 Ion 值；重复 `fields` 不合并字段定义，重复 `valid_values` 不变成并集。document 的重复 element/ordered_elements 及别名在文档流校验链执行。详见 [兼容说明与实例](docs/ISL_2_0_COMPATIBILITY.md)。
 - all_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import 及 `$null_or` 类型参数列表，所有分支均须匹配；命名类型省略 type 时按 `$any` 表示并保留原始 IonValue。类型参数支持 scalar、list、struct 和带额外约束的命名类型 inline definition 及 `$null_or::{...}`；inline definitions 自身也可嵌套使用 `all_of`、`any_of`、`one_of` 和 `not`，容器字段与元素可继续组合这些约束。plain null 与 inline 类型匹配值组成并集，typed null 仍按声明类型区分。
 - any_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、scalar/list/struct/命名类型 inline definition 及 `$null_or` 类型参数列表，至少一个分支须匹配；支持重叠分支并逐支独立验证。
 - one_of 支持非空 built-in、同 Schema 命名类型、CLI 已解析的直接导入类型、CLI inline import、scalar/list/struct/命名类型 inline definition 及 `$null_or` 类型参数列表，恰好一个分支须匹配；重叠类型和重复分支会分别计数。
@@ -64,7 +66,7 @@ moon run --target native ./cli examples/person/person.isl examples/person/genera
 
 ## 端到端示例
 
-仓库内的 [Person Schema](examples/person/person.isl) 声明必选 `id`、`name` 和可选 `nickname`。从仓库根目录依次运行：
+新增 [Schema 兼容示例](examples/schema_compat/README.md) 展示跨文件元数据、重复字段/元素/顺序约束和文档流。原有 [Person Schema](examples/person/person.isl) 声明必选 `id`、`name` 和可选 `nickname`。从仓库根目录依次运行：
 
 ```sh
 moon run --target native ./cli examples/person/person.isl examples/person/generated.mbt

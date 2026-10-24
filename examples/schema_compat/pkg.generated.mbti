@@ -1,0 +1,70 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "LL124-Arch/ion-schema-codegen/examples/schema_compat"
+
+import {
+  "LL124-Arch/amazon-ion-moonbit-core/format_model",
+  "moonbitlang/core/bigint",
+}
+
+// Values
+pub fn from_ion_Values(@format_model.IonValue) -> Array[@format_model.IonValue] raise ConversionError
+
+pub fn from_ion_document_Stream(Array[@format_model.IonValue]) -> Array[@format_model.IonValue] raise ConversionError
+
+pub fn from_ion_document_StreamAlias(Array[@format_model.IonValue]) -> Array[@format_model.IonValue] raise ConversionError
+
+pub fn is_valid_values_Imported1Positive(@format_model.IonValue) -> Bool
+
+pub fn is_valid_values_Limited(@format_model.IonValue) -> Bool
+
+pub fn to_ion_Values(Array[@format_model.IonValue]) -> @format_model.IonValue
+
+pub fn to_ion_document_Stream(Array[@format_model.IonValue]) -> Array[@format_model.IonValue]
+
+pub fn to_ion_document_StreamAlias(Array[@format_model.IonValue]) -> Array[@format_model.IonValue]
+
+pub fn validate_Imported1Positive(@format_model.IonValue) -> Unit raise ConversionError
+
+pub fn validate_Limited(@format_model.IonValue) -> Unit raise ConversionError
+
+pub fn validate_type_Limited(@format_model.IonValue) -> Unit raise ConversionError
+
+pub fn validate_type_Order(@format_model.IonValue) -> Unit raise ConversionError
+
+pub fn validate_type_Values(@format_model.IonValue) -> Unit raise ConversionError
+
+// Errors
+pub(all) suberror ConversionError {
+  TypeMismatch(path~ : String, expected~ : String, actual~ : String)
+  InvalidValue(path~ : String, constraint~ : String, actual~ : String)
+  MissingRequiredField(path~ : String)
+  DuplicateField(path~ : String)
+  FieldOccurrenceMismatch(path~ : String, expected~ : String, actual~ : Int)
+  UnknownField(path~ : String)
+  UnknownSymbol(path~ : String, sid~ : Int)
+  NullNotAllowed(path~ : String)
+  AnnotatedValueNotSupported(path~ : String)
+}
+
+// Types and methods
+pub(all) struct Order {
+  quantity : @bigint.BigInt
+  ion_schema_codegen_open_content : Array[(@format_model.IonSymbol, @format_model.IonValue)]
+}
+pub fn Order::from_ion(@format_model.IonValue) -> Self raise ConversionError
+pub fn Order::to_ion(Self) -> @format_model.IonValue
+
+// Type aliases
+pub using @bigint {type BigInt as Imported1Positive}
+
+pub using @bigint {type BigInt as Limited}
+
+pub using @bigint {type BigInt as Quantity}
+
+pub type Stream = Array[@format_model.IonValue]
+
+pub type StreamAlias = Array[@format_model.IonValue]
+
+pub type Values = Array[@format_model.IonValue]
+
+// Traits

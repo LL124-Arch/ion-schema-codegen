@@ -6,6 +6,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: hustcer/setup-moonbit@v1
+        with:
+          version: 0.10.14+7d59c7ec9
+          core-version: 0.10.14+7d59c7ec9
       - run: moon update
       - run: moon fmt --check
       - run: moon check --deny-warn --target all
@@ -41,6 +44,9 @@ jobs:
       - run: moon run --target native ./cli fixtures/constraints/constraints.isl fixtures/constraints/generated.mbt
       - run: moon run --target native ./cli fixtures/references/references.isl fixtures/references/generated.mbt
       - run: moon run --target native ./cli examples/person/person.isl examples/person/generated.mbt
+      - run: moon run --target native ./cli examples/schema_compat/order.isl examples/schema_compat/generated.mbt
       - run: moon fmt
       - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt fixtures/constraints/generated.mbt fixtures/contains/generated.mbt fixtures/precision/generated.mbt fixtures/timestamps/generated.mbt fixtures/ieee754/generated.mbt fixtures/regex/generated.mbt fixtures/annotations/generated.mbt fixtures/all_of/generated.mbt fixtures/any_of/generated.mbt fixtures/one_of/generated.mbt fixtures/not/generated.mbt fixtures/imports/generated.mbt fixtures/inline_imports/generated.mbt fixtures/recursion/generated.mbt
       - run: moon run --target native ./examples/person
+      - run: git diff --exit-code -- examples/schema_compat/generated.mbt
+      - run: moon run --target native ./examples/schema_compat
