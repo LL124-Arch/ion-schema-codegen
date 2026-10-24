@@ -453,6 +453,15 @@ async fn cli_load_document(
     error =>
       raise CliError("Ion parse error in " + path + ": " + error.summary())
   }
+  let values = @codegen.prepare_schema_document(values) catch {
+    error =>
+      raise CliError(
+        "invalid schema document in " +
+        path +
+        ": " +
+        schema_error_message(error),
+      )
+  }
   match values {
     [first, ..] =>
       match first.without_annotations() {
