@@ -17,6 +17,7 @@ options(
   targets: {
     "imports.mbt": [ "native" ],
     "main.mbt": [ "native" ],
+    "validate.mbt": [ "native" ],
     "unsupported_main.mbt": [ "wasm", "wasm-gc", "js" ],
   },
 )

@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.58.0 — 2026-10-24
+
+- Native CLI 新增 `validate` / `validate-document`，读取 Schema、类型名与 Ion 文件，输出 JSON 报告；invalid/incomplete 返回非零状态。
+- 校验与生成共用逐文件 imports 解析、别名及作用域检查；诊断显示声明类型名与所属文件，不暴露解析器的重命名细节。
+- 校验命令只读取文件，不生成或覆盖业务源码。
+
 ## 0.57.0 — 2026-10-24
 
 - 新增可复用 `SchemaValidator`，无需生成或动态编译业务类型即可直接校验原始 Ion 值、文本和 document 流。

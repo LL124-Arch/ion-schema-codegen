@@ -37,9 +37,28 @@ fn schema_error_message(error : @codegen.SchemaError) -> String {
 ///|
 async fn main {
   let args = @env.args()
+  if args.length() > 1 &&
+    (args[1] == "validate" || args[1] == "validate-document") {
+    if args.length() != 5 {
+      raise CliError(
+        "usage: ./cli validate|validate-document <schema.isl> <type> <input.ion>",
+      )
+    }
+    let (report, json) = cli_validate_from_file(
+      args[2],
+      args[3],
+      args[4],
+      args[1] == "validate-document",
+    )
+    @stdio.stdout.write(json.stringify() + "\n")
+    if !report.is_valid() {
+      raise CliError("Ion data did not pass validation; see the JSON report")
+    }
+    return
+  }
   if args.length() != 3 {
     raise CliError(
-      "usage: moon run --target native ./cli <schema.isl> <generated.mbt>",
+      "usage: ./cli <schema.isl> <generated.mbt> OR ./cli validate|validate-document <schema.isl> <type> <input.ion>",
     )
   }
   let input_path = args[1]

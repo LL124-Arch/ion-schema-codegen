@@ -905,15 +905,23 @@ fn cli_schema_values(
 }
 
 ///|
-async fn cli_generate_from_file(
+async fn cli_resolve_documents(
   input_path : String,
-) -> @codegen.GeneratedCode raise CliError {
+) -> Array[CliSchemaDocument] raise CliError {
   let documents : Array[CliSchemaDocument] = []
   let active_paths : Array[String] = []
   let _ = cli_load_document(input_path, documents, active_paths)
   for document in documents {
     let _ = cli_scope(document, documents)
   }
+  documents
+}
+
+///|
+async fn cli_generate_from_file(
+  input_path : String,
+) -> @codegen.GeneratedCode raise CliError {
+  let documents = cli_resolve_documents(input_path)
   let flattened = cli_schema_values(documents)
   @codegen.generate_code_from_ion_values(flattened) catch {
     error => {
