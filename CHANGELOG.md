@@ -1,5 +1,11 @@
 # 变更记录
 
+## 0.59.0 — 2026-10-24
+
+- 原始值校验入口可对命名 int、struct、list 等类型执行已支持的注解约束，保留原 Ion 注解而不受业务类型投影限制。
+- 运行时与代码生成共享引用检查，分别应用注解承载限制；生成器现有的注解保留边界保持明确。
+- 简化注解约束失败的报告列出 required/closed、声明 token 和实际 token。
+
 ## 0.58.0 — 2026-10-24
 
 - Native CLI 新增 `validate` / `validate-document`，读取 Schema、类型名与 Ion 文件，输出 JSON 报告；invalid/incomplete 返回非零状态。

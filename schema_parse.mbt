@@ -2471,7 +2471,10 @@ fn supports_ordered_elements(
 }
 
 ///|
-fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError {
+fn validate_type_references(
+  types : Array[NamedType],
+  for_codegen? : Bool = true,
+) -> Unit raise SchemaError {
   for named_type in types {
     match named_type.ordered_elements {
       Some(ordered_elements) => {
@@ -2566,7 +2569,8 @@ fn validate_type_references(types : Array[NamedType]) -> Unit raise SchemaError 
         named_type.name,
       )
     }
-    if named_type.annotation_constraints.length() > 0 &&
+    if for_codegen &&
+      named_type.annotation_constraints.length() > 0 &&
       !supports_annotations_constraint(types, named_type.body) {
       raise SchemaError::UnsupportedFeature(
         "annotations currently requires an IonValue-backed type at type " +

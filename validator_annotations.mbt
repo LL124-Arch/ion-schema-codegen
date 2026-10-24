@@ -60,8 +60,14 @@ fn validator_check_annotations(
         ) {
         ignore(
           context.reject(
-            label, annotation_path, "annotations", "allowed and required annotation set",
-            "annotation mismatch", quiet,
+            label,
+            annotation_path,
+            "annotations",
+            (if constraint.closed { "closed " } else { "" }) +
+            (if constraint.required { "required " } else { "" }) +
+            constraint.allowed.join(","),
+            symbols.map(symbol => symbol.display()).join("::"),
+            quiet,
           ),
         )
         valid = false

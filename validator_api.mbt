@@ -1,6 +1,6 @@
 ///|
 fn validator_prepare(schema : Schema) -> SchemaValidator raise SchemaError {
-  validate_type_references(schema.types)
+  validate_type_references(schema.types, for_codegen=false)
   validate_recursive_alias_cycles(schema.types)
   validate_unguarded_type_cycles(schema.types)
   { types: schema.types, }
