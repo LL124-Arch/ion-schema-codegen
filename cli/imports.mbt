@@ -272,18 +272,7 @@ fn cli_collect_inline_imports(
   let imports : Array[CliSchemaImport] = []
   for value in values {
     if cli_annotation_is(value, "type") {
-      for argument in value.get_fields("all_of") {
-        cli_collect_logical_imports(argument, path, imports)
-      }
-      for argument in value.get_fields("any_of") {
-        cli_collect_logical_imports(argument, path, imports)
-      }
-      for argument in value.get_fields("one_of") {
-        cli_collect_logical_imports(argument, path, imports)
-      }
-      for argument in value.get_fields("not") {
-        cli_collect_logical_argument_import(argument, path, imports)
-      }
+      cli_collect_type_imports(value, path, imports)
     }
   }
   imports
@@ -310,27 +299,43 @@ fn cli_collect_logical_argument_import(
   path : String,
   imports : Array[CliSchemaImport],
 ) -> Unit raise CliError {
-  match value.annotations() {
-    [annotation] if annotation.text_value() == Some("$null_or") =>
-      cli_collect_logical_argument_import(
-        value.without_annotations(),
-        path,
-        imports,
-      )
-    _ =>
-      match value.without_annotations() {
-        @model.IonValue::Struct(_) if value.get_fields("id").length() > 0 => {
-          let imported = cli_import_entry(value, path)
-          if imported.imported_type is None || imported.as_name is Some(_) {
-            raise CliError(
-              "inline import requires id and type and does not support as in " +
-              path,
-            )
-          }
-          imports.push({ ..imported, is_inline: true, })
-        }
-        _ => ()
+  let plain = value.without_annotations()
+  match plain {
+    @model.IonValue::Struct(_) if plain.get_fields("id").length() > 0 => {
+      let imported = cli_import_entry(plain, path)
+      if imported.imported_type is None || imported.as_name is Some(_) {
+        raise CliError(
+          "inline import requires id and type and does not support as in " +
+          path,
+        )
       }
+      imports.push({ ..imported, is_inline: true, })
+    }
+    @model.IonValue::Struct(_) => cli_collect_type_imports(plain, path, imports)
+    _ => ()
+  }
+}
+
+///|
+// Walk type-argument positions only. Literal values may have fields named
+// id/type/annotations and must never load files or have their symbols renamed.
+fn cli_collect_type_imports(
+  value : @model.IonValue,
+  path : String,
+  imports : Array[CliSchemaImport],
+) -> Unit raise CliError {
+  for (symbol, argument) in value.fields() {
+    match symbol.text_value() {
+      Some("type" | "element" | "field_names" | "not" | "annotations") =>
+        cli_collect_logical_argument_import(argument, path, imports)
+      Some("all_of" | "any_of" | "one_of" | "ordered_elements") =>
+        cli_collect_logical_imports(argument, path, imports)
+      Some("fields") =>
+        for (_, field) in argument.fields() {
+          cli_collect_logical_argument_import(field, path, imports)
+        }
+      _ => ()
+    }
   }
 }
 
@@ -593,62 +598,24 @@ fn cli_rewrite_reference(
 }
 
 ///|
-fn cli_rewrite_argument(
-  value : @model.IonValue,
-  scope : Array[(String, String)],
-) -> @model.IonValue {
-  match value.without_annotations() {
-    @model.IonValue::Struct(fields) => {
-      let rewritten_fields : Array[(@model.IonSymbol, @model.IonValue)] = []
-      for (symbol, field_value) in fields {
-        let rewritten_value = if symbol.text_value() == Some("type") {
-          cli_rewrite_reference(field_value, scope)
-        } else {
-          field_value
-        }
-        rewritten_fields.push((symbol, rewritten_value))
-      }
-      @model.IonValue::Struct(rewritten_fields).with_annotations(
-        value.annotations(),
-      )
-    }
-    _ => cli_rewrite_reference(value, scope)
-  }
-}
-
-///|
 fn cli_rewrite_fields(
   value : @model.IonValue,
   scope : Array[(String, String)],
-) -> @model.IonValue {
+  document : CliSchemaDocument,
+  documents : Array[CliSchemaDocument],
+) -> @model.IonValue raise CliError {
   match value.without_annotations() {
     @model.IonValue::Struct(fields) => {
-      let rewritten_fields : Array[(@model.IonSymbol, @model.IonValue)] = []
-      for (symbol, field_value) in fields {
-        rewritten_fields.push(
-          (symbol, cli_rewrite_argument(field_value, scope)),
+      let rewritten : Array[(@model.IonSymbol, @model.IonValue)] = []
+      for (symbol, argument) in fields {
+        rewritten.push(
+          (
+            symbol,
+            cli_rewrite_logical_argument(argument, scope, document, documents),
+          ),
         )
       }
-      @model.IonValue::Struct(rewritten_fields).with_annotations(
-        value.annotations(),
-      )
-    }
-    _ => value
-  }
-}
-
-///|
-fn cli_rewrite_ordered_elements(
-  value : @model.IonValue,
-  scope : Array[(String, String)],
-) -> @model.IonValue {
-  match value.without_annotations() {
-    @model.IonValue::List(elements) => {
-      let rewritten : Array[@model.IonValue] = []
-      for element in elements {
-        rewritten.push(cli_rewrite_argument(element, scope))
-      }
-      @model.IonValue::List(rewritten).with_annotations(value.annotations())
+      @model.IonValue::Struct(rewritten).with_annotations(value.annotations())
     }
     _ => value
   }
@@ -662,7 +629,7 @@ fn cli_rewrite_logical_argument(
   documents : Array[CliSchemaDocument],
 ) -> @model.IonValue raise CliError {
   match value.annotations() {
-    [annotation] if annotation.text_value() == Some("$null_or") =>
+    [_, ..] =>
       cli_rewrite_logical_argument(
         value.without_annotations(),
         scope,
@@ -718,13 +685,10 @@ fn cli_rewrite_logical_argument(
             ),
           )
         }
-        @model.IonValue::Struct(_) => cli_rewrite_argument(value, scope)
+        @model.IonValue::Struct(_) =>
+          cli_rewrite_type(value, None, scope, document, documents)
         _ => value
       }
-    _ =>
-      raise CliError(
-        "unsupported annotated inline type argument in " + document.path,
-      )
   }
 }
 
@@ -768,7 +732,7 @@ fn cli_rewrite_logical_list(
 ///|
 fn cli_rewrite_type(
   value : @model.IonValue,
-  name : String,
+  name : String?,
   scope : Array[(String, String)],
   document : CliSchemaDocument,
   documents : Array[CliSchemaDocument],
@@ -779,21 +743,16 @@ fn cli_rewrite_type(
       for (symbol, field_value) in fields {
         let field_name = symbol.text_value()
         let rewritten_value = match field_name {
-          Some("name") =>
-            @model.IonValue::Symbol(@model.IonSymbol::from_text(name))
-          Some("type") => cli_rewrite_reference(field_value, scope)
-          Some("element") => cli_rewrite_argument(field_value, scope)
-          Some("ordered_elements") =>
-            cli_rewrite_ordered_elements(field_value, scope)
-          Some("fields") => cli_rewrite_fields(field_value, scope)
-          Some("all_of") =>
-            cli_rewrite_logical_list(field_value, scope, document, documents)
-          Some("any_of" | "one_of") =>
-            cli_rewrite_logical_list(field_value, scope, document, documents)
-          Some("not") =>
+          Some("name") if name is Some(replacement) =>
+            @model.IonValue::Symbol(@model.IonSymbol::from_text(replacement))
+          Some("type" | "element" | "field_names" | "annotations" | "not") =>
             cli_rewrite_logical_argument(
               field_value, scope, document, documents,
             )
+          Some("fields") =>
+            cli_rewrite_fields(field_value, scope, document, documents)
+          Some("all_of" | "any_of" | "one_of" | "ordered_elements") =>
+            cli_rewrite_logical_list(field_value, scope, document, documents)
           _ => field_value
         }
         rewritten_fields.push((symbol, rewritten_value))
@@ -865,7 +824,7 @@ fn cli_schema_values(
         output.push(
           cli_rewrite_type(
             value,
-            cli_emitted_type_name(document, original_name),
+            Some(cli_emitted_type_name(document, original_name)),
             scope,
             document,
             documents,
@@ -892,7 +851,13 @@ fn cli_schema_values(
         None => ""
       }
       output.push(
-        cli_rewrite_type(value, original_name, root_scope, root, documents),
+        cli_rewrite_type(
+          value,
+          Some(original_name),
+          root_scope,
+          root,
+          documents,
+        ),
       )
     }
   }

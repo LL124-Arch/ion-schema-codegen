@@ -71,7 +71,7 @@ fn parse_repeated_constraint(
   ])
   let index = types.length()
   types.push(empty_inline_named_type(branch_name))
-  let branch = parse_named_type(branch_value, types, false)
+  let branch = parse_named_type(branch_value, types, true)
   types[index] = { ..branch, is_inline: true, }
   TypeRef::Named(branch_name)
 }
