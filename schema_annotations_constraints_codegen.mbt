@@ -1,7 +1,12 @@
 ///|
-fn has_annotation_constraints(types : Array[NamedType]) -> Bool {
+fn has_annotation_constraints(
+  types : Array[NamedType],
+) -> Bool raise SchemaError {
   for named_type in types {
-    if named_type.annotation_constraints.length() > 0 {
+    if !named_type_is_document(named_type, types) &&
+      named_type.annotation_constraints.any(constraint => {
+        constraint.standard_type_ref is None
+      }) {
       return true
     }
   }

@@ -30,6 +30,7 @@ fn generate_code_for_schema(schema : Schema) -> GeneratedCode raise SchemaError 
   validate_recursive_alias_cycles(schema.types)
   validate_unguarded_type_cycles(schema.types)
   validate_codegen_subset(schema.types)
+  let schema : Schema = { types: codegen_reachable_types(schema.types), }
   let ordered_types = order_named_types(schema.types)
 
   let package_imports : Array[String] = []
