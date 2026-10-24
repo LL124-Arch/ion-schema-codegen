@@ -141,7 +141,8 @@ fn ion_schema_codegen_values_equal(
     (@ion_model.IonValue::Int(left), @ion_model.IonValue::Int(right)) =>
       left == right
     (@ion_model.IonValue::Float(left), @ion_model.IonValue::Float(right)) =>
-      left == right || (left.is_nan() && right.is_nan())
+      left.reinterpret_as_uint() == right.reinterpret_as_uint() ||
+      (left.is_nan() && right.is_nan())
     (@ion_model.IonValue::Decimal(left), @ion_model.IonValue::Decimal(right)) =>
       left.coefficient() == right.coefficient() &&
       left.exponent() == right.exponent()

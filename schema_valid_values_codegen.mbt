@@ -11,7 +11,7 @@ fn has_valid_values(types : Array[NamedType]) -> Bool {
 ///|
 fn write_valid_values_helpers(output : StringBuilder) -> Unit {
   output.write_string(
-    "///|\nfn ion_schema_codegen_valid_values_equal(\n  left : @ion_model.IonValue,\n  right : @ion_model.IonValue,\n) -> Bool {\n  let left = left.without_annotations()\n  let right = right.without_annotations()\n  match (left, right) {\n    (@ion_model.IonValue::Float(left), @ion_model.IonValue::Float(right)) =>\n      left == right || (left.is_nan() && right.is_nan())\n    _ => left.equal(right)\n  }\n}\n",
+    "///|\nfn ion_schema_codegen_valid_values_equal(\n  left : @ion_model.IonValue,\n  right : @ion_model.IonValue,\n) -> Bool {\n  let left = left.without_annotations()\n  let right = right.without_annotations()\n  match (left, right) {\n    (@ion_model.IonValue::Float(left), @ion_model.IonValue::Float(right)) =>\n      left.reinterpret_as_uint() == right.reinterpret_as_uint() ||\n      (left.is_nan() && right.is_nan())\n    (@ion_model.IonValue::Symbol(left), @ion_model.IonValue::Symbol(right)) =>\n      match (left.text_value(), right.text_value()) {\n        (Some(a), Some(b)) => a == b\n        (None, None) => left.sid_value() == right.sid_value()\n        _ => false\n      }\n    _ => left.equal(right)\n  }\n}\n",
   )
 }
 

@@ -173,7 +173,8 @@ fn validator_support_values_equal(
     (@model.IonValue::Bool(left), @model.IonValue::Bool(right)) => left == right
     (@model.IonValue::Int(left), @model.IonValue::Int(right)) => left == right
     (@model.IonValue::Float(left), @model.IonValue::Float(right)) =>
-      left == right || (left.is_nan() && right.is_nan())
+      left.reinterpret_as_uint() == right.reinterpret_as_uint() ||
+      (left.is_nan() && right.is_nan())
     (@model.IonValue::Decimal(left), @model.IonValue::Decimal(right)) =>
       left.coefficient() == right.coefficient() &&
       left.exponent() == right.exponent()
@@ -251,7 +252,14 @@ fn validator_support_valid_values_equal(
   let right = right.without_annotations()
   match (left, right) {
     (@model.IonValue::Float(left), @model.IonValue::Float(right)) =>
-      left == right || (left.is_nan() && right.is_nan())
+      left.reinterpret_as_uint() == right.reinterpret_as_uint() ||
+      (left.is_nan() && right.is_nan())
+    (@model.IonValue::Symbol(left), @model.IonValue::Symbol(right)) =>
+      match (left.text_value(), right.text_value()) {
+        (Some(a), Some(b)) => a == b
+        (None, None) => left.sid_value() == right.sid_value()
+        _ => false
+      }
     _ => left.equal(right)
   }
 }

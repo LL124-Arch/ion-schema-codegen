@@ -270,7 +270,14 @@ fn ion_schema_codegen_valid_values_equal(
   let right = right.without_annotations()
   match (left, right) {
     (@ion_model.IonValue::Float(left), @ion_model.IonValue::Float(right)) =>
-      left == right || (left.is_nan() && right.is_nan())
+      left.reinterpret_as_uint() == right.reinterpret_as_uint() ||
+      (left.is_nan() && right.is_nan())
+    (@ion_model.IonValue::Symbol(left), @ion_model.IonValue::Symbol(right)) =>
+      match (left.text_value(), right.text_value()) {
+        (Some(a), Some(b)) => a == b
+        (None, None) => left.sid_value() == right.sid_value()
+        _ => false
+      }
     _ => left.equal(right)
   }
 }
