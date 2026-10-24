@@ -177,7 +177,8 @@ fn ion_schema_codegen_validate_ordered_RecursiveSequence(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 0 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }

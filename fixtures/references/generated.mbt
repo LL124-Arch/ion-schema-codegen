@@ -594,7 +594,7 @@ fn ion_schema_codegen_validate_ordered_OrderedValues(
   possible[4][value_count] = true
   let mut ordered_start_3 = 0
   while ordered_start_3 <= value_count {
-    let mut ordered_count_3 = 2
+    let mut ordered_count_3 = 0
     let mut ordered_found_3 = false
     let mut ordered_prefix_matches_3 = true
     while ordered_count_3 <= value_count - ordered_start_3 &&
@@ -606,7 +606,8 @@ fn ion_schema_codegen_validate_ordered_OrderedValues(
         ) {
         ordered_prefix_matches_3 = false
       }
-      if ordered_prefix_matches_3 &&
+      if ordered_count_3 >= 2 &&
+        ordered_prefix_matches_3 &&
         possible[4][ordered_start_3 + ordered_count_3] {
         ordered_found_3 = true
       }
@@ -617,7 +618,7 @@ fn ion_schema_codegen_validate_ordered_OrderedValues(
   }
   let mut ordered_start_2 = 0
   while ordered_start_2 <= value_count {
-    let mut ordered_count_2 = 1
+    let mut ordered_count_2 = 0
     let mut ordered_found_2 = false
     let mut ordered_prefix_matches_2 = true
     while ordered_count_2 <= value_count - ordered_start_2 &&
@@ -629,7 +630,8 @@ fn ion_schema_codegen_validate_ordered_OrderedValues(
         ) {
         ordered_prefix_matches_2 = false
       }
-      if ordered_prefix_matches_2 &&
+      if ordered_count_2 >= 1 &&
+        ordered_prefix_matches_2 &&
         possible[3][ordered_start_2 + ordered_count_2] {
         ordered_found_2 = true
       }
@@ -652,7 +654,8 @@ fn ion_schema_codegen_validate_ordered_OrderedValues(
         ) {
         ordered_prefix_matches_1 = false
       }
-      if ordered_prefix_matches_1 &&
+      if ordered_count_1 >= 0 &&
+        ordered_prefix_matches_1 &&
         possible[2][ordered_start_1 + ordered_count_1] {
         ordered_found_1 = true
       }
@@ -663,7 +666,7 @@ fn ion_schema_codegen_validate_ordered_OrderedValues(
   }
   let mut ordered_start_0 = 0
   while ordered_start_0 <= value_count {
-    let mut ordered_count_0 = 1
+    let mut ordered_count_0 = 0
     let mut ordered_found_0 = false
     let mut ordered_prefix_matches_0 = true
     while ordered_count_0 <= value_count - ordered_start_0 &&
@@ -675,7 +678,8 @@ fn ion_schema_codegen_validate_ordered_OrderedValues(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 1 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }
@@ -768,7 +772,7 @@ fn ion_schema_codegen_validate_ordered_OrderedBaseList(
   possible[1][value_count] = true
   let mut ordered_start_0 = 0
   while ordered_start_0 <= value_count {
-    let mut ordered_count_0 = 1
+    let mut ordered_count_0 = 0
     let mut ordered_found_0 = false
     let mut ordered_prefix_matches_0 = true
     while ordered_count_0 <= value_count - ordered_start_0 &&
@@ -780,7 +784,8 @@ fn ion_schema_codegen_validate_ordered_OrderedBaseList(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 1 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }
@@ -863,7 +868,7 @@ fn ion_schema_codegen_validate_ordered_OrderedAliasList(
   possible[1][value_count] = true
   let mut ordered_start_0 = 0
   while ordered_start_0 <= value_count {
-    let mut ordered_count_0 = 2
+    let mut ordered_count_0 = 0
     let mut ordered_found_0 = false
     let mut ordered_prefix_matches_0 = true
     while ordered_count_0 <= value_count - ordered_start_0 &&
@@ -875,7 +880,8 @@ fn ion_schema_codegen_validate_ordered_OrderedAliasList(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 2 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }
@@ -979,7 +985,7 @@ fn ion_schema_codegen_validate_ordered_OrderedBacktrack(
   possible[2][value_count] = true
   let mut ordered_start_1 = 0
   while ordered_start_1 <= value_count {
-    let mut ordered_count_1 = 1
+    let mut ordered_count_1 = 0
     let mut ordered_found_1 = false
     let mut ordered_prefix_matches_1 = true
     while ordered_count_1 <= value_count - ordered_start_1 &&
@@ -991,7 +997,8 @@ fn ion_schema_codegen_validate_ordered_OrderedBacktrack(
         ) {
         ordered_prefix_matches_1 = false
       }
-      if ordered_prefix_matches_1 &&
+      if ordered_count_1 >= 1 &&
+        ordered_prefix_matches_1 &&
         possible[2][ordered_start_1 + ordered_count_1] {
         ordered_found_1 = true
       }
@@ -1014,7 +1021,8 @@ fn ion_schema_codegen_validate_ordered_OrderedBacktrack(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 0 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }
@@ -1127,7 +1135,7 @@ fn ion_schema_codegen_validate_ordered_OrderedExpression(
   possible[2][value_count] = true
   let mut ordered_start_1 = 0
   while ordered_start_1 <= value_count {
-    let mut ordered_count_1 = 1
+    let mut ordered_count_1 = 0
     let mut ordered_found_1 = false
     let mut ordered_prefix_matches_1 = true
     while ordered_count_1 <= value_count - ordered_start_1 &&
@@ -1139,7 +1147,8 @@ fn ion_schema_codegen_validate_ordered_OrderedExpression(
         ) {
         ordered_prefix_matches_1 = false
       }
-      if ordered_prefix_matches_1 &&
+      if ordered_count_1 >= 1 &&
+        ordered_prefix_matches_1 &&
         possible[2][ordered_start_1 + ordered_count_1] {
         ordered_found_1 = true
       }
@@ -1150,7 +1159,7 @@ fn ion_schema_codegen_validate_ordered_OrderedExpression(
   }
   let mut ordered_start_0 = 0
   while ordered_start_0 <= value_count {
-    let mut ordered_count_0 = 1
+    let mut ordered_count_0 = 0
     let mut ordered_found_0 = false
     let mut ordered_prefix_matches_0 = true
     while ordered_count_0 <= value_count - ordered_start_0 &&
@@ -1162,7 +1171,8 @@ fn ion_schema_codegen_validate_ordered_OrderedExpression(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 1 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }
@@ -1287,7 +1297,8 @@ fn ion_schema_codegen_validate_ordered_OrderedDocument(
         ) {
         ordered_prefix_matches_1 = false
       }
-      if ordered_prefix_matches_1 &&
+      if ordered_count_1 >= 0 &&
+        ordered_prefix_matches_1 &&
         possible[2][ordered_start_1 + ordered_count_1] {
         ordered_found_1 = true
       }
@@ -1298,7 +1309,7 @@ fn ion_schema_codegen_validate_ordered_OrderedDocument(
   }
   let mut ordered_start_0 = 0
   while ordered_start_0 <= value_count {
-    let mut ordered_count_0 = 1
+    let mut ordered_count_0 = 0
     let mut ordered_found_0 = false
     let mut ordered_prefix_matches_0 = true
     while ordered_count_0 <= value_count - ordered_start_0 &&
@@ -1310,7 +1321,8 @@ fn ion_schema_codegen_validate_ordered_OrderedDocument(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 1 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }
@@ -1423,7 +1435,7 @@ fn ion_schema_codegen_validate_ordered_OrderedDocumentAlias(
   possible[2][value_count] = true
   let mut ordered_start_1 = 0
   while ordered_start_1 <= value_count {
-    let mut ordered_count_1 = 1
+    let mut ordered_count_1 = 0
     let mut ordered_found_1 = false
     let mut ordered_prefix_matches_1 = true
     while ordered_count_1 <= value_count - ordered_start_1 &&
@@ -1435,7 +1447,8 @@ fn ion_schema_codegen_validate_ordered_OrderedDocumentAlias(
         ) {
         ordered_prefix_matches_1 = false
       }
-      if ordered_prefix_matches_1 &&
+      if ordered_count_1 >= 1 &&
+        ordered_prefix_matches_1 &&
         possible[2][ordered_start_1 + ordered_count_1] {
         ordered_found_1 = true
       }
@@ -1446,7 +1459,7 @@ fn ion_schema_codegen_validate_ordered_OrderedDocumentAlias(
   }
   let mut ordered_start_0 = 0
   while ordered_start_0 <= value_count {
-    let mut ordered_count_0 = 1
+    let mut ordered_count_0 = 0
     let mut ordered_found_0 = false
     let mut ordered_prefix_matches_0 = true
     while ordered_count_0 <= value_count - ordered_start_0 &&
@@ -1458,7 +1471,8 @@ fn ion_schema_codegen_validate_ordered_OrderedDocumentAlias(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 1 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }
@@ -1576,7 +1590,8 @@ fn ion_schema_codegen_validate_ordered_OrderedIdentity(
         ) {
         ordered_prefix_matches_1 = false
       }
-      if ordered_prefix_matches_1 &&
+      if ordered_count_1 >= 0 &&
+        ordered_prefix_matches_1 &&
         possible[2][ordered_start_1 + ordered_count_1] {
         ordered_found_1 = true
       }
@@ -1587,7 +1602,7 @@ fn ion_schema_codegen_validate_ordered_OrderedIdentity(
   }
   let mut ordered_start_0 = 0
   while ordered_start_0 <= value_count {
-    let mut ordered_count_0 = 1
+    let mut ordered_count_0 = 0
     let mut ordered_found_0 = false
     let mut ordered_prefix_matches_0 = true
     while ordered_count_0 <= value_count - ordered_start_0 &&
@@ -1599,7 +1614,8 @@ fn ion_schema_codegen_validate_ordered_OrderedIdentity(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 1 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }
@@ -1712,7 +1728,7 @@ fn ion_schema_codegen_validate_ordered_OrderedNullableList(
   possible[2][value_count] = true
   let mut ordered_start_1 = 0
   while ordered_start_1 <= value_count {
-    let mut ordered_count_1 = 1
+    let mut ordered_count_1 = 0
     let mut ordered_found_1 = false
     let mut ordered_prefix_matches_1 = true
     while ordered_count_1 <= value_count - ordered_start_1 &&
@@ -1724,7 +1740,8 @@ fn ion_schema_codegen_validate_ordered_OrderedNullableList(
         ) {
         ordered_prefix_matches_1 = false
       }
-      if ordered_prefix_matches_1 &&
+      if ordered_count_1 >= 1 &&
+        ordered_prefix_matches_1 &&
         possible[2][ordered_start_1 + ordered_count_1] {
         ordered_found_1 = true
       }
@@ -1735,7 +1752,7 @@ fn ion_schema_codegen_validate_ordered_OrderedNullableList(
   }
   let mut ordered_start_0 = 0
   while ordered_start_0 <= value_count {
-    let mut ordered_count_0 = 1
+    let mut ordered_count_0 = 0
     let mut ordered_found_0 = false
     let mut ordered_prefix_matches_0 = true
     while ordered_count_0 <= value_count - ordered_start_0 &&
@@ -1747,7 +1764,8 @@ fn ion_schema_codegen_validate_ordered_OrderedNullableList(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 1 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }

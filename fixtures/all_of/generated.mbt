@@ -721,7 +721,8 @@ fn ion_schema_codegen_validate_ordered_IonSchemaCodegenInternalInline29(
         ) {
         ordered_prefix_matches_1 = false
       }
-      if ordered_prefix_matches_1 &&
+      if ordered_count_1 >= 0 &&
+        ordered_prefix_matches_1 &&
         possible[2][ordered_start_1 + ordered_count_1] {
         ordered_found_1 = true
       }
@@ -732,7 +733,7 @@ fn ion_schema_codegen_validate_ordered_IonSchemaCodegenInternalInline29(
   }
   let mut ordered_start_0 = 0
   while ordered_start_0 <= value_count {
-    let mut ordered_count_0 = 1
+    let mut ordered_count_0 = 0
     let mut ordered_found_0 = false
     let mut ordered_prefix_matches_0 = true
     while ordered_count_0 <= value_count - ordered_start_0 &&
@@ -744,7 +745,8 @@ fn ion_schema_codegen_validate_ordered_IonSchemaCodegenInternalInline29(
         ) {
         ordered_prefix_matches_0 = false
       }
-      if ordered_prefix_matches_0 &&
+      if ordered_count_0 >= 1 &&
+        ordered_prefix_matches_0 &&
         possible[1][ordered_start_0 + ordered_count_0] {
         ordered_found_0 = true
       }

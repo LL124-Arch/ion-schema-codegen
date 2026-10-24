@@ -1399,7 +1399,7 @@ fn write_ordered_sequence_validator(
       " <= value_count {\n    let mut " +
       count_name +
       " = " +
-      ordered_element.occurrence.min_count.to_string() +
+      "0" +
       "\n    let mut " +
       found_name +
       " = false\n    let mut " +
@@ -1428,6 +1428,10 @@ fn write_ordered_sequence_validator(
       " - 1]) {\n        " +
       prefix_name +
       " = false\n      }\n      if " +
+      count_name +
+      " >= " +
+      ordered_element.occurrence.min_count.to_string() +
+      " && " +
       prefix_name +
       " && possible[" +
       row.to_string() +
