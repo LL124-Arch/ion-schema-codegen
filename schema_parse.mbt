@@ -384,13 +384,7 @@ fn parse_named_type(
       }
     }
   }
-  if is_inline &&
-    !inline_type_definition_supported(
-      value, body, element_type, field_names_type, ordered_elements, contains_values,
-      precision_ranges, exponent_ranges, timestamp_precision_ranges, timestamp_offsets,
-      ieee754_float_formats, regex_constraints, annotation_constraints, container_lengths,
-      codepoint_lengths, utf8_byte_lengths, byte_lengths,
-    ) {
+  if is_inline && !inline_type_definition_supported(value) {
     raise SchemaError::UnsupportedFeature(
       "inline type definitions currently support scalar types and their implemented value constraints at \{name}",
     )
@@ -425,25 +419,7 @@ fn parse_named_type(
 }
 
 ///|
-fn inline_type_definition_supported(
-  value : @model.IonValue,
-  body : TypeBody,
-  element_type : TypeRef?,
-  field_names_type : TypeRef?,
-  ordered_elements : Array[OrderedElementSpec]?,
-  contains_values : Array[@model.IonValue]?,
-  precision_ranges : Array[IntegerRange],
-  exponent_ranges : Array[IntegerRange],
-  timestamp_precision_ranges : Array[IntegerRange],
-  timestamp_offsets : Array[Array[Int?]],
-  ieee754_float_formats : Array[String],
-  regex_constraints : Array[RegexConstraint],
-  annotation_constraints : Array[AnnotationConstraint],
-  container_lengths : Array[IntegerRange],
-  codepoint_lengths : Array[IntegerRange],
-  utf8_byte_lengths : Array[IntegerRange],
-  byte_lengths : Array[IntegerRange],
-) -> Bool {
+fn inline_type_definition_supported(value : @model.IonValue) -> Bool {
   let fields = value.fields()
   for (symbol, _) in fields {
     match symbol.text_value() {
@@ -475,32 +451,7 @@ fn inline_type_definition_supported(
       _ => return false
     }
   }
-  let has_scalar_constraints = precision_ranges.length() > 0 ||
-    exponent_ranges.length() > 0 ||
-    timestamp_precision_ranges.length() > 0 ||
-    timestamp_offsets.length() > 0 ||
-    ieee754_float_formats.length() > 0 ||
-    regex_constraints.length() > 0 ||
-    annotation_constraints.length() > 0 ||
-    codepoint_lengths.length() > 0 ||
-    utf8_byte_lengths.length() > 0 ||
-    byte_lengths.length() > 0 ||
-    value.get_fields("valid_values").length() > 0
-  match body {
-    TypeBody::Scalar(_) =>
-      element_type is None &&
-      field_names_type is None &&
-      ordered_elements is None &&
-      contains_values is None &&
-      container_lengths.length() == 0
-    TypeBody::List(_) =>
-      !has_scalar_constraints &&
-      value.get_fields("fields").length() == 0 &&
-      field_names_type is None
-    TypeBody::Struct(_, _) =>
-      !has_scalar_constraints && ordered_elements is None
-    TypeBody::Alias(_) => true
-  }
+  true
 }
 
 ///|
@@ -930,191 +881,20 @@ fn parse_annotation_fields(
     if has_annotation(value, "closed") || has_annotation(value, "required") {
       constraints.push(parse_simple_annotation_constraint(value, context))
     } else {
-      match value.without_annotations() {
-        @model.IonValue::Struct(_) =>
-          constraints.push(
-            parse_standard_annotation_constraint(value, context, types),
-          )
-        _ => {
-          let type_ref = parse_logical_type_argument(value, context, types)
-          constraints.push({
-            allowed: [],
-            closed: false,
-            required: false,
-            standard_type_ref: Some(type_ref),
-            standard_inline: false,
-            standard_container_lengths: [],
-            standard_contains_values: None,
-            standard_element_valid_values: None,
-            standard_element_regexes: [],
-            standard_element_codepoint_lengths: [],
-            standard_element_utf8_byte_lengths: [],
-            standard_ordered_elements: None,
-          })
-        }
-      }
+      let type_ref = parse_logical_type_argument(
+        annotation_type_argument(value, true),
+        context,
+        types,
+      )
+      constraints.push({
+        allowed: [],
+        closed: false,
+        required: false,
+        standard_type_ref: Some(type_ref),
+      })
     }
   }
   constraints
-}
-
-///|
-fn parse_standard_annotation_constraint(
-  value : @model.IonValue,
-  context : String,
-  types : Array[NamedType],
-) -> AnnotationConstraint raise SchemaError {
-  if value.annotations().length() > 0 {
-    raise SchemaError::UnsupportedFeature(
-      "annotated standard annotations type arguments are not supported at " +
-      context,
-    )
-  }
-  validate_allowed_fields(
-    value,
-    ["container_length", "contains", "element", "ordered_elements"],
-    context,
-  )
-  let contains_values : Array[String] = []
-  let contains_fields = value.get_fields("contains")
-  for contains_value in contains_fields {
-    for required in parse_contains_values(contains_value, context) {
-      if required.annotations().length() > 0 {
-        raise SchemaError::InvalidSchema(
-          "annotations contains values must be unannotated symbols at \{context}",
-        )
-      }
-      match required.without_annotations() {
-        @model.IonValue::Symbol(symbol) =>
-          match symbol.text_value() {
-            Some(text) =>
-              if !contains_values.contains(text) {
-                contains_values.push(text)
-              }
-            None =>
-              raise SchemaError::UnsupportedFeature(
-                "unresolved symbols in annotations contains are not supported at \{context}",
-              )
-          }
-        _ =>
-          raise SchemaError::InvalidSchema(
-            "annotations contains values must be symbols at \{context}",
-          )
-      }
-    }
-  }
-  let element_values : Array[String] = []
-  let element_regexes : Array[RegexConstraint] = []
-  let element_codepoint_lengths : Array[IntegerRange] = []
-  let element_utf8_byte_lengths : Array[IntegerRange] = []
-  let mut has_element_valid_values = false
-  let element_fields = value.get_fields("element")
-  for element_value in element_fields {
-    if element_value.annotations().length() > 0 {
-      raise SchemaError::UnsupportedFeature(
-        "annotated annotations element expressions are not supported at " +
-        context,
-      )
-    }
-    validate_allowed_fields(
-      element_value,
-      ["valid_values", "regex", "codepoint_length", "utf8_byte_length"],
-      context,
-    )
-    let valid_values_fields = element_value.get_fields("valid_values")
-    if valid_values_fields.length() > 0 {
-      has_element_valid_values = true
-    }
-    let regex_fields = element_value.get_fields("regex")
-    let codepoint_fields = element_value.get_fields("codepoint_length")
-    let utf8_fields = element_value.get_fields("utf8_byte_length")
-    if valid_values_fields.length() == 0 &&
-      regex_fields.length() == 0 &&
-      codepoint_fields.length() == 0 &&
-      utf8_fields.length() == 0 {
-      raise SchemaError::InvalidSchema(
-        "annotations element requires a supported constraint at " + context,
-      )
-    }
-    for regex in parse_regex_fields(regex_fields, context) {
-      element_regexes.push(regex)
-    }
-    for
-      length in parse_integer_constraint_fields(
-        codepoint_fields, "codepoint_length", context,
-      ) {
-      element_codepoint_lengths.push(length)
-    }
-    for
-      length in parse_integer_constraint_fields(
-        utf8_fields, "utf8_byte_length", context,
-      ) {
-      element_utf8_byte_lengths.push(length)
-    }
-    for valid_values_field in valid_values_fields {
-      for valid_value in parse_valid_values(valid_values_field, context) {
-        if valid_value.annotations().length() > 0 {
-          raise SchemaError::InvalidSchema(
-            "annotations element valid_values must be unannotated symbols at " +
-            context,
-          )
-        }
-        match valid_value.without_annotations() {
-          @model.IonValue::Symbol(symbol) =>
-            match symbol.text_value() {
-              Some(text) =>
-                if !element_values.contains(text) {
-                  element_values.push(text)
-                }
-              None =>
-                raise SchemaError::UnsupportedFeature(
-                  "unresolved symbols in annotations element valid_values are not supported at " +
-                  context,
-                )
-            }
-          _ =>
-            raise SchemaError::InvalidSchema(
-              "annotations element valid_values must contain only symbols at " +
-              context,
-            )
-        }
-      }
-    }
-  }
-  {
-    allowed: [],
-    closed: false,
-    required: false,
-    standard_type_ref: None,
-    standard_inline: true,
-    standard_container_lengths: parse_integer_constraint_fields(
-      value.get_fields("container_length"),
-      "container_length",
-      context,
-    ),
-    standard_contains_values: if contains_fields.length() > 0 {
-      Some(contains_values)
-    } else {
-      None
-    },
-    standard_element_valid_values: if has_element_valid_values {
-      Some(element_values)
-    } else {
-      None
-    },
-    standard_element_regexes: element_regexes,
-    standard_element_codepoint_lengths: element_codepoint_lengths,
-    standard_element_utf8_byte_lengths: element_utf8_byte_lengths,
-    standard_ordered_elements: match value.get_fields("ordered_elements") {
-      [] => None
-      [ordered_value] =>
-        Some(parse_ordered_elements(ordered_value, context, types, false))
-      _ =>
-        raise SchemaError::InvalidSchema(
-          "ordered_elements may appear at most once at " + context,
-        )
-    },
-  }
 }
 
 ///|
@@ -1179,20 +959,7 @@ fn parse_simple_annotation_constraint(
       allowed.push(symbol)
     }
   }
-  {
-    allowed,
-    closed,
-    required,
-    standard_type_ref: None,
-    standard_inline: false,
-    standard_container_lengths: [],
-    standard_contains_values: None,
-    standard_element_valid_values: None,
-    standard_element_regexes: [],
-    standard_element_codepoint_lengths: [],
-    standard_element_utf8_byte_lengths: [],
-    standard_ordered_elements: None,
-  }
+  { allowed, closed, required, standard_type_ref: None, }
 }
 
 ///|
@@ -2326,7 +2093,10 @@ fn supports_element_constraint(
       match resolve_type_ref(types, type_ref) {
         ResolvedType::Struct(_) | ResolvedType::List(_) => true
         ResolvedType::Scalar(name) =>
-          contains_string(["sexp", "$sexp", "document"], name)
+          contains_string(
+            ["list", "$list", "sexp", "$sexp", "$struct", "document"],
+            name,
+          )
       }
   }
 }
@@ -2465,7 +2235,7 @@ fn supports_ordered_elements(
         ResolvedType::List(_) => true
         ResolvedType::Struct(_) => false
         ResolvedType::Scalar(name) =>
-          contains_string(["sexp", "$sexp", "document"], name)
+          contains_string(["list", "$list", "sexp", "$sexp", "document"], name)
       }
   }
 }
@@ -2585,17 +2355,6 @@ fn validate_type_references(
             type_ref,
             "annotations of " + named_type.name,
           )
-        None => ()
-      }
-      match constraint.standard_ordered_elements {
-        Some(ordered_elements) =>
-          for ordered_element in ordered_elements {
-            validate_type_reference(
-              types,
-              ordered_element.type_ref,
-              "annotations ordered_elements of " + named_type.name,
-            )
-          }
         None => ()
       }
     }
@@ -2818,7 +2577,7 @@ fn is_valid_values_scalar_name(name : String) -> Bool {
     [
       "bool", "int", "float", "decimal", "string", "symbol", "timestamp", "blob",
       "number", "clob", "$null", "$bool", "$int", "$float", "$decimal", "$string",
-      "$symbol", "$timestamp", "$blob", "$clob", "$number", "$text", "$lob",
+      "$symbol", "$timestamp", "$blob", "$clob", "$number", "$text", "$lob", "$list",
     ],
     name,
   )
