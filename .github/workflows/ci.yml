@@ -45,6 +45,7 @@ jobs:
       - run: moon run --target native ./cli fixtures/references/references.isl fixtures/references/generated.mbt
       - run: moon run --target native ./cli examples/person/person.isl examples/person/generated.mbt
       - run: moon run --target native ./cli examples/schema_compat/order.isl examples/schema_compat/generated.mbt
+      - run: moon run --target native ./cli examples/annotation_policy/policy.isl examples/annotation_policy/generated.mbt
       - run: python3 scripts/sync_validator_support.py
       - run: moon fmt
       - run: git diff --exit-code -- examples/person/generated.mbt fixtures/references/generated.mbt fixtures/constraints/generated.mbt fixtures/contains/generated.mbt fixtures/precision/generated.mbt fixtures/timestamps/generated.mbt fixtures/ieee754/generated.mbt fixtures/regex/generated.mbt fixtures/annotations/generated.mbt fixtures/all_of/generated.mbt fixtures/any_of/generated.mbt fixtures/one_of/generated.mbt fixtures/not/generated.mbt fixtures/imports/generated.mbt fixtures/inline_imports/generated.mbt fixtures/recursion/generated.mbt
@@ -55,3 +56,6 @@ jobs:
       - run: moon run --target native ./examples/validator_demo
       - run: moon run --target native ./cli validate examples/schema_compat/order.isl Order examples/validator_demo/order.ion
       - run: moon run --target native ./cli validate-document examples/schema_compat/order.isl StreamAlias examples/validator_demo/stream.ion
+      - run: git diff --exit-code -- examples/annotation_policy/generated.mbt
+      - run: moon run --target native ./examples/annotation_policy
+      - run: moon run --target native ./cli validate examples/annotation_policy/policy.isl Envelope examples/annotation_policy/approved.ion

@@ -1,6 +1,6 @@
 # 直接校验原始 Ion 值
 
-从 0.57.0 起提供 `SchemaValidator`，0.60.0 为本批交付版本。
+从 0.57.0 起提供 `SchemaValidator`，0.61.0 扩展标准注解组合。
 它解释受支持的 Schema 模型，无需生成或动态编译 `.mbt`，并保留输入的 Ion 类型、注解、重复字段和符号身份。
 这是全量 ISL 2.0 实现路线中的运行时基础，当前仍受现有 Schema 解析子集限制。
 
@@ -43,13 +43,13 @@ Schema 错误仍抛 `SchemaError`。未知目标类型、无效 limits、输入�
 | list、sexp、document | 元素、distinct、contains、长度、完整 ordered_elements；文档流与 Ion list 分开处理 |
 | valid_values | 有限候选与既有数值/timestamp 范围；沿用生成器的数值比较辅助函数 |
 | 标量断言 | decimal precision/exponent、timestamp precision/offset、ieee754_float、regex、码点/UTF-8/LOB 长度 |
-| annotations | 简化 closed/required 及解析器已支持的标准引用/inline 规则；标准引用验证真实 symbol list |
+| annotations | 简化 closed/required、标准引用及匿名逻辑/元素/序列组合；验证真实 symbol list |
 | all_of / any_of / one_of / not | 每个分支独立验证；one_of 严格计数；预算耗尽传播为 incomplete |
 | 重复约束与有限递归 | 使用上一批同一模型；额外声明继续共同成立，已有有限递归沿嵌套值执行 |
 
 运行时无需投影成 MoonBit 原生字段，因此**命名 int、struct、list 等类型**也可应用已支持的注解规则。
 `check_schema` / `generate_code` 仍检查代码生成配置，保留其注解承载限制；
-两种入口的适用范围不同。任意 inline 注解组合仍需后续扩展，不能据此宣称完整 annotations 支持。
+两种入口的适用范围不同。0.61.0 的组合方式、导入规则与边界见 [标准注解说明](ANNOTATION_CONSTRAINTS.md)；仍不宣称完整 annotations 支持。
 运行时也不要求类型/字段名能映射为 MoonBit 标识符；示例中的 `'quantity.total'` 可直接校验。
 
 ## 诊断与状态

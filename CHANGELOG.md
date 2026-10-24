@@ -1,5 +1,13 @@
 # 变更记录
 
+## 0.61.0 — 2026-10-24
+
+- 标准 annotations 匿名类型复用通用类型模型，支持嵌套逻辑、命名/匿名元素、distinct、重复 element/valid_values 交集、完整列表字面值与 nullable inline 条件；移除旧的专用扁平解析和求值分支。
+- native CLI 递归解析与重写类型参数中的 imports，覆盖 annotations/element/field_names/fields/ordered_elements 和嵌套逻辑；字面数据保持原样，导入文件作用域保持独立。
+- 生成的 ordered_elements 逐项检查最小 occurrence 之前的全部前缀，修复可能接受错误前缀的问题，覆盖普通容器、文档流和注解序列。
+- 代码生成跳过仅属于 document 注解条件的不可达私有谓词，保持 document 无条件拒绝 annotations 的语义；仅在实际需要时生成简化注解辅助函数。
+- 新增跨文件审计策略、29 项可运行判定输出、正反业务输入、支持边界文档及 CI 生成一致性步骤。继续明确声明支持子集，未完成全量 ISL 2.0。
+
 ## 0.60.0 — 2026-10-24
 
 - 修正共用 Ion 相等性辅助函数：浮点正负零分别处理，NaN 仍按 Ion 等价；有文本符号按文本比较，未知文本符号按 SID 比较。
