@@ -402,7 +402,7 @@ test "report missing unsupported and misplaced version markers" {
     },
   )
 
-  let misplaced = expect_schema_error("42 $ion_schema_2_0")
+  let misplaced = expect_schema_error("$ion_schema_2_0 $ion_schema_2_0")
   assert_true(
     match misplaced {
       @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
@@ -710,7 +710,7 @@ test "accept field_names constraints and aliases to structs" {
 }
 
 ///|
-test "reject field_names on non-struct types and duplicate constraints" {
+test "reject field_names on non-struct types and duplicate occurs" {
   let scalar = expect_schema_error(
     "$ion_schema_2_0 type::{name: InvalidNames, type: string, field_names: symbol}",
   )
@@ -722,11 +722,11 @@ test "reject field_names on non-struct types and duplicate constraints" {
   )
 
   let duplicate = expect_schema_error(
-    "$ion_schema_2_0 type::{name: DuplicateNames, type: struct, field_names: symbol, field_names: distinct::symbol}",
+    "$ion_schema_2_0 type::{name: DuplicateNames, type: struct, fields: {x:{type:int,occurs:optional,occurs:required}}}",
   )
   assert_true(
     match duplicate {
-      @ion-schema-codegen.SchemaError::InvalidSchema(_) => true
+      @ion-schema-codegen.SchemaError::InvalidOccurs(_) => true
       _ => false
     },
   )

@@ -1,0 +1,40 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "LL124-Arch/ion-schema-codegen"
+
+import {
+  "LL124-Arch/amazon-ion-moonbit-core/format_model",
+}
+
+// Values
+pub fn check_schema(String) -> Unit raise SchemaError
+
+pub fn generate_code(String) -> GeneratedCode raise SchemaError
+
+pub fn generate_code_from_ion_values(Array[@format_model.IonValue]) -> GeneratedCode raise SchemaError
+
+pub fn prepare_schema_document(Array[@format_model.IonValue]) -> Array[@format_model.IonValue] raise SchemaError
+
+// Errors
+pub(all) suberror SchemaError {
+  IonParse(String)
+  InvalidSchema(String)
+  UnsupportedVersion(String)
+  UnsupportedFeature(String)
+  DuplicateType(String)
+  DuplicateField(type_name~ : String, field_name~ : String)
+  UnknownType(String)
+  CyclicTypeReference(String)
+  InvalidOccurs(String)
+  InvalidIdentifier(String)
+  IdentifierCollision(String)
+}
+
+// Types and methods
+pub(all) struct GeneratedCode {
+  source : String
+  package_imports : Array[String]
+}
+
+// Type aliases
+
+// Traits

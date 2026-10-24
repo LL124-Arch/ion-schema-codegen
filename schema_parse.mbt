@@ -20,6 +20,7 @@ fn parse_schema(source : String) -> Schema raise SchemaError {
 fn parse_schema_values(
   values : Array[@model.IonValue],
 ) -> Schema raise SchemaError {
+  let values = prepare_schema_document(values)
   let rest = match values {
     [first, .. rest] =>
       match first.without_annotations() {
