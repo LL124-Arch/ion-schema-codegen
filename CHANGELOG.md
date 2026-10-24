@@ -1,5 +1,12 @@
 # 变更记录
 
+## 0.57.0 — 2026-10-24
+
+- 新增可复用 `SchemaValidator`，无需生成或动态编译业务类型即可直接校验原始 Ion 值、文本和 document 流。
+- 复用受支持 Schema 模型与生成辅助函数来源，执行字段出现次数、重复约束、容器、数值/内容、注解和逻辑约束；支持已有有限递归。
+- 新增结构化报告及字段名/SID/出现序号路径，区分 valid、invalid 和预算耗尽的 incomplete；逻辑分支不会把预算耗尽当作不匹配。
+- 解析后的 Schema 与每次输入均建立容器快照，保留 Ion 注解、typed null、重复字段和未知符号，不依赖 JSON 投影。
+
 ## 0.56.0 — 2026-10-24
 
 - 重复 `type`、`valid_values`、`fields`、`element`、`field_names` 和 `ordered_elements` 作为独立约束共同生效；第一项决定已有 MoonBit 类型表示，后续项校验原始 Ion 值。

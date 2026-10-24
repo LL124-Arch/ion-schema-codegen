@@ -29,11 +29,69 @@ pub(all) suberror SchemaError {
   IdentifierCollision(String)
 }
 
+pub(all) suberror ValidationError {
+  UnknownType(String)
+  InvalidLimits(String)
+  IonInput(String)
+  InputKind(String)
+}
+
 // Types and methods
 pub(all) struct GeneratedCode {
   source : String
   package_imports : Array[String]
 }
+
+pub struct SchemaValidator {
+  // private fields
+}
+pub fn SchemaValidator::from_ion_values(Array[@format_model.IonValue]) -> Self raise SchemaError
+pub fn SchemaValidator::new(String) -> Self raise SchemaError
+pub fn SchemaValidator::type_names(Self) -> Array[String]
+pub fn SchemaValidator::validate(Self, String, @format_model.IonValue, limits? : ValidationLimits) -> ValidationReport raise ValidationError
+pub fn SchemaValidator::validate_document(Self, String, Array[@format_model.IonValue], limits? : ValidationLimits) -> ValidationReport raise ValidationError
+pub fn SchemaValidator::validate_document_text(Self, String, String, limits? : ValidationLimits) -> ValidationReport raise ValidationError
+pub fn SchemaValidator::validate_text(Self, String, String, limits? : ValidationLimits) -> ValidationReport raise ValidationError
+
+pub(all) struct ValidationDiagnostic {
+  type_name : String
+  path : Array[ValidationPathSegment]
+  constraint : String
+  expected : String
+  actual : String
+}
+
+pub(all) struct ValidationLimits {
+  max_depth : Int
+  max_nodes : Int
+  max_steps : Int
+  max_diagnostics : Int
+}
+pub fn ValidationLimits::default() -> Self
+
+pub(all) enum ValidationPathSegment {
+  Index(Int)
+  Field(name~ : String?, sid~ : Int?, occurrence~ : Int)
+  Annotations
+} derive(Eq)
+pub fn ValidationPathSegment::equal(Self, Self) -> Bool
+pub fn ValidationPathSegment::not_equal(Self, Self) -> Bool
+
+pub(all) struct ValidationReport {
+  status : ValidationStatus
+  diagnostics : Array[ValidationDiagnostic]
+  steps : Int
+}
+pub fn ValidationReport::is_valid(Self) -> Bool
+pub fn ValidationReport::to_json(Self) -> Json
+
+pub(all) enum ValidationStatus {
+  Valid
+  Invalid
+  Incomplete
+} derive(Eq)
+pub fn ValidationStatus::equal(Self, Self) -> Bool
+pub fn ValidationStatus::not_equal(Self, Self) -> Bool
 
 // Type aliases
 
